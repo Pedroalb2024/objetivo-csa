@@ -1,0 +1,40 @@
+name: Publicar no Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths: ['apps-script/**', '.clasp.json', 'tests/**', '.github/workflows/**']
+  pull_request:
+    paths: ['apps-script/**', 'tests/**']
+  workflow_dispatch:
+
+env:
+  # ID da implantação atual (é o trecho AKfycb... da URL /exec). Manter o mesmo = o link não muda.
+  DEPLOYMENT_ID: AKfycbxdeC7lBVZq3oDSB7amYhJB4ZKDigX3ntj8oBnKqa5_fSlF03Ho9s8DekoDxX-3oKqO
+
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tests/checar.js
+
+  publicar:
+    needs: checar
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g @google/clasp@2.4.2
+      - name: Credenciais do Google
+        env:
+          CLASPRC: ${{ secrets.CLASPRC_JSON }}
+        run: printf '%s' "$CLASPRC" > ~/.clasprc.json
+      - run: clasp push -f
+      - run: clasp deploy -i "$DEPLOYMENT_ID" -d "merge ${GITHUB_SHA::7}"

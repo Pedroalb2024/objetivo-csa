@@ -1,0 +1,56 @@
+<script>
+// ===== Funções comuns (sistema e página do professor) =====
+const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = id => document.getElementById(id);
+
+function chamar(fn, ...args) {
+  return new Promise((ok, falha) => google.script.run.withSuccessHandler(ok).withFailureHandler(falha)[fn](...args));
+}
+function toast(msg, tipo) {
+  const d = document.createElement('div'); d.textContent = msg; if (tipo) d.className = tipo;
+  $('toast').appendChild(d); setTimeout(() => d.remove(), tipo === 'erro' ? 6000 : 3000);
+}
+function ocupado(sim) { $('carregando').hidden = !sim; }
+function logoHtml(cfg) {
+  return cfg.logo ? `<img class="logo" src="${esc(cfg.logo)}" alt="${esc(cfg.escola)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="logo-txt" hidden>${esc(cfg.escola)}</span>`
+    : `<span class="logo-txt">${esc(cfg.escola)}</span>`;
+}
+async function copiar(texto) {
+  try { await navigator.clipboard.writeText(texto); toast('Copiado!'); return; } catch (e) { }
+  const t = document.createElement('textarea'); t.value = texto; document.body.appendChild(t); t.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) { }
+  t.remove(); ok ? toast('Copiado!') : window.prompt('Copie o texto abaixo:', texto);
+}
+function horario(tn, a) {
+  const hm = String(tn.inicio || '07:00').split(':').map(Number);
+  const ini = hm[0] * 60 + hm[1] + a * tn.duracao + (tn.intervaloApos && a >= tn.intervaloApos ? tn.intervaloMin : 0);
+  const f = x => String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0');
+  return f(ini) + '–' + f(ini + tn.duracao);
+}
+
+// ===== Quadro de disponibilidade (clique ou arraste para marcar "Não posso") =====
+let DISP = new Set(), pintando = null, tipoPonteiro = 'mouse';
+function htmlDisp(turnos, dias) {
+  return turnos.map(tn => `<div class="disp-turno">
+    <div class="disp-tit"><h3>${esc(tn.nome)}</h3><button class="link" data-turno="${esc(tn.nome)}" onclick="dispGrupo(this)">Turno inteiro</button></div>
+    <table class="disp"><tr><th class="h"></th>${dias.map(d => `<th><button class="link" data-turno="${esc(tn.nome)}" data-dia="${d}" onclick="dispGrupo(this)">${d}</button></th>`).join('')}</tr>
+    ${Array.from({ length: tn.aulas }, (_, a) => `<tr><th class="h"><button class="link" data-turno="${esc(tn.nome)}" data-aula="${a + 1}" onclick="dispGrupo(this)">${a + 1}ª aula</button><small>${horario(tn, a)}</small></th>
+      ${dias.map(d => { const k = d + '|' + tn.nome + '|' + (a + 1); return `<td class="slot ${DISP.has(k) ? 'nao' : ''}" data-k="${esc(k)}" onpointerdown="slotDown(event,this)" onpointerenter="slotEnter(this)" onclick="slotClick(this)"></td>`; }).join('')}</tr>`).join('')}
+    </table></div>`).join('');
+}
+function aplicarSlot(td, nao) {
+  td.classList.toggle('nao', nao);
+  nao ? DISP.add(td.dataset.k) : DISP.delete(td.dataset.k);
+  if (window.aoMudarDisp) window.aoMudarDisp();
+}
+function slotDown(ev, td) { tipoPonteiro = ev.pointerType || 'mouse'; if (tipoPonteiro !== 'mouse') return; ev.preventDefault(); pintando = !td.classList.contains('nao'); aplicarSlot(td, pintando); }
+function slotEnter(td) { if (pintando !== null) aplicarSlot(td, pintando); }
+function slotClick(td) { if (tipoPonteiro === 'mouse') return; aplicarSlot(td, !td.classList.contains('nao')); }
+document.addEventListener('pointerup', () => pintando = null);
+function dispGrupo(b) {
+  const { turno, dia, aula } = b.dataset;
+  const tds = [...document.querySelectorAll('td.slot')].filter(td => { const p = td.dataset.k.split('|'); return p[1] === turno && (!dia || p[0] === dia) && (!aula || p[2] === aula); });
+  const marcar = tds.some(td => !td.classList.contains('nao'));
+  tds.forEach(td => aplicarSlot(td, marcar));
+}
+</script>

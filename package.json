@@ -1,0 +1,9 @@
+{
+  "name": "objetivo-csa",
+  "private": true,
+  "description": "Grade Horária · Objetivo CSA (ALBIX)",
+  "scripts": {
+    "test": "node tests/checar.js",
+    "push": "node tests/checar.js && clasp push -f"
+  }
+}

@@ -1,0 +1,418 @@
+<script>
+// ===================== GERADOR DE GRADE (roda no navegador) =====================
+// Professor: { nome, maxDia, indisp: ["Seg|Manhã|1", ...] }  (aulas em que NÃO pode)
+// D = { dias, turnos, professores, turmas, carga, fixas }
+// Grade = { "turma|dia|aula": { disciplina, professor, fixa } }   (dia e aula começam em 0)
+const Gerador = (() => {
+
+  const rngSeed = (seed) => { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+
+  // ---------- Monta o modelo e confere os dados ----------
+  function modelo(D) {
+    const erros = [], avisos = [], nD = D.dias.length;
+    const turnos = {}, tnIdx = {}; D.turnos.forEach((t, i) => { turnos[t.nome] = t; tnIdx[t.nome] = i; });
+    const profs = {}, pIdx = {}; D.professores.forEach((p, i) => { profs[p.nome] = p; pIdx[p.nome] = i; p._ind = new Set(p.indisp || []); });
+    const pode = (p, dia, turno, a) => !p._ind.has(dia + '|' + turno + '|' + (a + 1));
+    const turmas = {}, tIdx = {};
+    D.turmas.forEach((t, i) => { if (!turnos[t.turno]) erros.push(`Turma ${t.nome}: turno "${t.turno}" não existe em Config.`); turmas[t.nome] = t; tIdx[t.nome] = i; });
+
+    const carga = {}, linhas = [], usadoTurma = {};
+    D.carga.forEach((c, i) => {
+      const lin = `Carga, linha ${i + 2}`;
+      if (!turmas[c.turma]) return erros.push(`${lin}: turma "${c.turma}" não cadastrada.`);
+      if (!profs[c.professor]) return erros.push(`${lin}: professor "${c.professor}" não cadastrado.`);
+      if (!(c.aulas > 0)) return erros.push(`${lin}: aulas/semana inválido.`);
+      const duplas = c.duplas > 0 ? c.duplas : 0, maxDia = c.maxDia > 0 ? c.maxDia : 2;
+      if (duplas * 2 > c.aulas) return erros.push(`${lin}: ${duplas} dupla(s) não cabem em ${c.aulas} aulas.`);
+      if (duplas > 0 && maxDia < 2) return erros.push(`${lin}: aula dupla exige máx/dia ≥ 2.`);
+      if (maxDia * nD < c.aulas) erros.push(`${lin}: ${c.aulas} aulas não cabem com máximo de ${maxDia} por dia.`);
+      const k = c.turma + '|' + c.disciplina;
+      if (carga[k]) return erros.push(`${lin}: ${c.disciplina} aparece duas vezes na turma ${c.turma}.`);
+      const r = { ...c, duplas, maxDia, simples: c.aulas - 2 * duplas, duplasRest: duplas, idx: linhas.length,
+        ti: tIdx[c.turma], pi: pIdx[c.professor], tni: tnIdx[turmas[c.turma].turno], turno: turmas[c.turma].turno };
+      carga[k] = r; linhas.push(r);
+      usadoTurma[c.turma] = (usadoTurma[c.turma] || 0) + c.aulas;
+    });
+
+    D.turmas.forEach(t => {
+      const tn = turnos[t.turno]; if (!tn) return;
+      const cap = tn.aulas * nD, u = usadoTurma[t.nome] || 0;
+      if (u > cap) erros.push(`Turma ${t.nome}: ${u} aulas na carga, mas só existem ${cap} horários.`);
+      else if (u < cap) avisos.push(`Turma ${t.nome}: ${u} de ${cap} horários usados (${cap - u} vagos).`);
+    });
+
+    const fixas = [];
+    (D.fixas || []).forEach((f, i) => {
+      const lin = `Fixas, linha ${i + 2}`, c = carga[f.turma + '|' + f.disciplina];
+      const di = D.dias.indexOf(f.dia), ai = (+f.aula) - 1, tn = turmas[f.turma] && turnos[turmas[f.turma].turno];
+      if (!c) return erros.push(`${lin}: ${f.disciplina} não está na carga da turma ${f.turma}.`);
+      if (di < 0) return erros.push(`${lin}: dia "${f.dia}" inválido.`);
+      if (!tn || !(ai >= 0 && ai < tn.aulas)) return erros.push(`${lin}: aula "${f.aula}" inválida.`);
+      if (c.simples > 0) c.simples--; else if (c.duplasRest > 0) { c.duplasRest--; c.simples++; }
+      else return erros.push(`${lin}: há mais aulas fixas que a carga de ${f.disciplina} (${f.turma}).`);
+      fixas.push({ r: c.idx, len: 1, d: di, a: ai });
+    });
+
+    // Professor: carga x disponibilidade
+    const porProf = {};
+    linhas.forEach(c => { porProf[c.professor] = porProf[c.professor] || {}; porProf[c.professor][c.turno] = (porProf[c.professor][c.turno] || 0) + c.aulas; });
+    Object.entries(porProf).forEach(([p, porTurno]) => {
+      const prof = profs[p]; let total = 0;
+      Object.entries(porTurno).forEach(([t, n]) => {
+        let cap = 0;
+        D.dias.forEach(d => { let livres = 0; for (let a = 0; a < turnos[t].aulas; a++) if (pode(prof, d, t, a)) livres++; cap += Math.min(livres, prof.maxDia > 0 ? prof.maxDia : 99); });
+        total += n;
+        if (n > cap) erros.push(`${p}: tem ${n} aulas no turno ${t}, mas a disponibilidade só comporta ${cap}.`);
+      });
+      if (prof.maxDia > 0 && total > prof.maxDia * nD) erros.push(`${p}: ${total} aulas na semana passam do limite de ${prof.maxDia} por dia.`);
+    });
+
+    // Tabelas numéricas para o gerador
+    const nTn = D.turnos.length, A = Math.max(1, ...D.turnos.map(t => t.aulas));
+    const disp = new Uint8Array(D.professores.length * nTn * nD * A);   // 1 = professor pode naquela aula
+    D.professores.forEach((p, pi) => D.turnos.forEach((t, tni) => D.dias.forEach((d, di) => {
+      for (let a = 0; a < t.aulas; a++) disp[((pi * nTn + tni) * nD + di) * A + a] = pode(p, d, t.nome, a) ? 1 : 0;
+    })));
+    const grupos = [];
+    linhas.forEach(c => {
+      if (c.duplasRest > 0) grupos.push({ r: c.idx, len: 2, n: c.duplasRest });
+      if (c.simples > 0) grupos.push({ r: c.idx, len: 1, n: c.simples });
+    });
+
+    return { D, nD, nTn, A, turnos, profs, turmas, carga, linhas, grupos, fixas, disp, pode, erros, avisos,
+      aulasTn: D.turnos.map(t => t.aulas), intervTn: D.turnos.map(t => +t.intervaloApos || 0),
+      maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
+  }
+
+  // ---------- Busca com reparo: aloca a aula mais difícil; se não couber, desaloja quem atrapalha ----------
+  // base (opcional): grade atual em unidades, para reencaixar sem refazer tudo
+  function resolver(M, rng, orcamento, base) {
+    const { nD, nTn, A, linhas: L, disp, aulasTn, intervTn, maxProf } = M;
+    const nT = M.D.turmas.length, nP = M.D.professores.length;
+    let U = [];   // cada aula (ou bloco duplo) é uma unidade
+    if (base) U = base.map(u => ({ ...u, d0: u.d, a0: u.a, ultimo: -1, peso: u.peso || 1 }));
+    else {
+      M.fixas.forEach(f => U.push({ c: L[f.r], len: 1, fixa: true, d: f.d, a: f.a, ultimo: -1, peso: 1 }));
+      M.grupos.forEach(g => { for (let i = 0; i < g.n; i++) U.push({ c: L[g.r], len: g.len, fixa: false, d: -1, a: -1, ultimo: -1, peso: 1 }); });
+    }
+
+    let it = 0;
+    const tOcc = new Int32Array(nT * nD * A), pOcc = new Int32Array(nP * nTn * nD * A); // guardam unidade + 1
+    const pDia = new Uint8Array(nP * nD), dDia = new Uint8Array(L.length * nD);
+    const bT = (c, d, a) => (c.ti * nD + d) * A + a;
+    const bP = (c, d, a) => ((c.pi * nTn + c.tni) * nD + d) * A + a;
+
+    const valido = (c, len, d, a) => {
+      if (a + len > aulasTn[c.tni] || (len === 2 && intervTn[c.tni] === a + 1)) return false;
+      const b = ((c.pi * nTn + c.tni) * nD + d) * A + a;
+      return disp[b] === 1 && (len === 1 || disp[b + 1] === 1);
+    };
+    const livre = (c, len, d, a) => {
+      if (pDia[c.pi * nD + d] + len > maxProf[c.pi] || dDia[c.idx * nD + d] + len > c.maxDia) return false;
+      for (let k = 0; k < len; k++) if (tOcc[bT(c, d, a + k)] || pOcc[bP(c, d, a + k)]) return false;
+      return true;
+    };
+    const por = (ui, d, a) => {
+      const u = U[ui], c = u.c;
+      for (let k = 0; k < u.len; k++) { tOcc[bT(c, d, a + k)] = ui + 1; pOcc[bP(c, d, a + k)] = ui + 1; }
+      pDia[c.pi * nD + d] += u.len; dDia[c.idx * nD + d] += u.len; u.d = d; u.a = a; u.quando = it;
+    };
+    const tirar = (ui) => {
+      const u = U[ui], c = u.c, d = u.d, a = u.a;
+      for (let k = 0; k < u.len; k++) { tOcc[bT(c, d, a + k)] = 0; pOcc[bP(c, d, a + k)] = 0; }
+      pDia[c.pi * nD + d] -= u.len; dDia[c.idx * nD + d] -= u.len; u.ultimo = d * A + a; u.d = -1; u.a = -1;
+    };
+    const custo = (u, d, a) => {
+      const c = u.c, len = u.len, bp = bP(c, d, 0);
+      let x = 0;
+      if (pDia[c.pi * nD + d] === 0) x += 3;                                   // abre dia novo para o professor
+      else if (!((a > 0 && pOcc[bp + a - 1]) || (a + len < A && pOcc[bp + a + len]))) x += 2; // tende a criar janela
+      if (len === 1 && dDia[c.idx * nD + d] > 0) x += 1.5;                    // mesma matéria 2x no dia
+      return x + a * 0.15 + rng() * 2.5;
+    };
+    // Quem precisa sair para a unidade ui entrar em (d,a). null = impossível (envolve aula fixa)
+    const conflitos = (ui, d, a, completo) => {
+      const u = U[ui], c = u.c, fora = new Set();
+      for (let k = 0; k < u.len; k++) {
+        const x = tOcc[bT(c, d, a + k)], y = pOcc[bP(c, d, a + k)];
+        if (x) fora.add(x - 1); if (y) fora.add(y - 1);
+      }
+      let excP = pDia[c.pi * nD + d] + u.len - maxProf[c.pi], excD = dDia[c.idx * nD + d] + u.len - c.maxDia;
+      let peso = 0;
+      for (const v of fora) { if (U[v].fixa) return null; peso += U[v].peso + (it - U[v].quando < 10 ? 8 : 0); if (U[v].c.pi === c.pi && U[v].d === d) excP -= U[v].len; if (U[v].c.idx === c.idx && U[v].d === d) excD -= U[v].len; }
+      if (excP <= 0 && excD <= 0) return { fora, n: peso };
+      if (!completo) return { fora, n: peso + Math.max(excP, 0) + Math.max(excD, 0) + 0.5 };
+      const cand = [];
+      for (let v = 0; v < U.length; v++) {
+        const w = U[v];
+        if (w.d !== d || w.fixa || fora.has(v)) continue;
+        if ((excP > 0 && w.c.pi === c.pi) || (excD > 0 && w.c.idx === c.idx)) cand.push(v);
+      }
+      for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+      cand.sort((x, y) => U[x].peso - U[y].peso);
+      for (const v of cand) {
+        if (excP <= 0 && excD <= 0) break;
+        const w = U[v], ajP = excP > 0 && w.c.pi === c.pi, ajD = excD > 0 && w.c.idx === c.idx;
+        if (!ajP && !ajD) continue;
+        fora.add(v); if (w.c.pi === c.pi) excP -= w.len; if (w.c.idx === c.idx) excD -= w.len;
+      }
+      if (excP > 0 || excD > 0) return null;
+      peso = 0; fora.forEach(v => peso += U[v].peso);
+      return { fora, n: peso };
+    };
+
+    for (let i = 0; i < U.length; i++) if (U[i].fixa && U[i].d >= 0) {
+      const u = U[i];
+      if (!base && (!valido(u.c, 1, u.d, u.a) || !livre(u.c, 1, u.d, u.a))) return { ok: false, motivo: `Aula fixa em conflito: ${u.c.turma}, ${M.D.dias[u.d]}, ${u.a + 1}ª aula (${u.c.disciplina}).` };
+      if (base && !livre(u.c, u.len, u.d, u.a)) { u.d = -1; continue; }
+      por(i, u.d, u.a);
+    }
+    if (base) [false, true].forEach(alvo => U.forEach((u, i) => {   // primeiro as aulas dos outros, depois as do professor alvo
+      if (u.fixa || u.d < 0 || !!u.alvo !== alvo) return;
+      const d = u.d, a = u.a; u.d = -1;
+      if ((!alvo || valido(u.c, u.len, d, a)) && livre(u.c, u.len, d, a)) por(i, d, a);
+    }));
+
+    let fila = []; for (let i = 0; i < U.length; i++) if (U[i].d < 0) { if (U[i].fixa) return { ok: false, travado: U[i].c }; fila.push(i); }
+    let menor = fila.length, travado = null;
+    while (fila.length) {
+      if (++it > orcamento) break;
+      // escolhe a unidade da fila com menos horários livres
+      let bq = -1, bLivres = null;
+      const amostra = fila.length <= 40 ? fila.map((_, q) => q) : Array.from({ length: 40 }, () => Math.floor(rng() * fila.length));
+      for (const q of amostra) {
+        const u = U[fila[q]], c = u.c, livres = [];
+        for (let d = 0; d < nD; d++) for (let a = 0; a < aulasTn[c.tni]; a++) if (valido(c, u.len, d, a) && livre(c, u.len, d, a)) livres.push(d * A + a);
+        if (!bLivres || livres.length < bLivres.length || (livres.length === bLivres.length && (u.len > U[fila[bq]].len || rng() < 0.3))) { bq = q; bLivres = livres; }
+        if (livres.length === 0) break;
+      }
+      const ui = fila[bq], u = U[ui]; fila[bq] = fila[fila.length - 1]; fila.pop();
+
+      if (bLivres.length) {
+        let best = -1, bc = 1e9;
+        for (const s of bLivres) { const d = Math.floor(s / A), a = s % A, x = custo(u, d, a) + (s === u.ultimo ? 2 : 0); if (x < bc) { bc = x; best = s; } }
+        por(ui, Math.floor(best / A), best % A);
+      } else {
+        // reparo: escolhe o horário que desaloja menos aulas (com sorteio para não ficar em ciclo)
+        const op = [];
+        for (let d = 0; d < nD; d++) for (let a = 0; a < aulasTn[u.c.tni]; a++) {
+          if (!valido(u.c, u.len, d, a)) continue;
+          const r = conflitos(ui, d, a, false); if (!r) continue;
+          op.push([d, a, r.n + rng() * 4 + (d * A + a === u.ultimo ? 3 : 0)]);
+        }
+        op.sort((x, y) => x[2] - y[2]);
+        let feito = false;
+        for (const [d, a] of op) {
+          const r = conflitos(ui, d, a, true); if (!r) continue;
+          for (const v of r.fora) { tirar(v); fila.push(v); }
+          por(ui, d, a); feito = true; break;
+        }
+        if (!feito) { travado = u.c; break; }   // não há como encaixar sem mexer em aula fixa
+      }
+      if (fila.length < menor) menor = fila.length;
+      if (fila.length && fila.length <= menor) travado = U[fila[0]].c;
+    }
+    if (fila.length) return { ok: false, travado, faltaram: fila.length };
+
+    // Reencaixe: devolve ao lugar original as aulas de outros professores que puderem voltar
+    if (base) {
+      const mudou = u => !u.alvo && u.d0 >= 0 && (u.d !== u.d0 || u.a !== u.a0);
+      for (let volta = 0, melhorou = true; melhorou && volta < 30; volta++) {
+        melhorou = false;
+        for (let i = 0; i < U.length; i++) {
+          const u = U[i]; if (u.fixa || !mudou(u)) continue;
+          const d1 = u.d, a1 = u.a, ocup = new Set();
+          for (let k = 0; k < u.len; k++) { const x = tOcc[bT(u.c, u.d0, u.a0 + k)]; if (x && x - 1 !== i) ocup.add(x - 1); }
+          if (ocup.size > 1) continue;
+          const j = ocup.size ? [...ocup][0] : -1, w = j >= 0 ? U[j] : null;
+          if (w && (w.fixa || w.len !== u.len || w.d !== u.d0 || w.a !== u.a0)) continue;
+          const antes = 1 + (w && mudou(w) ? 1 : 0);
+          tirar(i); if (w) tirar(j);
+          let ok = valido(u.c, u.len, u.d0, u.a0) && livre(u.c, u.len, u.d0, u.a0);
+          if (ok) { por(i, u.d0, u.a0); if (w) { ok = valido(w.c, w.len, d1, a1) && livre(w.c, w.len, d1, a1); if (ok) por(j, d1, a1); else tirar(i); } }
+          if (ok && (w && mudou(w) ? 1 : 0) < antes) { melhorou = true; continue; }
+          if (ok) { tirar(i); if (w) tirar(j); }
+          por(i, d1, a1); if (w) por(j, u.d0, u.a0);
+        }
+      }
+    }
+
+    // ---------- Otimização: troca aulas simples dentro da mesma turma se melhorar a pontuação ----------
+    const nota = (pi, tni, d) => {          // janelas do professor no dia (3 pts) + dia usado (1 pt)
+      const b = ((pi * nTn + tni) * nD + d) * A; let ini = -1, fim = -1, n = 0;
+      for (let a = 0; a < A; a++) if (pOcc[b + a]) { if (ini < 0) ini = a; fim = a; n++; }
+      return n ? (fim - ini + 1 - n) * 3 + 1 : 0;
+    };
+    const notaTurma = (ti, d) => {          // janelas da turma (6) + mesma matéria separada no dia (2)
+      const b = (ti * nD + d) * A; let ini = -1, fim = -1, n = 0, x = 0; const ultimo = {};
+      for (let a = 0; a < A; a++) { const v = tOcc[b + a]; if (!v) continue; if (ini < 0) ini = a; fim = a; n++;
+        const r = U[v - 1].c.idx; if (ultimo[r] !== undefined && ultimo[r] !== a - 1) x += 2; ultimo[r] = a; }
+      return n ? (fim - ini + 1 - n) * 6 + x : 0;
+    };
+    const simples = []; if (!base) U.forEach((u, i) => { if (!u.fixa && u.len === 1) simples.push(i); });
+    for (let k = 0; k < orcamento && simples.length; k++) {
+      const ui = simples[Math.floor(rng() * simples.length)], u = U[ui], c = u.c;
+      const d2 = Math.floor(rng() * nD), a2 = Math.floor(rng() * aulasTn[c.tni]);
+      const d1 = u.d, a1 = u.a; if (d1 === d2 && a1 === a2) continue;
+      const vi = tOcc[bT(c, d2, a2)] - 1, v = vi >= 0 ? U[vi] : null;
+      if (v && (v.fixa || v.len !== 1)) continue;
+      const afetados = [[c.pi, c.tni, d1], [c.pi, c.tni, d2]]; if (v) afetados.push([v.c.pi, v.c.tni, d1], [v.c.pi, v.c.tni, d2]);
+      const antes = afetados.reduce((s, [p, t, d]) => s + nota(p, t, d), 0) + notaTurma(c.ti, d1) + (d2 !== d1 ? notaTurma(c.ti, d2) : 0);
+      tirar(ui); if (v) tirar(vi);
+      let ok = valido(c, 1, d2, a2) && livre(c, 1, d2, a2);
+      if (ok) { por(ui, d2, a2); if (v) { ok = valido(v.c, 1, d1, a1) && livre(v.c, 1, d1, a1); if (ok) por(vi, d1, a1); else tirar(ui); } }
+      if (ok) {
+        const depois = afetados.reduce((s, [p, t, d]) => s + nota(p, t, d), 0) + notaTurma(c.ti, d1) + (d2 !== d1 ? notaTurma(c.ti, d2) : 0);
+        if (depois <= antes) continue;                       // aceita (melhorou ou empatou)
+        tirar(ui); if (v) tirar(vi);
+      }
+      por(ui, d1, a1); if (v) por(vi, d2, a2);              // desfaz
+    }
+
+    const grade = {};
+    U.forEach(u => { for (let k = 0; k < u.len; k++) grade[u.c.turma + '|' + u.d + '|' + (u.a + k)] = { disciplina: u.c.disciplina, professor: u.c.professor, fixa: base ? !!u.fixaReal : u.fixa }; });
+    return { ok: true, grade, it, U };
+  }
+
+  // Monta as unidades a partir de uma grade pronta (para reencaixar)
+  function unidadesDaGrade(M, grade, alvo) {
+    const U = [], cel = {}, fix = new Set(M.fixas.map(f => f.r + '|' + f.d + '|' + f.a));
+    M.fixas.forEach(f => U.push({ c: M.linhas[f.r], len: 1, fixa: true, d: f.d, a: f.a }));
+    Object.entries(grade).forEach(([k, x]) => {
+      const p = k.split('|'), c = M.carga[p[0] + '|' + x.disciplina];
+      if (c && !fix.has(c.idx + '|' + p[1] + '|' + p[2])) (cel[c.idx] = cel[c.idx] || []).push([+p[1], +p[2]]);
+    });
+    M.linhas.forEach(c => {
+      const l = (cel[c.idx] || []).sort((x, y) => x[0] - y[0] || x[1] - y[1]), usado = [], iv = M.intervTn[c.tni], eh = c.professor === alvo;
+      let pares = 0, s = 0;
+      for (let i = 0; i + 1 < l.length && pares < c.duplasRest; i++)
+        if (l[i][0] === l[i + 1][0] && l[i + 1][1] === l[i][1] + 1 && iv !== l[i][1] + 1) { U.push({ c, len: 2, d: l[i][0], a: l[i][1], alvo: eh }); usado[i] = usado[i + 1] = true; pares++; i++; }
+      for (; pares < c.duplasRest; pares++) U.push({ c, len: 2, d: -1, a: -1, alvo: eh });
+      l.forEach((x, i) => { if (!usado[i] && s < c.simples) { U.push({ c, len: 1, d: x[0], a: x[1], alvo: eh }); s++; } });
+      for (; s < c.simples; s++) U.push({ c, len: 1, d: -1, a: -1, alvo: eh });
+    });
+    return U;
+  }
+
+  // Reencaixa as aulas de um professor (novo ou com nova disponibilidade) sem refazer a grade.
+  // 1º tenta sem mexer em ninguém; se não der, mexe no menor número possível de aulas de outros professores.
+  function reencaixar(D, grade, alvo, aoTerminar) {
+    const M = modelo(D);
+    if (M.erros.length) return aoTerminar({ ok: false, erros: M.erros, gargalos: [] });
+    const base = unidadesDaGrade(M, grade, alvo), travas = {}, etapas = [[true, 3], [false, 40]];
+    let e = 0, i = 0, melhor = null;
+    const passo = () => {
+      const estrito = etapas[e][0], n = etapas[e][1], lim = Math.min(i + 2, n);
+      for (; i < lim; i++) {
+        const U = base.map(u => ({ ...u, fixaReal: !!u.fixa, fixa: u.fixa || (estrito && !u.alvo), peso: u.alvo ? 1 : 3 }));
+        const r = resolver(M, rngSeed(1 + i * 7919), estrito ? 3000 : 20000, U);
+        if (!r.ok) { if (r.travado) travas[`${r.travado.disciplina} (${r.travado.professor}) — ${r.travado.turma}`] = 1; continue; }
+        const outros = r.U.filter(u => !u.alvo && !u.fixaReal && u.d0 >= 0 && (u.d !== u.d0 || u.a !== u.a0));
+        const nAlvo = r.U.filter(u => u.alvo && (u.d !== u.d0 || u.a !== u.a0)).length;
+        const nota = outros.length * 1000 + nAlvo;
+        if (!melhor || nota < melhor.nota) melhor = { grade: r.grade, outros, nAlvo, nota };
+        if (estrito && nAlvo === 0) i = n;
+      }
+      if (i < n) return setTimeout(passo, 0);
+      if (!melhor && e === 0) { e = 1; i = 0; return setTimeout(passo, 0); }
+      if (!melhor) return aoTerminar({ ok: false, erros: [], gargalos: Object.keys(travas).slice(0, 5) });
+      aoTerminar({ ok: true, modo: e === 0 ? 'estrito' : 'minimo', grade: melhor.grade, nAlvo: melhor.nAlvo,
+        outros: melhor.outros.map(u => ({ professor: u.c.professor, turma: u.c.turma, disciplina: u.c.disciplina, len: u.len, de: [u.d0, u.a0], para: [u.d, u.a] })) });
+    };
+    passo();
+  }
+
+  // ---------- Pontuação (menor = melhor) ----------
+  function avaliar(M, grade) {
+    const m = { janelasProf: 0, diasProf: 0, repetidas: 0, janelasTurma: 0 };
+    const pD = {}, tD = {}, dD = {}, dias = {};
+    for (const [k, c] of Object.entries(grade)) {
+      const [turma, d, a] = k.split('|'); if (!M.turmas[turma]) continue;
+      const turno = M.turmas[turma].turno;
+      (pD[c.professor + '|' + turno + '|' + d] = pD[c.professor + '|' + turno + '|' + d] || []).push(+a);
+      (tD[turma + '|' + d] = tD[turma + '|' + d] || []).push(+a);
+      (dD[turma + '|' + c.disciplina + '|' + d] = dD[turma + '|' + c.disciplina + '|' + d] || []).push(+a);
+      (dias[c.professor] = dias[c.professor] || new Set()).add(d);
+    }
+    const buracos = as => { as.sort((x, y) => x - y); return as[as.length - 1] - as[0] + 1 - as.length; };
+    Object.values(pD).forEach(as => m.janelasProf += buracos(as));
+    Object.values(tD).forEach(as => m.janelasTurma += buracos(as));
+    Object.values(dias).forEach(s => m.diasProf += s.size);
+    Object.values(dD).forEach(as => { as.sort((x, y) => x - y); for (let i = 1; i < as.length; i++) if (as[i] - as[i - 1] !== 1) m.repetidas++; });
+    m.pontos = m.janelasProf * 3 + m.diasProf + m.repetidas * 2 + m.janelasTurma * 6;
+    return m;
+  }
+
+  // ---------- Gera várias opções sem travar a tela ----------
+  function gerar(D, opt, aoProgredir, aoTerminar) {
+    const { tentativas = 30, manter = 5, orcamento = 20000, semente = Date.now() } = opt || {};
+    const M = modelo(D);
+    if (M.erros.length) return aoTerminar({ opcoes: [], erros: M.erros, avisos: M.avisos, gargalos: [] });
+    const opcoes = [], vistas = new Set(), travas = {};
+    let i = 0;
+    const passo = () => {
+      const fimLote = Math.min(i + 2, tentativas);
+      for (; i < fimLote; i++) {
+        const r = resolver(M, rngSeed(semente + i * 7919), orcamento);
+        if (r.ok) {
+          const sig = Object.keys(r.grade).sort().map(k => k + r.grade[k].disciplina).join(';');
+          if (!vistas.has(sig)) { vistas.add(sig); opcoes.push({ grade: r.grade, metricas: avaliar(M, r.grade) }); }
+        } else {
+          const t = r.motivo || (r.travado ? `${r.travado.disciplina} (${r.travado.professor}) — turma ${r.travado.turma}` : 'limite de busca');
+          travas[t] = (travas[t] || 0) + 1;
+        }
+      }
+      aoProgredir && aoProgredir(i / tentativas, opcoes.length);
+      if (i < tentativas) setTimeout(passo, 0);
+      else {
+        opcoes.sort((a, b) => a.metricas.pontos - b.metricas.pontos);
+        aoTerminar({ opcoes: opcoes.slice(0, manter), erros: [], avisos: M.avisos,
+          gargalos: Object.entries(travas).sort((a, b) => b[1] - a[1]).slice(0, 5).map(x => x[0]) });
+      }
+    };
+    passo();
+  }
+
+  // ---------- Valida qualquer grade (gerada ou editada à mão) ----------
+  function validar(D, grade) {
+    const M = modelo(D), problemas = [], ruins = new Set();
+    const ocup = {}, pDia = {}, dDia = {}, cont = {};
+    for (const [k, c] of Object.entries(grade)) {
+      const [turma, d, a] = k.split('|'); if (!M.turmas[turma]) continue;
+      const turno = M.turmas[turma].turno, dia = D.dias[+d], prof = M.profs[c.professor];
+      (ocup[c.professor + '|' + turno + '|' + d + '|' + a] = ocup[c.professor + '|' + turno + '|' + d + '|' + a] || []).push(k);
+      if (prof && !M.pode(prof, dia, turno, +a)) { problemas.push(`${c.professor} não está disponível ${dia} (${turno}) — ${turma}, ${+a + 1}ª aula.`); ruins.add(k); }
+      (pDia[c.professor + '|' + d] = pDia[c.professor + '|' + d] || []).push(k);
+      (dDia[turma + '|' + c.disciplina + '|' + d] = dDia[turma + '|' + c.disciplina + '|' + d] || []).push(k);
+      cont[turma + '|' + c.disciplina] = (cont[turma + '|' + c.disciplina] || 0) + 1;
+    }
+    for (const [kp, ks] of Object.entries(ocup)) if (ks.length > 1) {
+      const [p, , d, a] = kp.split('|');
+      problemas.push(`${p} em ${ks.length} turmas ao mesmo tempo: ${D.dias[+d]}, ${+a + 1}ª aula (${ks.map(x => x.split('|')[0]).join(', ')}).`);
+      ks.forEach(x => ruins.add(x));
+    }
+    for (const [pd, ks] of Object.entries(pDia)) {
+      const [p, d] = pd.split('|'), mx = M.profs[p] && M.profs[p].maxDia;
+      if (mx > 0 && ks.length > mx) { problemas.push(`${p} com ${ks.length} aulas na ${D.dias[+d]} (máx ${mx}).`); ks.forEach(x => ruins.add(x)); }
+    }
+    for (const [dd, ks] of Object.entries(dDia)) {
+      const [t, disc] = dd.split('|'), c = M.carga[t + '|' + disc];
+      if (c && ks.length > c.maxDia) { problemas.push(`${t}: ${disc} ${ks.length}x no mesmo dia (máx ${c.maxDia}).`); ks.forEach(x => ruins.add(x)); }
+    }
+    M.linhas.forEach(c => { const n = cont[c.turma + '|' + c.disciplina] || 0; if (n !== c.aulas) problemas.push(`${c.turma}: ${c.disciplina} com ${n} de ${c.aulas} aulas.`); });
+    M.linhas.forEach(c => { // aulas duplas continuam juntas?
+      if (!c.duplasRest) return;
+      const iv = M.turnos[c.turno].intervaloApos; let pares = 0;
+      for (let d = 0; d < D.dias.length; d++) {
+        const as = (dDia[c.turma + '|' + c.disciplina + '|' + d] || []).map(k => +k.split('|')[2]).sort((x, y) => x - y);
+        for (let i = 1; i < as.length; i++) if (as[i] - as[i - 1] === 1 && iv !== as[i]) { pares++; i++; }
+      }
+      if (pares < c.duplasRest) problemas.push(`${c.turma}: ${c.disciplina} deveria ter ${c.duplasRest} aula(s) dupla(s), tem ${pares}.`);
+    });
+    return { problemas, ruins: [...ruins], metricas: avaliar(M, grade), erros: M.erros };
+  }
+
+  return { gerar, validar, avaliar, modelo, reencaixar };
+})();
+
+</script>

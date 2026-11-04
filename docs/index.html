@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#041339">
+<title>Grade Horária · Objetivo CSA</title>
+<link rel="icon" href="logo.png">
+<style>
+  html, body { margin:0; height:100%; background:#f5f6fa; }
+  iframe { border:0; width:100%; height:100vh; height:100dvh; display:block; }
+</style>
+</head>
+<body>
+<iframe id="app" title="Objetivo CSA" allow="clipboard-write"></iframe>
+<script>
+  const URL_APP = 'https://script.google.com/macros/s/AKfycbxdeC7lBVZq3oDSB7amYhJB4ZKDigX3ntj8oBnKqa5_fSlF03Ho9s8DekoDxX-3oKqO/exec';   // a URL que termina em /exec
+  if (location.search.indexOf('form') >= 0) document.title = 'Disponibilidade · Objetivo CSA';
+  document.getElementById('app').src = URL_APP + location.search;
+</script>
+</body>
+</html>
