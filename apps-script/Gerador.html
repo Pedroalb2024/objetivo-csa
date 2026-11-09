@@ -114,16 +114,19 @@ const Gerador = (() => {
     }); }));
 
     // Professor: carga x disponibilidade (por grade) e limite por dia
-    const porProf = {};
+    const porProf = {}, sobrecarga = {};   // sobrecarga[nome] = { aulas, livres, grade }: mais aulas que horários livres
     linhas.forEach(c => { const x = porProf[c.pi] = porProf[c.pi] || { total: 0, g: {} }; x.total += c.aulas; x.g[c.gi] = (x.g[c.gi] || 0) + c.aulas; });
     Object.keys(porProf).forEach(pi => {
       const p = D.professores[pi], mx = p.maxDia > 0 ? p.maxDia : 99, x = porProf[pi];
       Object.keys(x.g).forEach(gi => {
         let cap = 0;
         for (let d = 0; d < nD; d++) { let livres = 0; for (let a = 0; a < aulasG[gi]; a++) livres += disp[((pi * nG + +gi) * nD + d) * A + a]; cap += Math.min(livres, mx); }
-        if (x.g[gi] > cap) erros.push(`${p.nome}: tem ${x.g[gi]} aulas na grade ${grades[gi].nome}, mas a disponibilidade só comporta ${cap}.`);
+        if (x.g[gi] > cap) {
+          erros.push(`${p.nome}: tem ${x.g[gi]} aulas na grade ${grades[gi].nome}, mas a disponibilidade só comporta ${cap}.`);
+          if (!sobrecarga[p.nome] || x.g[gi] - cap > sobrecarga[p.nome].aulas - sobrecarga[p.nome].livres) sobrecarga[p.nome] = { aulas: x.g[gi], livres: cap, grade: grades[gi].nome };
+        }
       });
-      if (mx < 99 && x.total > mx * nD) erros.push(`${p.nome}: ${x.total} aulas na semana passam do limite de ${mx} por dia.`);
+      if (mx < 99 && x.total > mx * nD) { erros.push(`${p.nome}: ${x.total} aulas na semana passam do limite de ${mx} por dia.`); if (!sobrecarga[p.nome]) sobrecarga[p.nome] = { aulas: x.total, livres: mx * nD, grade: '' }; }
     });
 
     const grupos = [];
@@ -133,7 +136,7 @@ const Gerador = (() => {
     });
 
     return { D, nD, nG, A, nB, t0, meio, grades, aulasG, bIni, bFim, contig, turmas, profs, pIdx, carga, linhas, grupos, fixas, disp,
-      impede, rotuloAula, erros, avisos, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
+      impede, rotuloAula, erros, avisos, sobrecarga, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
   }
 
   // ---------- Busca com reparo: aloca a aula mais difícil; se não couber, desaloja quem atrapalha ----------

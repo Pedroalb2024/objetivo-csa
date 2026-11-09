@@ -33,12 +33,15 @@ function aulasDe(g) { return g ? g.itens.filter(i => i.tipo !== 'intervalo').map
 // Chave: "Seg|7" = segunda das 7h às 8h. Uma aula é proibida se encostar em qualquer faixa marcada.
 let DISP = new Set(), pintando = null, tipoPonteiro = 'mouse';
 function htmlDisp(dias, faixas) {
-  return Object.keys(faixas).map(per => `<div class="disp-turno">
-    <div class="disp-tit"><h3>${esc(per)}</h3><button class="link" data-per="${esc(per)}" onclick="dispGrupo(this)">${per === 'Manhã' ? 'Manhã inteira' : 'Tarde inteira'}</button></div>
-    <table class="disp"><tr><th class="h"></th>${dias.map(d => `<th><button class="link" data-per="${esc(per)}" data-dia="${d}" onclick="dispGrupo(this)">${d}</button></th>`).join('')}</tr>
-    ${faixas[per].map(h => `<tr><th class="h"><button class="link" data-per="${esc(per)}" data-h="${h}" onclick="dispGrupo(this)">${h}h–${h + 1}h</button></th>
+  return `<div class="disp-ajuda"><b>Toque nos horários em que NÃO pode dar aula.</b>
+    <span class="legenda"><span><i style="background:var(--ok-bg);border:1px solid #cfe8d8"></i>Pode</span><span><i style="background:var(--erro-bg);border:1px solid #f3c7c3"></i>Não pode</span></span></div>`
+  + Object.keys(faixas).map(per => { const todo = per === 'Manhã' ? 'manhã toda' : 'tarde toda'; return `<div class="disp-turno">
+    <h3 style="margin-bottom:4px">${esc(per)}</h3>
+    <table class="disp"><tr><th class="h"></th>${dias.map(d => `<th>${d}</th>`).join('')}</tr>
+    <tr class="disp-rapido"><th class="h"></th>${dias.map(d => `<td><button class="btn mini" data-per="${esc(per)}" data-dia="${d}" onclick="dispGrupo(this)" title="Marca ou desmarca a ${todo} de ${d}">Não pode ${todo}</button></td>`).join('')}</tr>
+    ${faixas[per].map(h => `<tr><th class="h">${h}h–${h + 1}h</th>
       ${dias.map(d => { const k = d + '|' + h; return `<td class="slot ${DISP.has(k) ? 'nao' : ''}" data-k="${k}" data-per="${esc(per)}" onpointerdown="slotDown(event,this)" onpointerenter="slotEnter(this)" onclick="slotClick(this)"></td>`; }).join('')}</tr>`).join('')}
-    </table></div>`).join('');
+    </table></div>`; }).join('');
 }
 function aplicarSlot(td, nao) {
   td.classList.toggle('nao', nao);

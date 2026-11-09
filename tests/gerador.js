@@ -195,7 +195,58 @@ function mini(extra) {
     ok(p.indisp.join(',') === 'Seg|7,Ter|10','disponibilidade migrada para faixas (' + p.indisp.join(',') + ')');
     ok(d.carga[0].turmas[0] === '6º A', 'carga mantida');
     ok(d.componentes.length > 30 && d.matriz.length > 50, 'componentes e matriz padrão criados');
-    ok(v.props.ESQUEMA === '4', 'versão gravada');
+    ok(v.props.ESQUEMA === '5', 'versão gravada');
+    ok(p.segmentos.join(',') === 'EFAF' && p.materias.join(',') === 'Física', 'segmentos e matérias completados pela carga');
+  });
+
+  await caso('Exemplo: matérias e segmentos dos professores coerentes com as atribuições', () => {
+    const seg = {}; D.turmas.forEach(t => seg[t.nome] = t.segmento);
+    D.carga.forEach(c => {
+      const p = D.professores.find(x => x.nome === c.professor);
+      ok(p && p.materias.includes(c.disciplina), `${c.professor} tem ${c.disciplina}`);
+      ok(p && c.turmas.every(t => p.segmentos.includes(seg[t])), `${c.professor} tem o segmento de ${c.turmas.join(' + ')}`);
+    });
+    ok(D.professores.every(p => p.materias.every(m => D.componentes.some(c => c.nome === m))), 'matérias são componentes da Matriz');
+  });
+
+  await caso('Migração v4 → v5: professor ganha segmentos e matérias viram componentes', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const prof = v.ss.getSheetByName('Professores');
+    prof.d[0] = prof.d[0].slice(0, 8);                                         // cabeçalho v4 (sem Segmentos)
+    prof.d.slice(1).forEach(l => { l[8] = ''; if (l[0] === 'Carla') l[2] = 'Ling. Ingl.'; });   // apelido do aSc
+    v.props.ESQUEMA = '4'; v.ctx.garantirEsquema_();
+    const c = v.dados().professores.find(p => p.nome === 'Carla');
+    ok(c.materias.join(',') === 'Língua Inglesa', 'apelido virou componente (' + c.materias.join(',') + ')');
+    ok(c.segmentos.join(',') === 'EFAI,EFAF', 'segmentos pela carga (' + c.segmentos.join(',') + ')');
+    ok(v.ss.getSheetByName('Professores').d[0][8] === 'Segmentos', 'cabeçalho novo');
+  });
+
+  await caso('Atribuições: salva a carga inteira, valida e protege contra edição simultânea', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const s = { u: 'teste', perfil: 'admin' }, erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
+    const d0 = v.dados(), carga = JSON.parse(JSON.stringify(d0.carga));
+    carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor = 'Helena';
+    carga.push({ turmas: ['6A', '6B'], disciplina: 'Teatro', professor: 'Igor', aulas: 1, duplas: 0, maxDia: 1 });
+    v.ctx.salvarAtribuicoes_({ carga, antes: d0.carga }, s);
+    const d1 = v.dados();
+    ok(d1.carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor === 'Helena', 'troca de professor gravada');
+    ok(d1.carga.some(c => c.turmas.join('+') === '6A+6B' && c.disciplina === 'Teatro'), 'turma junta nova gravada');
+    ok(/Outra pessoa/.test(erro(() => v.ctx.salvarAtribuicoes_({ carga, antes: d0.carga }, s))), 'recusa se a carga mudou desde que a tela abriu');
+    const ruim = JSON.parse(JSON.stringify(d1.carga)); ruim.push({ turmas: ['6A', '1A'], disciplina: 'Coral', professor: '', aulas: 1 });
+    ok(/mesmo horário/.test(erro(() => v.ctx.salvarAtribuicoes_({ carga: ruim, antes: d1.carga }, s))), 'junta com horários diferentes recusada');
+    const dup = JSON.parse(JSON.stringify(d1.carga)); dup.push({ turmas: ['6A'], disciplina: 'Teatro', professor: '', aulas: 1 });
+    ok(/duas linhas/.test(erro(() => v.ctx.salvarAtribuicoes_({ carga: dup, antes: d1.carga }, s))), 'matéria repetida na turma recusada');
+    const sem = JSON.parse(JSON.stringify(d1.carga)); sem.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor = '';
+    v.ctx.salvarAtribuicoes_({ carga: sem, antes: d1.carga }, s);
+    ok(G.modelo(v.dados()).erros.some(e => /falta escolher o professor/.test(e)), 'sem professor vira pendência');
+  });
+
+  await caso('Sobrecarga: professor com mais aulas que horários livres', () => {
+    const d = JSON.parse(JSON.stringify(D)), p = d.professores.find(x => x.nome === 'Sandra');   // 16 aulas no EFAF Manhã
+    p.indisp = ['Seg', 'Ter', 'Qua', 'Qui'].flatMap(dia => [7, 8, 9, 10, 11, 12].map(h => dia + '|' + h));
+    const M = G.modelo(d);
+    ok(M.sobrecarga.Sandra && M.sobrecarga.Sandra.aulas === 16 && M.sobrecarga.Sandra.livres < 16, 'Sandra sobrecarregada (' + JSON.stringify(M.sobrecarga.Sandra) + ')');
+    ok(Object.keys(G.modelo(D).sobrecarga).length === 0, 'exemplo sem sobrecarga');
   });
 
   await caso('Servidor: carga com turmas juntas, validações e renomear turma', () => {
