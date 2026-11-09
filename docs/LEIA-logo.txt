@@ -1,2 +1,0 @@
-Coloque aqui o arquivo logo.png (logo azul "Objetivo CSA", fundo transparente, quadrado ~512x512).
-Ele vira o ícone da aba e o logo do sistema (CONFIG.LOGO_URL no Codigo.js). Depois apague este arquivo.

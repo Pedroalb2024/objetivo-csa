@@ -10,10 +10,11 @@
   .login-fundo::after { content:''; position:absolute; left:0; right:0; bottom:0; height:4px; background:linear-gradient(90deg, var(--azul) 0 85%, var(--amarelo) 85% 100%); }
   .login-card { position:relative; width:100%; max-width:360px; display:flex; flex-direction:column; gap:14px; padding:30px 28px; text-align:center; }
   .login-card label { text-align:left; }
-  .login-logo .logo { width:84px; height:84px; box-shadow:0 0 0 4px #fff, var(--sombra); }
+  .login-logo .logo { height:64px; margin:0 auto; }
   .login-logo .logo-txt { font-size:24px; color:var(--marinho); }
-  .topo { background:var(--marinho); color:#fff; display:flex; align-items:center; gap:12px; padding:10px 18px; position:sticky; top:0; z-index:20; }
-  .topo b { font:500 16px 'Ubuntu', Arial, sans-serif; }
+  .topo { background:var(--marinho); color:#fff; display:flex; align-items:center; gap:14px; padding:10px 18px; position:sticky; top:0; z-index:20; }
+  .topo .logo { height:32px; }
+  .topo b { font:500 16px 'Ubuntu', Arial, sans-serif; border-left:1px solid rgba(255,255,255,.3); padding-left:14px; }
   .topo .usuario { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:13px; opacity:.9; }
   .topo .btn { background:transparent; color:#fff; border-color:rgba(255,255,255,.3); }
   .topo .logo-txt { font-size:15px; }
@@ -34,10 +35,26 @@
   .lista-turmas button:hover { background:var(--fundo); } .lista-turmas button.on { background:var(--azul-claro); }
   .grupo { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--suave); margin:10px 10px 4px; }
   table.tab input, table.tab select { padding:6px 8px; }
+  table.tab input[type=time] { max-width:120px; }
+  .rolar { overflow-x:auto; }
   .senha { font-family:Consolas, monospace; background:var(--fundo); padding:2px 6px; border-radius:4px; }
   .previa { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
   .lista { margin:6px 0 0; padding-left:18px; max-height:260px; overflow:auto; font-size:12.5px; }
   details summary { cursor:pointer; color:var(--suave); font-weight:600; }
+  /* horários: linha do tempo */
+  .itens { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:6px; }
+  .item { display:flex; align-items:center; gap:4px; border:1px solid var(--borda); border-left:4px solid var(--azul); border-radius:8px; padding:4px 8px; }
+  .item.int { border-left-color:var(--amarelo); background:#fffbea; }
+  .item b { width:30px; font-size:12px; } .item input { padding:4px 6px; font-size:13px; } .item .link { font-size:14px; padding:0 3px; }
+  .tempo { position:relative; height:30px; background:#f0f3f8; border-radius:6px; margin-top:12px; overflow:hidden; }
+  .tempo span { position:absolute; top:4px; bottom:4px; border-radius:4px; font-size:10px; color:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; white-space:nowrap; }
+  .tempo span.aula { background:var(--azul); } .tempo span.int { background:var(--amarelo); color:var(--marinho); }
+  .tempo-eixo { position:relative; height:16px; font-size:10px; color:var(--suave); }
+  .tempo-eixo i { position:absolute; top:2px; transform:translateX(-50%); font-style:normal; }
+  /* matriz */
+  .mz th, .mz td { text-align:center; } .mz th:first-child, .mz td:first-child { text-align:left; }
+  .mz input[type=number] { max-width:62px; text-align:center; margin:0 auto; display:block; }
+  .mz tr.total td { font-weight:700; border-bottom:none; }
   /* grade */
   .grade-layout { display:grid; grid-template-columns:240px 1fr; gap:14px; align-items:start; }
   .grade-lado { display:flex; flex-direction:column; gap:12px; }
@@ -53,10 +70,12 @@
   table.grade { border-collapse:collapse; width:100%; background:#fff; table-layout:fixed; }
   table.grade th, table.grade td { border:1px solid var(--borda); padding:3px 4px; text-align:center; vertical-align:middle; }
   table.grade th { background:#f0f3f8; font-weight:600; font-size:12.5px; }
-  table.grade th.hora { width:96px; font-weight:500; font-size:11px; color:var(--suave); }
+  table.grade th.hora { width:96px; font-weight:600; font-size:11.5px; color:var(--texto); }
+  table.grade th.hora small { display:block; font-weight:400; font-size:10.5px; color:var(--suave); }
   td.cel { height:44px; cursor:pointer; position:relative; }
   td.cel .d { font-weight:700; font-size:12.5px; line-height:1.2; }
   td.cel .p { font-size:9.5px; color:var(--suave); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
+  td.cel .bloco { color:#8a6d1a; font-size:11px; }
   td.cel.vazia { background:#fafbfc; }
   td.cel.sel { outline:3px solid var(--amarelo); outline-offset:-3px; }
   td.cel.conf { box-shadow:inset 0 0 0 3px var(--erro); }
@@ -64,17 +83,17 @@
   td.cel.indisp { background:repeating-linear-gradient(45deg,#f3f3f3,#f3f3f3 6px,#e9e9e9 6px,#e9e9e9 12px); cursor:default; }
   td.cel .lock { position:absolute; top:1px; right:3px; font-size:9px; }
   tr.intervalo td { background:#fbf6e6; color:#8a6d1a; font-size:10.5px; height:16px; padding:1px; }
-  .geral td.cel { height:30px; padding:2px; } .geral td.cel .d { font-size:10.5px; } .geral th.turma { width:66px; }
-  .titulo-imp { display:flex; align-items:center; gap:10px; margin:6px 0 10px; }
+  .geral td.cel { height:30px; padding:2px; } .geral td.cel .d { font-size:10.5px; } .geral th.turma { width:96px; font-size:11px; }
+  .titulo-imp { display:flex; align-items:center; gap:12px; margin:6px 0 10px; } .titulo-imp .logo { height:40px; }
   .sub-linhas { display:flex; flex-wrap:wrap; gap:6px 14px; }
   .sub-linhas label { display:flex; gap:6px; align-items:center; font-size:13px; }
   #impressao { display:none; }
   @media (max-width:900px) {
     .corpo-app { grid-template-columns:1fr; }
-    .menu { flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid var(--borda); padding:8px; position:sticky; top:56px; z-index:10; }
+    .menu { flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid var(--borda); padding:8px; position:sticky; top:52px; z-index:10; }
     .menu button { white-space:nowrap; } .menu button.on::before { display:none; }
     .duas, .grade-layout { grid-template-columns:1fr; }
-    .tela { padding:16px 12px 60px; } .topo .quem { display:none; }
+    .tela { padding:16px 12px 60px; } .topo .quem { display:none; } .topo b { display:none; }
   }
   @media print {
     .topo, .faixa, .menu, .cab-tela .acoes, .grade-lado, .abas, #toast, .carregando { display:none !important; }
@@ -127,6 +146,7 @@ const TELAS = [
   { id: 'grade', nome: 'Grade horária', p: TODOS },
   { id: 'professores', nome: 'Professores', p: EDITA },
   { id: 'turmas', nome: 'Turmas e disciplinas', p: EDITA },
+  { id: 'matriz', nome: 'Matriz curricular', p: EDITA },
   { id: 'fixas', nome: 'Aulas fixas', p: EDITA },
   { id: 'horarios', nome: 'Horários', p: EDITA },
   { id: 'usuarios', nome: 'Usuários', p: ['admin'] },
@@ -159,7 +179,7 @@ function mostrarLogin(msg) {
 }
 function abrirApp() {
   $('login').hidden = true; $('app').hidden = false;
-  $('topoLogo').innerHTML = logoHtml(CFG);
+  $('topoLogo').innerHTML = logoHtml(CFG, true);
   $('topoUsuario').textContent = D.usuario.nome;
   $('menu').innerHTML = TELAS.filter(t => t.p.includes(D.usuario.perfil)).map(t => `<button data-t="${t.id}" onclick="ir('${t.id}')">${t.nome}</button>`).join('');
   GR = novoGR(); ir(TELA, true);
@@ -168,7 +188,7 @@ async function sair() {
   if (temAlteracao() && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
   try { await chamar('sair', TOKEN); } catch (e) { }
   TOKEN = null; D = null; try { sessionStorage.removeItem('gh_token'); } catch (e) { }
-  TU = { sel: null, linhas: [], sujo: false }; HO = null; FX = null; mostrarLogin();
+  TU = { sel: null, linhas: [], sujo: false }; HO = null; FX = null; MZ = null; mostrarLogin();
 }
 function expirou() {
   TOKEN = null; try { sessionStorage.removeItem('gh_token'); } catch (e) { }
@@ -180,20 +200,26 @@ async function acao(nome, dados, msgOk) {
   catch (e) { if (/SESSAO_EXPIRADA/.test(e.message)) return expirou(); toast(e.message, 'erro'); return false; }
   finally { ocupado(false); }
 }
-function temAlteracao() { return TU.sujo || !!HO_SUJO || !!FX_SUJO || (GR && GR.editado); }
+async function consultar(nome, dados) {   // ação só de leitura (não muda D)
+  ocupado(true);
+  try { return await chamar('api', TOKEN, nome, dados); }
+  catch (e) { if (/SESSAO_EXPIRADA/.test(e.message)) return expirou() || null; toast(e.message, 'erro'); return null; }
+  finally { ocupado(false); }
+}
+const sujoTela = t => (t === 'turmas' && TU.sujo) || (t === 'horarios' && HO_SUJO) || (t === 'fixas' && FX_SUJO) || (t === 'matriz' && MZ && MZ.sujo);
+function temAlteracao() { return TU.sujo || !!HO_SUJO || !!FX_SUJO || !!(MZ && MZ.sujo) || (GR && GR.editado); }
 function ir(t, forcar) {
   if (!TELAS.some(x => x.id === t && x.p.includes(D.usuario.perfil))) t = 'inicio';
   if (!forcar && t !== TELA) {
-    const sujo = (TELA === 'turmas' && TU.sujo) || (TELA === 'horarios' && HO_SUJO) || (TELA === 'fixas' && FX_SUJO);
-    if (sujo && !confirm('Há alterações não salvas nesta tela. Sair sem salvar?')) return;
-    if (TELA === 'turmas') TU.sujo = false; if (TELA === 'horarios') { HO = null; HO_SUJO = false; } if (TELA === 'fixas') { FX = null; FX_SUJO = false; }
+    if (sujoTela(TELA) && !confirm('Há alterações não salvas nesta tela. Sair sem salvar?')) return;
+    if (TELA === 'turmas') TU.sujo = false; if (TELA === 'horarios') { HO = null; HO_SUJO = false; } if (TELA === 'fixas') { FX = null; FX_SUJO = false; } if (TELA === 'matriz') MZ = null;
   }
   TELA = t;
   document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   render(); window.scrollTo(0, 0);
 }
 function render() {
-  ({ inicio: telaInicio, professores: telaProfessores, turmas: telaTurmas, grade: telaGrade, fixas: telaFixas, horarios: telaHorarios, usuarios: telaUsuarios })[TELA]();
+  ({ inicio: telaInicio, professores: telaProfessores, turmas: telaTurmas, matriz: telaMatriz, grade: telaGrade, fixas: telaFixas, horarios: telaHorarios, usuarios: telaUsuarios })[TELA]();
 }
 function cabecalho(tit, acoes) { return `<div class="cab-tela"><h1>${tit}</h1><div class="acoes">${acoes || ''}</div></div>`; }
 function abrirModal(titulo, corpo, rodape) {
@@ -204,32 +230,53 @@ function fecharModal() { $('modal').hidden = true; $('modalCaixa').innerHTML = '
 
 // ---------- ajudantes ----------
 const profPorNome = n => D.professores.find(p => p.nome === n);
-const cargaDe = turma => D.carga.filter(c => c.turma === turma);
+const gradeDe = nome => D.grades.find(g => g.nome === nome);
+const turmaDe = nome => D.turmas.find(t => t.nome === nome);
+const gradeDaTurma = nome => { const t = turmaDe(nome); return t && gradeDe(t.grade); };
+const aulasTurma = nome => aulasDe(gradeDaTurma(nome));
+const capacidade = nome => aulasTurma(nome).length * D.dias.length;
+const cargaDe = turma => D.carga.filter(c => c.turmas.includes(turma));
+const linhaDe = (turma, disc) => D.carga.find(c => c.turmas.includes(turma) && c.disciplina === disc);
 const somaCarga = turma => cargaDe(turma).reduce((s, c) => s + c.aulas, 0);
-const turnoDeTurma = nome => { const t = D.turmas.find(x => x.nome === nome); return t && D.turnos.find(x => x.nome === t.turno); };
-const capacidade = turma => { const tn = turnoDeTurma(turma); return tn ? tn.aulas * D.dias.length : 0; };
 const aulasProf = nome => D.carga.filter(c => c.professor === nome).reduce((s, c) => s + c.aulas, 0);
 const discProf = p => p.disciplinas || [...new Set(D.carga.filter(c => c.professor === p.nome).map(c => c.disciplina))].join(', ');
-const totalSlots = () => D.turnos.reduce((s, t) => s + t.aulas * D.dias.length, 0);
+const totalFaixas = () => D.dias.length * Object.values(D.faixas).reduce((s, h) => s + h.length, 0);
+const sigla = disc => { const c = D.componentes.find(x => x.nome === disc); return (c && c.sigla) || disc; };
+const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+const horasTxt = m => m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : '') : m + ' min';
 const msgForm = () => `Olá! Aqui é a coordenação do ${CFG.escola}. Marque neste link os horários em que você não pode dar aula: ${D.linkForm}`;
 const whatsForm = () => 'https:\/\/wa.me/?text=' + encodeURIComponent(msgForm());
-const nomeAula = (d, a) => `${D.dias[d]} ${a + 1}ª`;
+const ordenarNomes = l => l.slice().sort((a, b) => a.localeCompare(b, 'pt'));
+// Diferenças entre a carga da turma e a matriz da série dela
+function difMatriz(t) {
+  const alvo = D.matriz.filter(m => m.serie === t.serie); if (!alvo.length) return [];
+  const tem = {}; cargaDe(t.nome).forEach(c => tem[c.disciplina] = c.aulas);
+  const dif = alvo.filter(m => tem[m.componente] !== m.aulas).map(m => `${sigla(m.componente)} ${tem[m.componente] || 0}→${m.aulas}`);
+  Object.keys(tem).filter(d => !alvo.some(m => m.componente === d)).forEach(d => dif.push(`${sigla(d)} fora da matriz`));
+  return dif;
+}
 
 // ================= Início =================
 function telaInicio() {
-  const resp = D.professores.filter(p => p.respondeuEm).length;
-  const completas = D.turmas.filter(t => somaCarga(t.nome) === capacidade(t.nome)).length;
+  const resp = D.professores.filter(p => p.respondeuEm).length, regulares = D.turmas.filter(t => t.segmento !== 'Extra');
+  const completas = regulares.filter(t => somaCarga(t.nome) === capacidade(t.nome)).length;
   const nGrade = Object.keys(D.grade).length;
   let h = cabecalho(`Olá, ${esc(D.usuario.nome.split(' ')[0])}`) + `<div class="stats">
     <div class="card stat" onclick="ir('grade')"><b>${nGrade ? 'Salva' : 'Não salva'}</b><span>grade horária oficial</span></div>`;
   if (podeEditar()) {
     h += `<div class="card stat" onclick="ir('professores')"><b>${resp}/${D.professores.length}</b><span>professores responderam o formulário</span></div>
-      <div class="card stat" onclick="ir('turmas')"><b>${completas}/${D.turmas.length}</b><span>turmas com todos os horários preenchidos</span></div>`;
+      <div class="card stat" onclick="ir('turmas')"><b>${completas}/${regulares.length}</b><span>turmas com todos os horários preenchidos</span></div>`;
     const pend = [];
     if (D.professores.length && D.carga.length) Gerador.modelo(D).erros.forEach(e => pend.push(e));
-    D.turmas.filter(t => somaCarga(t.nome) !== capacidade(t.nome)).forEach(t => pend.push(`Turma ${t.nome}: ${somaCarga(t.nome)} de ${capacidade(t.nome)} horários preenchidos.`));
+    D.turmas.filter(t => !t.segmento).forEach(t => pend.push(`Turma ${t.nome}: escolha o segmento (EFAI, EFAF, EM ou Extra).`));
+    regulares.forEach(t => {
+      if (t.segmento && !t.serie) pend.push(`Turma ${t.nome}: escolha a série.`);
+      if (somaCarga(t.nome) !== capacidade(t.nome)) pend.push(`Turma ${t.nome}: ${somaCarga(t.nome)} de ${capacidade(t.nome)} horários preenchidos.`);
+      const dif = difMatriz(t);
+      if (dif.length) pend.push(`Turma ${t.nome}: diferente da matriz do ${t.serie} (${dif.slice(0, 3).join(', ')}${dif.length > 3 ? '…' : ''}).`);
+    });
     D.professores.filter(p => !aulasProf(p.nome) && p.respondeuEm).forEach(p => pend.push(`${p.nome} respondeu o formulário e ainda não tem aulas.`));
-    h += '</div>' + (pend.length ? `<div class="card"><h2>Pendências</h2><ul class="lista">${pend.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '<div class="aviso ok">Nenhuma pendência.</div>');
+    h += '</div>' + (pend.length ? `<div class="card"><h2>Pendências <span class="tag alerta">${pend.length}</span></h2><ul class="lista">${pend.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '<div class="aviso ok">Nenhuma pendência.</div>');
   } else h += '</div>';
   $('tela').innerHTML = h;
 }
@@ -240,39 +287,54 @@ function telaProfessores() {
   $('tela').innerHTML = cabecalho('Professores',
     `<button class="btn" onclick="copiar(D.linkForm)">Copiar link do formulário</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>
      <button class="btn prim" onclick="editarProfessor()">+ Professor</button>`)
-    + `<div class="card"><input placeholder="Buscar…" value="${esc(BUSCA)}" oninput="BUSCA=this.value;listaProfessores()" style="max-width:280px;margin-bottom:8px"><div id="listaProf"></div></div>`;
+    + `<div class="card"><input placeholder="Buscar…" value="${esc(BUSCA)}" oninput="BUSCA=this.value;listaProfessores()" style="max-width:280px;margin-bottom:8px"><div id="listaProf" class="rolar"></div></div>`;
   listaProfessores();
 }
 function listaProfessores() {
-  const total = totalSlots(), l = D.professores.filter(p => (p.nome + ' ' + discProf(p)).toLowerCase().indexOf(BUSCA.toLowerCase()) >= 0);
+  const total = totalFaixas(), l = D.professores.filter(p => (p.nome + ' ' + p.completo + ' ' + discProf(p)).toLowerCase().indexOf(BUSCA.toLowerCase()) >= 0);
   $('listaProf').innerHTML = !D.professores.length ? '<p class="suave">Nenhum professor. Envie o link do formulário ou clique em “+ Professor”.</p>' :
-    `<table class="tab"><tr><th>Professor</th><th>Disciplinas</th><th>Aulas/sem.</th><th>Horários livres</th><th>Formulário</th></tr>${l.map(p => {
-      const aulas = aulasProf(p.nome);
+    `<table class="tab"><tr><th>Professor</th><th>Disciplinas</th><th>Aulas/sem.</th><th>Faixas livres</th><th>Blocos</th><th>Formulário</th></tr>${l.map(p => {
+      const aulas = aulasProf(p.nome), nb = D.blocos.filter(b => b.professor === p.nome).length;
       return `<tr class="clic" data-n="${esc(p.nome)}" onclick="editarProfessor(this.dataset.n)">
-        <td><b>${esc(p.nome)}</b></td><td class="suave">${esc(discProf(p))}</td>
+        <td><b>${esc(p.nome)}</b>${p.completo ? `<div class="peq suave">${esc(p.completo)}</div>` : ''}</td><td class="suave">${esc(discProf(p))}</td>
         <td>${aulas || '<span class="tag alerta">sem aulas</span>'}</td>
         <td>${total - p.indisp.length} de ${total}</td>
+        <td>${nb || '<span class="suave">—</span>'}</td>
         <td>${p.respondeuEm ? `<span class="tag ok">${esc(p.respondeuEm.slice(0, 5))}</span>` : '<span class="suave">—</span>'}</td></tr>`;
     }).join('')}</table>`;
 }
 function editarProfessor(nome) {
-  const p = nome ? profPorNome(nome) : { nome: '', disciplinas: '', tel: '', maxDia: '', indisp: [], respondeuEm: '', obs: '' };
-  PED = { antigo: nome || '', p: p }; DISP = new Set(p.indisp);
+  const p = nome ? profPorNome(nome) : { nome: '', completo: '', disciplinas: '', tel: '', maxDia: '', indisp: [], respondeuEm: '', obs: '' };
+  PED = { antigo: nome || '', blocos: D.blocos.filter(b => b.professor === nome).map(b => ({ ...b })) }; DISP = new Set(p.indisp);
   abrirModal(nome ? esc(nome) : 'Novo professor', `
     <div class="linha-campos">
-      <label class="campo">Nome *<input id="pNome" value="${esc(p.nome)}"></label>
+      <label class="campo">Nome curto *<input id="pNome" value="${esc(p.nome)}" placeholder="Como aparece na grade"></label>
+      <label class="campo">Nome completo<input id="pCompleto" value="${esc(p.completo)}"></label>
       <label class="campo">Disciplinas<input id="pDisc" value="${esc(p.disciplinas)}" placeholder="${esc(discProf(p)) || 'Ex.: Matemática'}"></label>
       <label class="campo">WhatsApp<input id="pTel" value="${esc(p.tel)}"></label>
       <label class="campo">Máx. aulas/dia<input id="pMax" type="number" min="1" max="12" value="${p.maxDia || ''}" placeholder="—"></label>
     </div>
     ${p.respondeuEm ? `<div class="aviso ok">Respondeu o formulário em ${esc(p.respondeuEm)}${p.obs ? ` · “${esc(p.obs)}”` : ''}</div>` : ''}
-    <div><div class="disp-tit"><h3>Horários (clique para marcar “Não posso”)</h3><span class="tag neutra" id="pResumo"></span></div>${htmlDisp(D.turnos, D.dias)}</div>`,
+    <div><div class="disp-tit"><h3>Disponibilidade (clique para marcar “Não posso”)</h3><span class="tag neutra" id="pResumo"></span></div>${htmlDisp(D.dias, D.faixas)}</div>
+    <div><div class="disp-tit"><h3>Blocos sem turma</h3><button class="btn mini" onclick="PED.blocos.push({tipo:D.tiposBloco[0],disciplina:'',dia:'Seg',ini:'',fim:''});desenharBlocos()">+ Bloco</button></div>
+      <div id="pBlocos" class="rolar"></div></div>`,
     `${nome ? '<button class="btn perigo esq" onclick="excluirProfessor()">Excluir</button>' : ''}<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="salvarProfessor()">Salvar</button>`);
-  window.aoMudarDisp = () => { $('pResumo').textContent = `${totalSlots() - DISP.size} livres`; };
-  window.aoMudarDisp();
+  window.aoMudarDisp = () => { $('pResumo').textContent = `${totalFaixas() - DISP.size} faixas livres`; };
+  window.aoMudarDisp(); desenharBlocos();
+}
+function desenharBlocos() {
+  $('pBlocos').innerHTML = !PED.blocos.length ? '<p class="peq suave" style="margin:0">Complementação de carga horária, plantão de dúvidas… Ocupam o professor no horário; o gerador não mexe.</p>'
+    : `<table class="tab"><tr><th>Tipo</th><th>Disciplina</th><th>Dia</th><th>Início</th><th>Fim</th><th></th></tr>${PED.blocos.map((b, i) => `<tr>
+      <td><select onchange="PED.blocos[${i}].tipo=this.value;desenharBlocos()">${D.tiposBloco.map(t => `<option ${t === b.tipo ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></td>
+      <td>${b.tipo === 'Plantão de Dúvidas' ? `<input value="${esc(b.disciplina)}" oninput="PED.blocos[${i}].disciplina=this.value" placeholder="Ex.: Física">` : '<span class="suave">—</span>'}</td>
+      <td><select style="min-width:76px" onchange="PED.blocos[${i}].dia=this.value">${D.dias.map(d => `<option ${d === b.dia ? 'selected' : ''}>${d}</option>`).join('')}</select></td>
+      <td><input type="time" step="600" value="${esc(b.ini)}" onchange="PED.blocos[${i}].ini=this.value"></td>
+      <td><input type="time" step="600" value="${esc(b.fim)}" onchange="PED.blocos[${i}].fim=this.value"></td>
+      <td><button class="link" style="color:var(--erro)" onclick="PED.blocos.splice(${i},1);desenharBlocos()">✕</button></td></tr>`).join('')}</table>`;
 }
 async function salvarProfessor() {
-  const dados = { nomeAntigo: PED.antigo, nome: $('pNome').value, disciplinas: $('pDisc').value, maxDia: +$('pMax').value || '', tel: $('pTel').value, indisp: [...DISP] };
+  const dados = { nomeAntigo: PED.antigo, nome: $('pNome').value, completo: $('pCompleto').value, disciplinas: $('pDisc').value, maxDia: +$('pMax').value || '',
+    tel: $('pTel').value, indisp: [...DISP], blocos: PED.blocos };
   if (await acao('salvarProfessor', dados, 'Professor salvo.')) fecharModal();
 }
 async function excluirProfessor() {
@@ -283,30 +345,34 @@ async function excluirProfessor() {
 let TU = { sel: null, linhas: [], sujo: false };
 function telaTurmas() {
   if (!D.turmas.some(t => t.nome === TU.sel)) { TU.sel = D.turmas[0] ? D.turmas[0].nome : null; TU.sujo = false; }
-  if (!TU.sujo) TU.linhas = cargaDe(TU.sel).map(c => ({ disciplina: c.disciplina, professor: c.professor, aulas: c.aulas, duplas: c.duplas, maxDia: c.maxDia }));
-  const grupos = D.turnos.map(tn => [tn.nome, D.turmas.filter(t => t.turno === tn.nome)]).concat([['Sem turno', D.turmas.filter(t => !D.turnos.some(x => x.nome === t.turno))]]);
+  if (!TU.sujo) TU.linhas = cargaDe(TU.sel).map(c => ({ disciplina: c.disciplina, professor: c.professor, aulas: c.aulas, duplas: c.duplas, maxDia: c.maxDia, juntas: c.turmas.filter(t => t !== TU.sel) }));
+  const grupos = D.grades.map(g => [g.nome, D.turmas.filter(t => t.grade === g.nome)]).concat([['Sem grade de horário', D.turmas.filter(t => !gradeDe(t.grade))]]);
   const lista = grupos.filter(g => g[1].length).map(([nome, ts]) => `<div class="grupo">${esc(nome)}</div>${ts.map(t => {
-    const u = somaCarga(t.nome), cap = capacidade(t.nome);
-    return `<button class="${t.nome === TU.sel ? 'on' : ''}" data-t="${esc(t.nome)}" onclick="selTurma(this.dataset.t)"><span>${esc(t.nome)}</span><span class="tag ${u === cap ? 'ok' : u > cap ? 'erro' : 'alerta'}">${u}/${cap}</span></button>`;
+    const u = somaCarga(t.nome), cap = capacidade(t.nome), cls = t.segmento === 'Extra' ? (u > cap ? 'erro' : 'neutra') : u === cap ? 'ok' : u > cap ? 'erro' : 'alerta';
+    return `<button class="${t.nome === TU.sel ? 'on' : ''}" data-t="${esc(t.nome)}" onclick="selTurma(this.dataset.t)"><span>${esc(t.nome)}</span><span class="tag ${cls}">${u}/${cap}</span></button>`;
   }).join('')}`).join('');
   let editor = '<div class="card"><p class="suave">Crie a primeira turma.</p></div>';
   if (TU.sel) {
-    const discs = [...new Set(D.carga.map(c => c.disciplina))].sort();
+    const t = turmaDe(TU.sel), discs = ordenarNomes([...new Set(D.componentes.map(c => c.nome).concat(D.carga.map(c => c.disciplina)))]);
+    const profs = ordenarNomes(D.professores.map(p => p.nome)), temJunta = TU.linhas.some(l => l.juntas.length);
     editor = `<div class="card">
-      <div class="cab-tela"><h2>${esc(TU.sel)}</h2><div class="acoes"><button class="btn mini" onclick="editarTurma(TU.sel)">Editar turma</button><button class="btn mini perigo" onclick="excluirTurma()">Excluir</button></div></div>
-      <div style="overflow-x:auto"><table class="tab"><tr><th>Disciplina</th><th>Professor</th><th>Aulas/sem.</th><th title="Quantas vezes por semana a aula é dupla (duas seguidas)">Duplas</th><th title="Máximo dessa disciplina no mesmo dia">Máx./dia</th><th></th></tr>
+      <div class="cab-tela"><div><h2>${esc(TU.sel)}</h2><span class="peq suave">${esc([t.segmento, t.serie, t.grade].filter(Boolean).join(' · '))}</span></div>
+        <div class="acoes"><button class="btn mini" onclick="editarTurma(TU.sel)">Editar turma</button><button class="btn mini perigo" onclick="excluirTurma()">Excluir</button></div></div>
+      <div class="rolar"><table class="tab"><tr><th>Disciplina</th><th>Professor</th><th>Aulas/sem.</th><th title="Quantas vezes por semana a aula é dupla (duas seguidas, sem intervalo no meio)">Duplas</th><th title="Máximo dessa disciplina no mesmo dia">Máx./dia</th><th title="Outras turmas que têm esta aula junto, no mesmo horário e com o mesmo professor">Junto com</th><th></th></tr>
         ${TU.linhas.map((l, i) => `<tr>
           <td><input list="listaDisc" value="${esc(l.disciplina)}" oninput="TU.linhas[${i}].disciplina=this.value;sujar()"></td>
-          <td><select onchange="TU.linhas[${i}].professor=this.value;sujar()"><option value="">—</option>${D.professores.map(p => `<option ${p.nome === l.professor ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></td>
+          <td><select onchange="TU.linhas[${i}].professor=this.value;sujar()"><option value="">— a definir —</option>${profs.map(p => `<option ${p === l.professor ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></td>
           <td><input type="number" min="1" value="${l.aulas || ''}" oninput="TU.linhas[${i}].aulas=+this.value;sujar()"></td>
           <td><input type="number" min="0" value="${l.duplas || 0}" oninput="TU.linhas[${i}].duplas=+this.value;sujar()"></td>
           <td><input type="number" min="1" value="${l.maxDia || 2}" oninput="TU.linhas[${i}].maxDia=+this.value;sujar()"></td>
+          <td><button class="btn mini" onclick="escolherJuntas(${i})">${l.juntas.length ? esc(l.juntas.join(', ')) : '—'}</button></td>
           <td><button class="link" style="color:var(--erro)" onclick="TU.linhas.splice(${i},1);sujar(true)">✕</button></td></tr>`).join('')}
       </table></div>
+      ${temJunta ? '<p class="peq suave" style="margin:8px 0 0">Linhas com “Junto com” são compartilhadas: o que mudar aqui muda também nas outras turmas.</p>' : ''}
       <datalist id="listaDisc">${discs.map(d => `<option value="${esc(d)}">`).join('')}</datalist>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center">
-        <button class="btn" onclick="TU.linhas.push({disciplina:'',professor:'',aulas:'',duplas:0,maxDia:2});sujar(true)">+ Disciplina</button>
-        <select style="width:auto" onchange="copiarDisciplinas(this.value)"><option value="">Copiar de…</option>${D.turmas.filter(t => t.nome !== TU.sel).map(t => `<option>${esc(t.nome)}</option>`).join('')}</select>
+        <button class="btn" onclick="TU.linhas.push({disciplina:'',professor:'',aulas:'',duplas:0,maxDia:2,juntas:[]});sujar(true)">+ Disciplina</button>
+        <select style="width:auto" onchange="copiarDisciplinas(this.value)"><option value="">Copiar de…</option>${D.turmas.filter(x => x.nome !== TU.sel).map(x => `<option>${esc(x.nome)}</option>`).join('')}</select>
         <span id="tuTotal" style="margin-left:auto"></span>
         <button class="btn" id="tuDesc" onclick="TU.sujo=false;telaTurmas()">Descartar</button>
         <button class="btn prim" id="tuSalvar" onclick="salvarCarga()">Salvar</button>
@@ -318,18 +384,25 @@ function telaTurmas() {
 }
 function sujar(redesenhar) { TU.sujo = true; redesenhar ? telaTurmas() : atualizarTotal(); }
 function atualizarTotal() {
-  const u = TU.linhas.reduce((s, l) => s + (+l.aulas || 0), 0), cap = capacidade(TU.sel);
-  $('tuTotal').innerHTML = `<span class="tag ${u === cap ? 'ok' : u > cap ? 'erro' : 'alerta'}">${u} de ${cap} horários</span>`;
+  const u = TU.linhas.reduce((s, l) => s + (+l.aulas || 0), 0), cap = capacidade(TU.sel), extra = (turmaDe(TU.sel) || {}).segmento === 'Extra';
+  $('tuTotal').innerHTML = `<span class="tag ${u > cap ? 'erro' : extra ? 'neutra' : u === cap ? 'ok' : 'alerta'}">${u} de ${cap} horários</span>`;
   $('tuSalvar').disabled = $('tuDesc').disabled = !TU.sujo;
 }
 function selTurma(n) {
   if (TU.sujo && !confirm('Há alterações não salvas nesta turma. Trocar mesmo assim?')) return;
   TU = { sel: n, linhas: [], sujo: false }; telaTurmas();
 }
+function escolherJuntas(i) {
+  const t = turmaDe(TU.sel), opc = D.turmas.filter(x => x.nome !== TU.sel && x.grade === t.grade), l = TU.linhas[i];
+  abrirModal('Turmas juntas', `<p class="peq suave" style="margin:0">${esc(l.disciplina || 'Esta disciplina')} acontece ao mesmo tempo, com o mesmo professor, em ${esc(TU.sel)} e nas turmas marcadas (só turmas da grade ${esc(t.grade)}).</p>
+    <div class="sub-linhas">${opc.map(x => `<label><input type="checkbox" class="jT" value="${esc(x.nome)}" ${l.juntas.includes(x.nome) ? 'checked' : ''}>${esc(x.nome)}</label>`).join('') || '<span class="suave">Nenhuma outra turma nesta grade.</span>'}</div>`,
+    `<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="confirmarJuntas(${i})">Ok</button>`);
+}
+function confirmarJuntas(i) { TU.linhas[i].juntas = [...document.querySelectorAll('.jT:checked')].map(x => x.value); fecharModal(); sujar(true); }
 function copiarDisciplinas(origem) {
   if (!origem) return;
   if (TU.linhas.length && !confirm(`Substituir as disciplinas de ${TU.sel} pelas de ${origem}?`)) return telaTurmas();
-  TU.linhas = cargaDe(origem).map(c => ({ disciplina: c.disciplina, professor: c.professor, aulas: c.aulas, duplas: c.duplas, maxDia: c.maxDia }));
+  TU.linhas = cargaDe(origem).map(c => ({ disciplina: c.disciplina, professor: c.professor, aulas: c.aulas, duplas: c.duplas, maxDia: c.maxDia, juntas: [] }));
   sujar(true);
 }
 async function salvarCarga() {
@@ -337,51 +410,200 @@ async function salvarCarga() {
   if (!await acao('salvarCarga', { turma: TU.sel, linhas: TU.linhas }, 'Disciplinas salvas.')) { TU.sujo = true; atualizarTotal(); }
 }
 function editarTurma(nome) {
-  const t = nome ? D.turmas.find(x => x.nome === nome) : { nome: '', turno: D.turnos[0] ? D.turnos[0].nome : '' };
+  const t = nome ? turmaDe(nome) : { nome: '', segmento: 'EFAI', serie: '', grade: D.grades[0] ? D.grades[0].nome : '' };
   abrirModal(nome ? 'Editar turma' : 'Nova turma', `<div class="linha-campos">
-      <label class="campo">Nome *<input id="tNome" value="${esc(t.nome)}" placeholder="Ex.: 6º A"></label>
-      <label class="campo">Turno<select id="tTurno">${D.turnos.map(x => `<option ${x.nome === t.turno ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></label>
+      <label class="campo">Nome *<input id="tNome" value="${esc(t.nome)}" placeholder="Ex.: 6A"></label>
+      <label class="campo">Segmento<select id="tSeg" onchange="seriesTurma()">${Object.keys(D.series).map(s => `<option ${s === t.segmento ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+      <label class="campo">Série<select id="tSerie"></select></label>
+      <label class="campo">Grade de horário<select id="tGrade">${D.grades.map(x => `<option ${x.nome === t.grade ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></label>
       ${nome ? '' : `<label class="campo">Copiar disciplinas de<select id="tCopia"><option value="">—</option>${D.turmas.map(x => `<option>${esc(x.nome)}</option>`).join('')}</select></label>`}
     </div>`, `<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" data-antigo="${esc(nome || '')}" onclick="salvarTurma(this.dataset.antigo)">Salvar</button>`);
+  seriesTurma(t.serie);
+}
+function seriesTurma(atual) {
+  const l = D.series[$('tSeg').value] || [];
+  $('tSerie').innerHTML = l.length ? l.map(s => `<option ${s === atual ? 'selected' : ''}>${s}</option>`).join('') : '<option value="">— (contraturno)</option>';
+  $('tSerie').disabled = !l.length;
 }
 async function salvarTurma(antigo) {
   const nome = $('tNome').value.trim(), copia = !antigo && $('tCopia').value;
   if (TU.sujo && !confirm('Há alterações não salvas nas disciplinas. Continuar mesmo assim?')) return;
-  if (!await acao('salvarTurma', { nomeAntigo: antigo, nome: nome, turno: $('tTurno').value }, 'Turma salva.')) return;
+  if (!await acao('salvarTurma', { nomeAntigo: antigo, nome: nome, segmento: $('tSeg').value, serie: $('tSerie').value, grade: $('tGrade').value }, 'Turma salva.')) return;
   fecharModal(); TU = { sel: nome, linhas: [], sujo: false };
-  if (copia) await acao('salvarCarga', { turma: nome, linhas: cargaDe(copia) }, 'Disciplinas copiadas.');
+  if (copia) await acao('salvarCarga', { turma: nome, linhas: cargaDe(copia).map(c => ({ ...c, juntas: [] })) }, 'Disciplinas copiadas.');
   telaTurmas();
 }
 async function excluirTurma() {
-  if (!confirm(`Excluir a turma ${TU.sel} e tudo dela (disciplinas, fixas e aulas na grade)?`)) return;
+  if (!confirm(`Excluir a turma ${TU.sel} e tudo dela (disciplinas, fixas e aulas na grade)? Em linhas com turmas juntas, só ${TU.sel} sai.`)) return;
   TU.sujo = false; await acao('excluirTurma', { nome: TU.sel }, 'Turma excluída.');
 }
 
-// ================= Horários dos turnos =================
+// ================= Matriz curricular =================
+const SEGS_MATRIZ = ['EFAI', 'EFAF', 'EM'];
+let MZ = null;
+function iniciarMZ(aba) {
+  const m = {}, ordem = {};
+  D.matriz.forEach(x => (m[x.serie] = m[x.serie] || {})[x.componente] = x.aulas);
+  SEGS_MATRIZ.forEach(seg => { ordem[seg] = []; D.matriz.forEach(x => { if (D.series[seg].includes(x.serie) && !ordem[seg].includes(x.componente)) ordem[seg].push(x.componente); }); });
+  MZ = { aba: aba || 'EFAI', m, ordem, comps: D.componentes.map(c => ({ nome: c.nome, nomeAntigo: c.nome, sigla: c.sigla, apelidos: c.apelidos.join('; ') })), sujo: false };
+}
+function mzSujo() { MZ.sujo = true; $('mzSalvar').disabled = $('mzDesc').disabled = false; }
+const mzComp = nome => MZ.comps.find(c => c.nome === nome);
+function telaMatriz() {
+  if (!MZ) iniciarMZ();
+  const abas = SEGS_MATRIZ.concat(['Componentes']).map(a => `<button class="btn mini ${MZ.aba === a ? 'on' : ''}" onclick="MZ.aba='${a}';telaMatriz()">${a === 'Componentes' ? 'Componentes e siglas' : a}</button>`).join('');
+  $('tela').innerHTML = cabecalho('Matriz curricular',
+    `<button class="btn" id="mzDesc" onclick="iniciarMZ(MZ.aba);telaMatriz()" ${MZ.sujo ? '' : 'disabled'}>Descartar</button>
+     <button class="btn" id="mzSalvar" onclick="salvarMatriz()" ${MZ.sujo ? '' : 'disabled'}>Salvar</button>
+     <button class="btn prim" onclick="abrirAplicar()">Aplicar matriz às turmas</button>`)
+    + `<div class="card"><div class="abas">${abas}</div><div id="mzCorpo" class="rolar"></div></div>`;
+  if (MZ.aba === 'Componentes') tabelaComps(); else tabelaMatriz(MZ.aba);
+}
+function tabelaMatriz(seg) {
+  const series = D.series[seg], comps = MZ.ordem[seg];
+  $('mzCorpo').innerHTML = `<table class="tab mz"><tr><th>Componente</th><th>Sigla</th>${series.map(s => `<th>${s}</th>`).join('')}<th></th></tr>
+    ${comps.map((nome, i) => `<tr><td><input list="mzLista" value="${esc(nome)}" data-seg="${seg}" data-i="${i}" onchange="mzTrocarLinha(this)"></td>
+      <td><input value="${esc((mzComp(nome) || {}).sigla || '')}" data-c="${esc(nome)}" oninput="mzSigla(this)" style="max-width:110px"></td>
+      ${series.map(s => `<td><input type="number" min="0" max="40" value="${(MZ.m[s] || {})[nome] || ''}" data-s="${s}" data-c="${esc(nome)}" oninput="mzValor(this)"></td>`).join('')}
+      <td><button class="link" style="color:var(--erro)" data-seg="${seg}" data-i="${i}" onclick="mzRemover(this)">✕</button></td></tr>`).join('')}
+    <tr class="total"><td>Total</td><td></td>${series.map((s, j) => `<td id="mzT${j}"></td>`).join('')}<td></td></tr></table>
+    <datalist id="mzLista">${MZ.comps.map(c => `<option value="${esc(c.nome)}">`).join('')}</datalist>
+    <button class="btn" style="margin-top:12px" onclick="MZ.ordem['${seg}'].push('');mzSujo();telaMatriz()">+ Componente</button>`;
+  mzTotais(seg);
+}
+function mzTotais(seg) {
+  D.series[seg].forEach((s, j) => {
+    const tot = MZ.ordem[seg].reduce((x, c) => x + ((MZ.m[s] || {})[c] || 0), 0);
+    const caps = [...new Set(D.turmas.filter(t => t.serie === s && t.segmento !== 'Extra').map(t => capacidade(t.nome)))];
+    const cls = !caps.length ? 'neutra' : caps.every(c => c === tot) ? 'ok' : 'alerta';
+    $('mzT' + j).innerHTML = `<span class="tag ${cls}" title="${caps.length ? 'Horários na grade das turmas: ' + caps.join(', ') : 'Nenhuma turma nesta série'}">${tot}${caps.length && caps[0] !== tot ? ' / ' + caps[0] : ''}</span>`;
+  });
+}
+function mzValor(inp) { (MZ.m[inp.dataset.s] = MZ.m[inp.dataset.s] || {})[inp.dataset.c] = +inp.value || 0; mzSujo(); mzTotais(MZ.aba); }
+function mzSigla(inp) {
+  let c = mzComp(inp.dataset.c); if (!c) MZ.comps.push(c = { nome: inp.dataset.c, nomeAntigo: '', sigla: '', apelidos: '' });
+  c.sigla = inp.value; mzSujo();
+}
+function mzTrocarLinha(inp) {   // escolhe outro componente para a linha (move os números)
+  const seg = inp.dataset.seg, i = +inp.dataset.i, velho = MZ.ordem[seg][i], novo = inp.value.trim();
+  if (novo && MZ.ordem[seg].some((c, j) => c === novo && j !== i)) { toast(`${novo} já está na tabela.`, 'erro'); return telaMatriz(); }
+  D.series[seg].forEach(s => { const m = MZ.m[s] = MZ.m[s] || {}; if (velho in m) { if (novo) m[novo] = m[velho]; delete m[velho]; } });
+  MZ.ordem[seg][i] = novo;
+  if (novo && !mzComp(novo)) MZ.comps.push({ nome: novo, nomeAntigo: '', sigla: '', apelidos: '' });
+  mzSujo(); telaMatriz();
+}
+function mzRemover(b) {
+  const seg = b.dataset.seg, i = +b.dataset.i, velho = MZ.ordem[seg][i];
+  D.series[seg].forEach(s => { if (MZ.m[s]) delete MZ.m[s][velho]; });
+  MZ.ordem[seg].splice(i, 1); mzSujo(); telaMatriz();
+}
+function tabelaComps() {
+  const naMatriz = nome => Object.values(MZ.m).some(m => m[nome] > 0), naCarga = nome => D.carga.some(c => c.disciplina === nome);
+  $('mzCorpo').innerHTML = `<p class="peq suave" style="margin:0 0 10px">Sigla: usada na grade e na impressão. Apelidos: como o componente aparece no aSc (separe por “;”), para reconhecer a disciplina na importação.</p>
+    <table class="tab"><tr><th>Componente</th><th>Sigla</th><th>Apelidos (aSc)</th><th>Uso</th><th></th></tr>
+    ${MZ.comps.map((c, i) => { const uso = naMatriz(c.nome) ? 'Matriz' : naCarga(c.nome) ? 'Contraturno / carga' : '—'; return `<tr>
+      <td><input value="${esc(c.nome)}" data-i="${i}" onchange="mzRenomear(this)"></td>
+      <td><input value="${esc(c.sigla)}" oninput="MZ.comps[${i}].sigla=this.value;mzSujo()" style="max-width:110px"></td>
+      <td><input value="${esc(c.apelidos)}" oninput="MZ.comps[${i}].apelidos=this.value;mzSujo()" placeholder="Ex.: Líng. Port."></td>
+      <td class="suave peq" style="white-space:nowrap">${uso}</td>
+      <td>${uso === 'Matriz' ? '' : `<button class="link" style="color:var(--erro)" onclick="MZ.comps.splice(${i},1);mzSujo();telaMatriz()">✕</button>`}</td></tr>`; }).join('')}</table>
+    <button class="btn" style="margin-top:12px" onclick="MZ.comps.push({nome:'',nomeAntigo:'',sigla:'',apelidos:''});mzSujo();telaMatriz()">+ Componente</button>`;
+}
+function mzRenomear(inp) {
+  const c = MZ.comps[+inp.dataset.i], velho = c.nome, novo = inp.value.trim();
+  if (MZ.comps.some(x => x !== c && x.nome === novo)) { toast(`${novo} já existe.`, 'erro'); return telaMatriz(); }
+  c.nome = novo;
+  Object.values(MZ.m).forEach(m => { if (velho in m) { m[novo] = m[velho]; delete m[velho]; } });
+  Object.values(MZ.ordem).forEach(l => { const j = l.indexOf(velho); if (j >= 0) l[j] = novo; });
+  mzSujo();
+}
+async function salvarMatriz() {
+  const matriz = [], comps = MZ.comps.filter(c => c.nome.trim());
+  SEGS_MATRIZ.forEach(seg => MZ.ordem[seg].filter(Boolean).forEach(c => D.series[seg].forEach(s => { const n = (MZ.m[s] || {})[c]; if (n > 0) matriz.push({ serie: s, componente: c, aulas: n }); })));
+  matriz.forEach(x => { if (!comps.some(c => c.nome === x.componente)) comps.push({ nome: x.componente, nomeAntigo: '', sigla: '', apelidos: '' }); });
+  const aba = MZ.aba; MZ.sujo = false;
+  const ok = await acao('salvarMatriz', { matriz, componentes: comps.map(c => ({ nome: c.nome.trim(), nomeAntigo: c.nomeAntigo, sigla: c.sigla, apelidos: String(c.apelidos).split(';') })) }, 'Matriz salva.');
+  if (ok) { iniciarMZ(aba); telaMatriz(); } else mzSujo();
+}
+function abrirAplicar() {
+  if (MZ && MZ.sujo) return toast('Salve a matriz antes de aplicar.', 'erro');
+  const series = [].concat(...SEGS_MATRIZ.map(s => D.series[s])).filter(s => D.turmas.some(t => t.serie === s && t.segmento !== 'Extra'));
+  abrirModal('Aplicar matriz às turmas', `<p class="peq suave" style="margin:0">Acerta as aulas por semana de cada turma pela matriz da série. Professor, duplas e turmas juntas são mantidos; o que faltar entra com professor “a definir”. Grupos EXTRA não mudam.</p>
+    <div class="sub-linhas">${series.map(s => `<label><input type="checkbox" class="apS" value="${s}" checked onchange="$('apAplicar').disabled=true">${s}</label>`).join('')}</div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="apRemover" onchange="$('apAplicar').disabled=true"> Tirar das turmas o que não está na matriz</label>
+    <div id="apRes"></div>`,
+    `<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="previaAplicar()">Ver prévia</button><button class="btn prim" id="apAplicar" onclick="aplicarMatriz()" disabled>Aplicar</button>`);
+}
+const dadosAplicar = () => ({ series: [...document.querySelectorAll('.apS:checked')].map(x => x.value), remover: $('apRemover').checked });
+async function previaAplicar() {
+  const r = await consultar('previaMatriz', dadosAplicar()); if (!r || !$('apRes')) return;
+  $('apRes').innerHTML = !r.length ? '<div class="aviso ok">As turmas escolhidas já seguem a matriz.</div>'
+    : `<div class="rolar"><table class="tab"><tr><th>Turma</th><th>Entram</th><th>Mudam</th><th>Saem</th></tr>${r.map(m => `<tr><td><b>${esc(m.turma)}</b></td>
+      <td class="peq">${esc(m.novas.join(', ')) || '—'}</td><td class="peq">${esc(m.mudam.join(', ')) || '—'}</td><td class="peq">${esc(m.saem.join(', ')) || '—'}</td></tr>`).join('')}</table></div>`;
+  $('apAplicar').disabled = !r.length;
+}
+async function aplicarMatriz() {
+  if (await acao('aplicarMatriz', dadosAplicar(), 'Matriz aplicada às turmas.')) fecharModal();
+}
+
+// ================= Horários (grades de horário) =================
 let HO = null, HO_SUJO = false;
 function telaHorarios() {
-  if (!HO) HO = D.turnos.map(t => ({ ...t, nomeAntigo: t.nome }));
+  if (!HO) HO = clone(D.grades).map(g => ({ ...g, nomeAntigo: g.nome }));
   $('tela').innerHTML = cabecalho('Horários',
-    `<button class="btn" onclick="HO.push({nome:'',aulas:5,inicio:'13:00',duracao:50,intervaloApos:3,intervaloMin:20});HO_SUJO=true;telaHorarios()">+ Turno</button>
+    `<button class="btn" onclick="HO.push({nome:'',nomeAntigo:'',itens:[{tipo:'aula',ini:'13:00',fim:'14:00'}]});HO_SUJO=true;telaHorarios()">+ Grade</button>
      <button class="btn" onclick="HO=null;HO_SUJO=false;telaHorarios()">Descartar</button><button class="btn prim" onclick="salvarHorarios()">Salvar</button>`)
-    + HO.map((t, i) => `<div class="card" style="margin-bottom:12px"><div class="linha-campos">
-      <label class="campo">Turno<input value="${esc(t.nome)}" oninput="HO[${i}].nome=this.value;HO_SUJO=true"></label>
-      <label class="campo">Aulas por dia<input type="number" min="1" max="12" value="${t.aulas}" oninput="HO[${i}].aulas=+this.value;HO_SUJO=true;previa(${i})"></label>
-      <label class="campo">Início<input type="time" value="${esc(t.inicio)}" oninput="HO[${i}].inicio=this.value;HO_SUJO=true;previa(${i})"></label>
-      <label class="campo">Duração (min)<input type="number" min="10" value="${t.duracao}" oninput="HO[${i}].duracao=+this.value;HO_SUJO=true;previa(${i})"></label>
-      <label class="campo">Intervalo após a aula<input type="number" min="0" value="${t.intervaloApos}" oninput="HO[${i}].intervaloApos=+this.value;HO_SUJO=true;previa(${i})"></label>
-      <label class="campo">Intervalo (min)<input type="number" min="0" value="${t.intervaloMin}" oninput="HO[${i}].intervaloMin=+this.value;HO_SUJO=true;previa(${i})"></label>
-    </div><div class="previa" id="prev${i}"></div>
-    <div style="text-align:right"><button class="link" style="color:var(--erro)" onclick="HO.splice(${i},1);HO_SUJO=true;telaHorarios()">Remover turno</button></div></div>`).join('');
-  HO.forEach((_, i) => previa(i));
+    + HO.map((g, i) => { let n = 0; const usam = D.turmas.filter(t => t.grade === g.nomeAntigo).length; return `<div class="card" style="margin-bottom:12px">
+      <div class="cab-tela" style="margin-bottom:8px"><label class="campo" style="flex:1;max-width:320px">Grade de horário<input value="${esc(g.nome)}" oninput="HO[${i}].nome=this.value;HO_SUJO=true"></label>
+        <span class="peq suave">${usam ? usam + ' turma(s)' : 'nenhuma turma'}</span></div>
+      <div class="itens">${g.itens.map((it, j) => `<div class="item ${it.tipo === 'intervalo' ? 'int' : ''}"><b>${it.tipo === 'intervalo' ? 'Int.' : ++n + 'ª'}</b>
+        <input type="time" step="600" value="${esc(it.ini)}" onchange="HO[${i}].itens[${j}].ini=this.value;hoMudou(${i})"><span>–</span>
+        <input type="time" step="600" value="${esc(it.fim)}" onchange="HO[${i}].itens[${j}].fim=this.value;hoMudou(${i})">
+        <button class="link" title="${it.tipo === 'intervalo' ? 'Virar aula' : 'Virar intervalo'}" onclick="HO[${i}].itens[${j}].tipo='${it.tipo === 'intervalo' ? 'aula' : 'intervalo'}';hoMudou(${i},true)">⇄</button>
+        <button class="link" style="color:var(--erro)" title="Remover" onclick="HO[${i}].itens.splice(${j},1);hoMudou(${i},true)">✕</button></div>`).join('')}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">
+        <button class="btn mini" onclick="hoAdd(${i},'aula')">+ Aula</button><button class="btn mini" onclick="hoAdd(${i},'intervalo')">+ Intervalo</button>
+        <button class="link" style="color:var(--erro);margin-left:auto" onclick="HO.splice(${i},1);HO_SUJO=true;telaHorarios()">Remover grade</button></div>
+      <div class="tempo" id="hoPrev${i}"></div><div class="tempo-eixo" id="hoEixo${i}"></div><div id="hoErr${i}"></div></div>`; }).join('');
+  HO.forEach((_, i) => hoPrevia(i));
 }
-function previa(i) {
-  const t = HO[i]; if (!(t.aulas > 0) || !/^\d{1,2}:\d{2}$/.test(t.inicio || '')) { $('prev' + i).innerHTML = ''; return; }
-  $('prev' + i).innerHTML = Array.from({ length: t.aulas }, (_, a) => (t.intervaloApos && a === t.intervaloApos ? '<span class="tag alerta">intervalo</span>' : '') + `<span class="tag neutra">${a + 1}ª ${horario(t, a)}</span>`).join('');
+function hoMudou(i, redesenhar) { HO_SUJO = true; redesenhar ? telaHorarios() : hoPrevia(i); }
+function hoAdd(i, tipo) {
+  const it = HO[i].itens, ult = it[it.length - 1], aulas = it.filter(x => x.tipo !== 'intervalo'), ua = aulas[aulas.length - 1];
+  const ini = ult && !isNaN(minutos(ult.fim)) ? minutos(ult.fim) : 420, dur = tipo === 'intervalo' ? 20 : ua ? (minutos(ua.fim) - minutos(ua.ini)) || 50 : 50;
+  it.push({ tipo, ini: hhmm(ini), fim: hhmm(ini + dur) }); hoMudou(i, true);
+}
+function problemaItens(itens) {   // mesma regra do servidor
+  if (!itens.some(i => i.tipo !== 'intervalo')) return 'Precisa de pelo menos uma aula.';
+  let ant = null;
+  for (let k = 0; k < itens.length; k++) {
+    const a = minutos(itens[k].ini), b = minutos(itens[k].fim), nome = `Linha ${k + 1}`;
+    if (isNaN(a) || isNaN(b)) return `${nome}: preencha início e fim.`;
+    if (a % 10 || b % 10) return `${nome}: use horários de 10 em 10 minutos.`;
+    if (b <= a) return `${nome}: o fim precisa ser depois do início.`;
+    if (ant !== null && a < ant) return `${nome}: começa antes do fim da linha anterior.`;
+    ant = b;
+  }
+  return '';
+}
+function hoPrevia(i) {
+  const g = HO[i], ini0 = 7 * 60, fim0 = 19 * 60, pos = m => ((m - ini0) / (fim0 - ini0) * 100).toFixed(2) + '%';
+  const larg = (a, b) => ((b - a) / (fim0 - ini0) * 100).toFixed(2) + '%';
+  let n = 0;
+  $('hoPrev' + i).innerHTML = g.itens.map(it => {
+    const a = minutos(it.ini), b = minutos(it.fim); if (isNaN(a) || isNaN(b) || b <= a) return '';
+    const iv = it.tipo === 'intervalo', rot = iv ? '' : ++n + 'ª';
+    return `<span class="${iv ? 'int' : 'aula'}" style="left:${pos(a)};width:${larg(a, b)}" title="${iv ? 'Intervalo' : rot + ' aula'} ${faixaTxt(a, b)}">${rot}</span>`;
+  }).join('');
+  $('hoEixo' + i).innerHTML = Array.from({ length: 13 }, (_, k) => `<i style="left:${pos(ini0 + k * 60)}">${7 + k}h</i>`).join('');
+  const e = problemaItens(g.itens);
+  $('hoErr' + i).innerHTML = e ? `<div class="aviso erro" style="margin-top:8px">${esc(e)}</div>` : '';
 }
 async function salvarHorarios() {
+  const mudouQtd = HO.some(g => { const v = gradeDe(g.nomeAntigo); return v && aulasDe(v).length !== g.itens.filter(x => x.tipo !== 'intervalo').length && D.turmas.some(t => t.grade === g.nomeAntigo); });
+  if (mudouQtd && Object.keys(D.grade).length && !confirm('O número de aulas de uma grade em uso mudou. A grade oficial dessas turmas pode precisar ser gerada de novo. Salvar?')) return;
   const dados = HO; HO_SUJO = false;
-  if (!await acao('salvarConfig', { turnos: dados }, 'Horários salvos.')) { HO_SUJO = true; return; }
+  if (!await acao('salvarGrades', { grades: dados }, 'Horários salvos.')) { HO_SUJO = true; return; }
   HO = null; telaHorarios();
 }
 
@@ -392,12 +614,12 @@ function telaFixas() {
   $('tela').innerHTML = cabecalho('Aulas fixas',
     `<button class="btn" onclick="FX.push({turma:(D.turmas[0]||{}).nome||'',dia:'Seg',aula:1,disciplina:''});FX_SUJO=true;telaFixas()">+ Aula fixa</button>
      <button class="btn prim" onclick="salvarFixas()">Salvar</button>`)
-    + `<div class="card">${!FX.length ? '<p class="suave">Nenhuma. Use para aulas que precisam ficar sempre no mesmo horário; o gerador não mexe nelas.</p>' : `<table class="tab"><tr><th>Turma</th><th>Dia</th><th>Aula</th><th>Disciplina</th><th>Professor</th><th></th></tr>
+    + `<div class="card rolar">${!FX.length ? '<p class="suave">Nenhuma. Use para aulas que precisam ficar sempre no mesmo horário; o gerador não mexe nelas.</p>' : `<table class="tab"><tr><th>Turma</th><th>Dia</th><th>Aula</th><th>Disciplina</th><th>Professor</th><th></th></tr>
       ${FX.map((f, i) => {
-        const tn = turnoDeTurma(f.turma), c = cargaDe(f.turma), prof = (c.find(x => x.disciplina === f.disciplina) || {}).professor || '—';
+        const au = aulasTurma(f.turma), c = cargaDe(f.turma), prof = (c.find(x => x.disciplina === f.disciplina) || {}).professor || '—';
         return `<tr><td><select onchange="FX[${i}].turma=this.value;FX[${i}].disciplina='';FX_SUJO=true;telaFixas()">${D.turmas.map(t => `<option ${t.nome === f.turma ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></td>
           <td><select onchange="FX[${i}].dia=this.value;FX_SUJO=true">${D.dias.map(d => `<option ${d === f.dia ? 'selected' : ''}>${d}</option>`).join('')}</select></td>
-          <td><select onchange="FX[${i}].aula=+this.value;FX_SUJO=true">${Array.from({ length: tn ? tn.aulas : 0 }, (_, a) => `<option value="${a + 1}" ${a + 1 === +f.aula ? 'selected' : ''}>${a + 1}ª · ${horario(tn, a)}</option>`).join('')}</select></td>
+          <td><select onchange="FX[${i}].aula=+this.value;FX_SUJO=true">${au.map((x, a) => `<option value="${a + 1}" ${a + 1 === +f.aula ? 'selected' : ''}>${a + 1}ª · ${faixaTxt(x.ini, x.fim)}</option>`).join('')}</select></td>
           <td><select onchange="FX[${i}].disciplina=this.value;FX_SUJO=true;telaFixas()"><option value="">—</option>${c.map(x => `<option ${x.disciplina === f.disciplina ? 'selected' : ''}>${esc(x.disciplina)}</option>`).join('')}</select></td>
           <td class="suave">${esc(prof)}</td>
           <td><button class="link" style="color:var(--erro)" onclick="FX.splice(${i},1);FX_SUJO=true;telaFixas()">✕</button></td></tr>`;
@@ -412,7 +634,7 @@ async function salvarFixas() {
 // ================= Usuários =================
 function telaUsuarios() {
   $('tela').innerHTML = cabecalho('Usuários', '<button class="btn prim" onclick="editarUsuario()">+ Usuário</button>')
-    + `<div class="card" style="margin-bottom:14px;overflow-x:auto"><table class="tab"><tr><th>Usuário</th><th>Senha</th><th>Nome</th><th>Perfil</th><th>Situação</th><th>Último acesso</th></tr>
+    + `<div class="card rolar" style="margin-bottom:14px"><table class="tab"><tr><th>Usuário</th><th>Senha</th><th>Nome</th><th>Perfil</th><th>Situação</th><th>Último acesso</th></tr>
       ${D.usuarios.map(u => `<tr class="clic" data-u="${esc(u.usuario)}" onclick="editarUsuario(this.dataset.u)">
         <td><b>${esc(u.usuario)}</b></td><td><span class="senha">${esc(u.senha)}</span></td><td>${esc(u.nome)}</td>
         <td>${NOME_PERFIL[u.perfil] || esc(u.perfil)}</td><td>${u.ativo ? '<span class="tag ok">Ativo</span>' : '<span class="tag erro">Desativado</span>'}</td>
@@ -449,7 +671,10 @@ async function excluirUsuario(u) {
 let GR = null, SUB = null;
 function novoGR() { return { opcoes: [], atual: null, nome: '', editado: false, visao: 'turma', item: '', sel: null, ruins: new Set(), mudou: new Set() }; }
 function comFixas(g) {
-  (D.fixas || []).forEach(f => { const k = f.turma + '|' + D.dias.indexOf(f.dia) + '|' + (f.aula - 1); if (g[k] && g[k].disciplina === f.disciplina) g[k].fixa = true; });
+  (D.fixas || []).forEach(f => {
+    const l = linhaDe(f.turma, f.disciplina), ts = l ? l.turmas : [f.turma];
+    ts.forEach(t => { const k = t + '|' + D.dias.indexOf(f.dia) + '|' + (f.aula - 1); if (g[k] && g[k].disciplina === f.disciplina) g[k].fixa = true; });
+  });
   return g;
 }
 function telaGrade() {
@@ -468,7 +693,7 @@ function telaGrade() {
         <div class="abas"><button class="btn mini" data-v="turma" onclick="visao('turma')">Turma</button><button class="btn mini" data-v="prof" onclick="visao('prof')">Professor</button>
           <button class="btn mini" data-v="geral" onclick="visao('geral')">Geral</button><select id="selItem" onchange="GR.item=this.value;desenharGrade()"></select>
           <span class="peq suave" id="dica" style="margin-left:auto"></span></div>
-        <div id="conteudo"></div></div></div>`;
+        <div id="conteudo" class="rolar"></div></div></div>`;
   listaOpcoes(); preencherSelect(); conferir();
 }
 function gerarGrade() {
@@ -494,7 +719,7 @@ function usarOpcao(i) {
 function listaOpcoes() {
   if (!$('opcoes')) return;
   let h = Object.keys(D.grade).length ? `<div class="opcao ${GR.nome === 'Oficial' ? 'ativa' : ''}" onclick="usarOpcao('oficial')"><b>Oficial</b></div>` : '';
-  h += GR.opcoes.map((o, i) => `<div class="opcao ${GR.nome === 'Opção ' + (i + 1) ? 'ativa' : ''}" onclick="usarOpcao(${i})"><b>Opção ${i + 1}</b><small>${o.metricas.janelasProf} janelas de professores</small></div>`).join('');
+  h += GR.opcoes.map((o, i) => `<div class="opcao ${GR.nome === 'Opção ' + (i + 1) ? 'ativa' : ''}" onclick="usarOpcao(${i})"><b>Opção ${i + 1}</b><small>${horasTxt(o.metricas.janelasMin)} de janelas de professores</small></div>`).join('');
   $('opcoes').innerHTML = h || '<span class="suave peq">Clique em “Gerar opções”.</span>';
   if ($('btnSalvarGrade')) $('btnSalvarGrade').disabled = !GR.atual || (GR.nome === 'Oficial' && !GR.editado);
 }
@@ -504,7 +729,7 @@ function conferir() {
   const v = Gerador.validar(D, GR.atual); GR.ruins = new Set(v.ruins);
   if (v.erros.length) mostrarLista('Cadastros mudaram; gere de novo:', v.erros, 'erro');
   else if (v.problemas.length) mostrarLista(`${v.problemas.length} problema(s):`, v.problemas, 'erro');
-  else $('problemas').innerHTML = '<div class="aviso ok">✔ Sem conflitos.</div>';
+  else $('problemas').innerHTML = `<div class="aviso ok">✔ Sem conflitos.</div><p class="peq suave" style="margin:8px 0 0">${horasTxt(v.metricas.janelasMin)} de janelas de professores na semana.</p>`;
   listaOpcoes(); desenharGrade();
 }
 async function salvarGrade() {
@@ -514,7 +739,7 @@ async function salvarGrade() {
 }
 function visao(v) { GR.visao = v; GR.sel = null; GR.item = ''; preencherSelect(); desenharGrade(); }
 function preencherSelect() {
-  const s = $('selItem'), itens = GR.visao === 'turma' ? D.turmas.map(t => t.nome) : GR.visao === 'prof' ? D.professores.filter(p => aulasProf(p.nome)).map(p => p.nome) : [];
+  const s = $('selItem'), itens = GR.visao === 'turma' ? D.turmas.map(t => t.nome) : GR.visao === 'prof' ? ordenarNomes(D.professores.filter(p => aulasProf(p.nome)).map(p => p.nome)) : [];
   if (!itens.includes(GR.item)) GR.item = itens[0] || '';
   s.hidden = !itens.length; s.innerHTML = itens.map(x => `<option ${x === GR.item ? 'selected' : ''}>${esc(x)}</option>`).join('');
   document.querySelectorAll('.abas .btn').forEach(b => b.classList.toggle('on', b.dataset.v === GR.visao));
@@ -524,53 +749,66 @@ function cor(nome) {
   let h = 0; for (const ch of nome) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return `background:hsl(${h},55%,94%);border-left:3px solid hsl(${h},45%,48%)`;
 }
-function linhaIntervalo(tn, a, cols) { return tn.intervaloApos && a === tn.intervaloApos ? `<tr class="intervalo"><td colspan="${cols}">intervalo</td></tr>` : ''; }
 function tabelaTurma(turma, editavel) {
-  const tn = turnoDeTurma(turma); if (!tn) return '<p class="suave">Turma sem turno.</p>';
-  let h = `<table class="grade"><tr><th class="hora"></th>${D.dias.map(d => `<th>${d}</th>`).join('')}</tr>`;
-  for (let a = 0; a < tn.aulas; a++) {
-    h += linhaIntervalo(tn, a, D.dias.length + 1) + `<tr><th class="hora">${a + 1}ª · ${horario(tn, a).split('–')[0]}</th>`;
+  const g = gradeDaTurma(turma); if (!g) return '<p class="suave">Turma sem grade de horário.</p>';
+  let h = `<table class="grade"><tr><th class="hora"></th>${D.dias.map(d => `<th>${d}</th>`).join('')}</tr>`, a = 0;
+  g.itens.forEach(it => {
+    if (it.tipo === 'intervalo') { h += `<tr class="intervalo"><td colspan="${D.dias.length + 1}">intervalo · ${faixaTxt(minutos(it.ini), minutos(it.fim))}</td></tr>`; return; }
+    h += `<tr><th class="hora">${a + 1}ª<small>${faixaTxt(minutos(it.ini), minutos(it.fim))}</small></th>`;
     D.dias.forEach((_, d) => {
-      const k = turma + '|' + d + '|' + a, c = GR.atual && GR.atual[k];
-      h += `<td class="cel ${c ? '' : 'vazia'} ${GR.sel === k ? 'sel' : ''} ${GR.ruins.has(k) ? 'conf' : GR.mudou.has(k) ? 'mudou' : ''}" style="${c ? cor(c.disciplina) : ''}" ${editavel ? `data-k="${esc(k)}" onclick="clicarCel(this.dataset.k)"` : ''}>
-        ${c ? `${c.fixa ? '<span class="lock" title="Aula fixa">🔒</span>' : ''}<div class="d">${esc(c.disciplina)}</div><div class="p">${esc(c.professor)}</div>` : ''}</td>`;
+      const k = turma + '|' + d + '|' + a, c = GR.atual && GR.atual[k], l = c && linhaDe(turma, c.disciplina);
+      const junta = l && l.turmas.length > 1 ? ' · c/ ' + l.turmas.filter(t => t !== turma).join(', ') : '';
+      h += `<td class="cel ${c ? '' : 'vazia'} ${GR.sel === k ? 'sel' : ''} ${GR.ruins.has(k) ? 'conf' : GR.mudou.has(k) ? 'mudou' : ''}" style="${c ? cor(c.disciplina) : ''}" title="${c ? esc(c.disciplina + ' · ' + c.professor + junta) : ''}" ${editavel ? `data-k="${esc(k)}" onclick="clicarCel(this.dataset.k)"` : ''}>
+        ${c ? `${c.fixa ? '<span class="lock" title="Aula fixa">🔒</span>' : ''}<div class="d">${esc(sigla(c.disciplina))}</div><div class="p">${esc(c.professor + junta)}</div>` : ''}</td>`;
     });
-    h += '</tr>';
-  }
+    h += '</tr>'; a++;
+  });
   return h + '</table>';
 }
+// Visão do professor em tempo real: linhas = horários reais das grades em que ele dá aula + blocos dele
 function tabelaProf(nome) {
   const prof = profPorNome(nome); if (!prof) return '';
-  const ind = new Set(prof.indisp), mapa = {}; let total = 0;
+  const ind = new Set(prof.indisp), itens = {}, usadas = new Set();
   Object.entries(GR.atual || {}).forEach(([k, c]) => {
     if (c.professor !== nome) return;
-    const p = k.split('|'), tn = turnoDeTurma(p[0]); if (!tn) return;
-    const kk = tn.nome + '|' + p[1] + '|' + p[2]; (mapa[kk] = mapa[kk] || []).push({ t: p[0], c: c, k: k }); total++;
+    const [t, ds, as] = k.split('|'), g = gradeDaTurma(t), x = aulasDe(g)[+as]; if (!x) return;
+    usadas.add(g.nome);
+    const id = ds + '|' + x.ini + '|' + x.fim + '|' + c.disciplina, e = itens[id] = itens[id] || { d: +ds, ini: x.ini, fim: x.fim, disc: c.disciplina, turmas: [], chaves: [] };
+    e.turmas.push(t); e.chaves.push(k);
   });
-  let h = `<h2 style="margin-bottom:8px">${esc(nome)} <span class="peq suave">· ${total} aulas</span></h2>`;
-  D.turnos.forEach(tn => {
-    if (!Object.keys(mapa).some(k => k.indexOf(tn.nome + '|') === 0)) return;
-    h += `<table class="grade" style="margin-bottom:12px"><tr><th class="hora">${esc(tn.nome)}</th>${D.dias.map(d => `<th>${d}</th>`).join('')}</tr>`;
-    for (let a = 0; a < tn.aulas; a++) {
-      h += linhaIntervalo(tn, a, D.dias.length + 1) + `<tr><th class="hora">${a + 1}ª · ${horario(tn, a).split('–')[0]}</th>`;
+  const blocos = D.blocos.filter(b => b.professor === nome).map(b => ({ d: D.dias.indexOf(b.dia), ini: minutos(b.ini), fim: minutos(b.fim), b }));
+  const linhas = new Map(), lista = Object.values(itens);
+  usadas.forEach(gn => aulasDe(gradeDe(gn)).forEach(x => linhas.set(x.ini + '|' + x.fim, x)));
+  lista.concat(blocos).forEach(x => linhas.set(x.ini + '|' + x.fim, { ini: x.ini, fim: x.fim }));
+  const ord = [...linhas.values()].sort((a, b) => a.ini - b.ini || a.fim - b.fim);
+  let h = `<h2 style="margin-bottom:8px">${esc(nome)} <span class="peq suave">· ${lista.length} aulas${blocos.length ? ' · ' + blocos.length + ' bloco(s)' : ''}</span></h2>`;
+  if (!ord.length) return h + '<p class="suave">Sem aulas.</p>';
+  [['Manhã', ord.filter(x => x.ini < 780)], ['Tarde', ord.filter(x => x.ini >= 780)]].forEach(([per, rows]) => {
+    if (!rows.length) return;
+    h += `<table class="grade" style="margin-bottom:12px"><tr><th class="hora">${per}</th>${D.dias.map(d => `<th>${d}</th>`).join('')}</tr>`;
+    rows.forEach(r => {
+      h += `<tr><th class="hora">${faixaTxt(r.ini, r.fim)}</th>`;
       D.dias.forEach((dia, d) => {
-        const l = mapa[tn.nome + '|' + d + '|' + a] || [], livre = !ind.has(dia + '|' + tn.nome + '|' + (a + 1));
-        h += `<td class="cel ${!l.length ? (livre ? 'vazia' : 'indisp') : ''} ${l.length > 1 || l.some(x => GR.ruins.has(x.k)) ? 'conf' : ''}" style="${l[0] ? cor(l[0].c.disciplina) : ''}">
-          ${l.map(x => `<div class="d">${esc(x.t)}</div><div class="p">${esc(x.c.disciplina)}</div>`).join('')}</td>`;
+        const aqui = lista.filter(x => x.d === d && x.ini === r.ini && x.fim === r.fim), bl = blocos.filter(x => x.d === d && x.ini === r.ini && x.fim === r.fim);
+        let fora = false; for (let hh = Math.floor(r.ini / 60); hh * 60 < r.fim; hh++) if (ind.has(dia + '|' + hh)) fora = true;
+        const conf = aqui.some(x => x.chaves.some(k => GR.ruins.has(k)));
+        h += `<td class="cel ${!aqui.length && !bl.length ? (fora ? 'indisp' : 'vazia') : ''} ${conf ? 'conf' : ''}" style="${aqui[0] ? cor(aqui[0].disc) : bl.length ? 'background:#fbf6e6' : ''}">
+          ${aqui.map(x => `<div class="d">${esc(x.turmas.join(' + '))}</div><div class="p">${esc(sigla(x.disc))}</div>`).join('')}
+          ${bl.map(x => `<div class="d bloco">${x.b.tipo === 'Plantão de Dúvidas' ? 'Plantão' : 'Compl. C.H.'}</div><div class="p">${esc(x.b.disciplina || '')}</div>`).join('')}</td>`;
       });
       h += '</tr>';
-    }
+    });
     h += '</table>';
   });
   return h;
 }
 function tabelaGeral() {
-  return D.turnos.map(tn => {
-    const ts = D.turmas.filter(t => t.turno === tn.nome); if (!ts.length) return '';
-    return `<h3 style="margin:6px 0">${esc(tn.nome)}</h3><div style="overflow-x:auto"><table class="grade geral"><tr><th class="turma"></th>${D.dias.map(d => `<th colspan="${tn.aulas}">${d}</th>`).join('')}</tr>
-      ${ts.map(t => `<tr><th class="turma">${esc(t.nome)}</th>${D.dias.map((_, d) => Array.from({ length: tn.aulas }, (_, a) => {
+  return D.grades.map(g => {
+    const ts = D.turmas.filter(t => t.grade === g.nome), au = aulasDe(g); if (!ts.length) return '';
+    return `<h3 style="margin:6px 0">${esc(g.nome)}</h3><div class="rolar"><table class="grade geral" style="min-width:${120 + au.length * D.dias.length * 34}px"><tr><th class="turma"></th>${D.dias.map(d => `<th colspan="${au.length}">${d}</th>`).join('')}</tr>
+      ${ts.map(t => `<tr><th class="turma">${esc(t.nome)}</th>${D.dias.map((_, d) => au.map((x, a) => {
         const k = t.nome + '|' + d + '|' + a, c = GR.atual && GR.atual[k];
-        return `<td class="cel ${c ? '' : 'vazia'} ${GR.ruins.has(k) ? 'conf' : GR.mudou.has(k) ? 'mudou' : ''}" style="${c ? cor(c.disciplina) : ''}" title="${c ? esc(c.disciplina + ' · ' + c.professor) : ''}"><div class="d">${c ? esc(c.disciplina.slice(0, 4)) : ''}</div></td>`;
+        return `<td class="cel ${c ? '' : 'vazia'} ${GR.ruins.has(k) ? 'conf' : GR.mudou.has(k) ? 'mudou' : ''}" style="${c ? cor(c.disciplina) : ''}" title="${c ? esc(faixaTxt(x.ini, x.fim) + ' · ' + c.disciplina + ' · ' + c.professor) : ''}"><div class="d">${c ? esc(sigla(c.disciplina)) : ''}</div></td>`;
       }).join('')).join('')}</tr>`).join('')}</table></div>`;
   }).join('');
 }
@@ -580,20 +818,24 @@ function desenharGrade() {
   $('conteudo').innerHTML = GR.visao === 'turma' ? `<h2 style="margin-bottom:8px">${esc(GR.item)} <span class="peq suave">· ${esc(GR.nome)}${GR.editado ? ' (não salva)' : ''}</span></h2>` + tabelaTurma(GR.item, podeEditar())
     : GR.visao === 'prof' ? tabelaProf(GR.item) : tabelaGeral();
 }
+// Troca duas aulas da mesma turma. Aula de turmas juntas é trocada em todas as turmas da linha.
 function clicarCel(k) {
   if (!GR.sel) { GR.sel = k; return desenharGrade(); }
-  if (GR.sel === k || GR.sel.split('|')[0] !== k.split('|')[0]) { GR.sel = GR.sel === k ? null : k; return desenharGrade(); }
-  const a = GR.atual[GR.sel], b = GR.atual[k];
-  if ((a && a.fixa) || (b && b.fixa)) { toast('Aula fixa não pode ser movida.', 'erro'); GR.sel = null; return desenharGrade(); }
-  if (b) GR.atual[GR.sel] = b; else delete GR.atual[GR.sel];
-  if (a) GR.atual[k] = a; else delete GR.atual[k];
+  const [t1, d1, a1] = GR.sel.split('|'), [t2, d2, a2] = k.split('|');
+  if (GR.sel === k || t1 !== t2) { GR.sel = GR.sel === k ? null : k; return desenharGrade(); }
+  const tur = new Set([t1]);
+  [GR.atual[GR.sel], GR.atual[k]].forEach(c => { const l = c && linhaDe(t1, c.disciplina); if (l) l.turmas.forEach(t => tur.add(t)); });
+  const pares = [...tur].map(t => [t + '|' + d1 + '|' + a1, t + '|' + d2 + '|' + a2]);
+  if (pares.some(([x, y]) => (GR.atual[x] && GR.atual[x].fixa) || (GR.atual[y] && GR.atual[y].fixa))) { toast('Aula fixa não pode ser movida.', 'erro'); GR.sel = null; return desenharGrade(); }
+  pares.forEach(([x, y]) => { const a = GR.atual[x], b = GR.atual[y]; if (b) GR.atual[x] = b; else delete GR.atual[x]; if (a) GR.atual[y] = a; else delete GR.atual[y]; });
+  if (tur.size > 1) toast('Turmas juntas: trocado também em ' + [...tur].filter(t => t !== t1).join(', ') + '.');
   GR.sel = null; GR.editado = true; conferir();
 }
 function imprimir(tipo) {
   if (!tipo || !GR.atual) return;
   const cab = t => `<div class="titulo-imp">${logoHtml(CFG)}<div><b class="marca">${esc(CFG.escola)} · Grade Horária</b><div class="peq suave">${esc(t)}</div></div></div>`;
   const paginas = tipo === 'turmas' ? D.turmas.map(t => cab(t.nome) + tabelaTurma(t.nome, false))
-    : tipo === 'profs' ? D.professores.filter(p => aulasProf(p.nome)).map(p => cab('Professor') + tabelaProf(p.nome))
+    : tipo === 'profs' ? ordenarNomes(D.professores.filter(p => aulasProf(p.nome)).map(p => p.nome)).map(n => cab('Professor') + tabelaProf(n))
     : [cab(GR.visao === 'geral' ? 'Geral' : GR.item) + $('conteudo').innerHTML];
   $('impressao').innerHTML = paginas.map(p => `<div class="pagina">${p}</div>`).join('');
   document.body.classList.add('imp'); window.print();
@@ -604,12 +846,12 @@ function imprimir(tipo) {
 function abrirTroca() {
   if (!Object.keys(D.grade).length) return toast('Salve uma grade oficial antes.', 'erro');
   if (GR.editado) return toast('Salve ou descarte as alterações da grade antes.', 'erro');
-  const comAulas = D.professores.filter(p => aulasProf(p.nome)).map(p => p.nome).sort((a, b) => a.localeCompare(b));
+  const comAulas = ordenarNomes(D.professores.filter(p => aulasProf(p.nome)).map(p => p.nome));
   abrirModal('Trocar professor', `
     <p class="peq suave" style="margin:0">O sistema mantém a grade de todos os outros. Se não houver outro jeito, mostra exatamente quais aulas mudam antes de aplicar.</p>
     <div class="linha-campos">
       <label class="campo">Sai<select id="sSai" onchange="linhasTroca()">${comAulas.map(n => `<option>${esc(n)}</option>`).join('')}</select></label>
-      <label class="campo">Entra<select id="sEntra"><option value="">O mesmo (só mudou a disponibilidade)</option>${D.professores.slice().sort((a, b) => a.nome.localeCompare(b.nome)).map(p => `<option value="${esc(p.nome)}">${esc(p.nome)}${aulasProf(p.nome) ? '' : ' · sem aulas'}</option>`).join('')}</select></label>
+      <label class="campo">Entra<select id="sEntra"><option value="">O mesmo (só mudou a disponibilidade)</option>${ordenarNomes(D.professores.map(p => p.nome)).map(n => `<option value="${esc(n)}">${esc(n)}${aulasProf(n) ? '' : ' · sem aulas'}</option>`).join('')}</select></label>
     </div>
     <div><div class="campo" style="margin-bottom:6px">Turmas que passam para quem entra</div><div class="sub-linhas" id="sLinhas"></div></div>
     <div id="sRes"></div>`,
@@ -618,16 +860,16 @@ function abrirTroca() {
 }
 function linhasTroca() {
   const sai = $('sSai').value;
-  $('sLinhas').innerHTML = D.carga.filter(c => c.professor === sai).map(c => `<label><input type="checkbox" class="sLinha" data-t="${esc(c.turma)}" data-d="${esc(c.disciplina)}" checked>${esc(c.turma)} · ${esc(c.disciplina)}</label>`).join('');
+  $('sLinhas').innerHTML = D.carga.filter(c => c.professor === sai).map(c => `<label><input type="checkbox" class="sLinha" data-t="${esc(c.turmas.join(' + '))}" data-d="${esc(c.disciplina)}" checked>${esc(c.turmas.join(' + '))} · ${esc(sigla(c.disciplina))}</label>`).join('');
   $('sRes').innerHTML = ''; $('sAplicar').disabled = true; SUB = null;
 }
 function calcularTroca() {
   const sai = $('sSai').value, entra = $('sEntra').value || sai;
-  const linhas = [...document.querySelectorAll('.sLinha:checked')].map(c => ({ turma: c.dataset.t, disciplina: c.dataset.d }));
+  const linhas = [...document.querySelectorAll('.sLinha:checked')].map(c => ({ turmas: c.dataset.t, disciplina: c.dataset.d }));
   if (!linhas.length) return toast('Marque pelo menos uma turma.', 'erro');
-  const sel = new Set(linhas.map(l => l.turma + '|' + l.disciplina)), D2 = clone(D), g = clone(D.grade);
-  D2.carga.forEach(c => { if (c.professor === sai && sel.has(c.turma + '|' + c.disciplina)) c.professor = entra; });
-  Object.entries(g).forEach(([k, c]) => { if (c.professor === sai && sel.has(k.split('|')[0] + '|' + c.disciplina)) c.professor = entra; });
+  const sel = new Set(linhas.map(l => l.turmas + '|' + l.disciplina)), D2 = clone(D), g = clone(D.grade);
+  D2.carga.forEach(c => { if (c.professor === sai && sel.has(c.turmas.join(' + ') + '|' + c.disciplina)) c.professor = entra; });
+  Object.entries(g).forEach(([k, c]) => { const l = linhaDe(k.split('|')[0], c.disciplina); if (c.professor === sai && l && sel.has(l.turmas.join(' + ') + '|' + c.disciplina)) c.professor = entra; });
   $('sRes').innerHTML = '<div class="aviso">Calculando…</div>'; $('sCalc').disabled = true; $('sAplicar').disabled = true;
   Gerador.reencaixar(D2, g, entra, r => {
     if (!$('sRes')) return;
@@ -640,8 +882,8 @@ function calcularTroca() {
     const dele = r.nAlvo ? `${r.nAlvo} aula(s) de ${esc(entra)} mudam de horário.` : 'Nenhuma aula muda de horário.';
     $('sRes').innerHTML = !r.outros.length ? `<div class="aviso ok">✔ Os outros professores não mudam. ${dele}</div>`
       : `<div class="aviso alerta">Com a disponibilidade de ${esc(entra)} não dá para manter tudo igual. Mudam <b>${r.outros.length}</b> aula(s) de outros professores (o mínimo possível). ${dele}</div>
-         <table class="tab"><tr><th>Professor</th><th>Turma</th><th>Disciplina</th><th>De</th><th>Para</th></tr>${r.outros.map(o => `<tr><td>${esc(o.professor)}</td><td>${esc(o.turma)}</td><td>${esc(o.disciplina)}</td>
-           <td>${nomeAula(o.de[0], o.de[1])}</td><td><b>${nomeAula(o.para[0], o.para[1])}</b></td></tr>`).join('')}</table>`;
+         <div class="rolar"><table class="tab"><tr><th>Professor</th><th>Turma</th><th>Disciplina</th><th>De</th><th>Para</th></tr>${r.outros.map(o => `<tr><td>${esc(o.professor)}</td><td>${esc(o.turma)}</td><td>${esc(sigla(o.disciplina))}</td>
+           <td>${esc(o.de)}</td><td><b>${esc(o.para)}</b></td></tr>`).join('')}</table></div>`;
     $('sAplicar').disabled = false;
   });
 }
