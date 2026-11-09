@@ -3,7 +3,8 @@
   "private": true,
   "description": "Grade Horária · Objetivo CSA (ALBIX)",
   "scripts": {
-    "test": "node tests/checar.js",
-    "push": "node tests/checar.js && clasp push -f"
+    "test": "node tests/checar.js && node tests/gerador.js",
+    "local": "node tests/local.js",
+    "push": "npm test && clasp push -f"
   }
 }

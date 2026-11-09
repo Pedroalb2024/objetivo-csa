@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: 20
       - run: node tests/checar.js
+      - run: node tests/gerador.js   # gerador com a escola de exemplo: sem conflitos, tempo real, troca de professor
 
   publicar:
     needs: checar

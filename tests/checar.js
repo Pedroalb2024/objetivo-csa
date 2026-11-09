@@ -23,6 +23,9 @@ for (const arq of fs.readdirSync(dir).filter(f => f.endsWith('.html'))) {
       linhas.slice(0, 5).forEach(([n, l]) => console.error(`    linha ${base + n} tem "//" no meio do código: ${l.trim().slice(0, 100)}`));
     }
   });
+  for (const m of html.matchAll(/incluir_\('(\w+)'\)/g)) {   // arquivo incluído precisa existir
+    if (!fs.existsSync(path.join(dir, m[1] + '.html'))) { falhas++; console.error(`✗ ${arq}: inclui ${m[1]}.html, que não existe`); }
+  }
   if (blocos.length && falhas === antes) console.log(`✓ ${arq}`);
 }
 try { new vm.Script(fs.readFileSync(path.join(dir, 'Codigo.js'), 'utf8'), { filename: 'Codigo.js' }); console.log('✓ Codigo.js'); }
