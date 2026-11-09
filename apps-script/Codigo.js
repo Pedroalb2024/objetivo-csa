@@ -6,7 +6,7 @@ const CONFIG = {
   CREDITO: 'ALBIX',
   SESSAO_HORAS: 6,
 };
-const ESQUEMA = '5';   // versão das colunas da planilha; mudou → migrar_() roda sozinho uma vez
+const ESQUEMA = '6';   // versão das colunas da planilha; mudou → migrar_() roda sozinho uma vez
 const DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
 const SERIES = {
   EFAI: ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano'],
@@ -17,7 +17,7 @@ const SERIES = {
 const FAIXAS = { 'Manhã': [7, 8, 9, 10, 11, 12], 'Tarde': [13, 14, 15, 16, 17, 18] };   // faixas de 1h da disponibilidade
 const TIPOS_BLOCO = ['Complementação de Carga Horária', 'Plantão de Dúvidas'];
 const ABA = { config: 'Config', prof: 'Professores', turmas: 'Turmas', carga: 'Carga', fixas: 'Fixas', grade: 'Grade',
-  matriz: 'Matriz', comp: 'Componentes', blocos: 'Blocos', usuarios: 'Usuários', registro: 'Registro' };
+  matriz: 'Matriz', comp: 'Componentes', blocos: 'Blocos', usuarios: 'Usuários', registro: 'Registro', hist: 'Histórico da grade' };
 const CAB = {
   'Config': ['Grade de horário', 'Tipo (Aula/Intervalo)', 'Início', 'Fim'],
   'Professores': ['Professor (nome curto)', 'Nome completo', 'Disciplinas', 'WhatsApp', 'Máx. aulas por dia', 'Indisponível (dia faixa)', 'Respondeu em', 'Observação', 'Segmentos'],
@@ -30,7 +30,9 @@ const CAB = {
   'Blocos': ['Professor', 'Tipo', 'Disciplina', 'Dia', 'Início', 'Fim'],
   'Usuários': ['Usuário', 'Senha', 'Nome', 'Perfil (admin / coordenacao / consulta)', 'Ativo (Sim/Não)', 'Último acesso'],
   'Registro': ['Data', 'Usuário', 'Ação'],
+  'Histórico da grade': ['Versão', 'Data', 'Usuário', 'O que mudou', 'Válida a partir de', 'Parte', 'Dados (não editar)'],
 };
+const MAX_VERSOES = 80, PARTE_MAX = 40000;   // versões guardadas no histórico; tamanho de cada pedaço (limite da célula: 50 mil)
 const PERFIS = ['admin', 'coordenacao', 'consulta'];
 
 // ---------------- Páginas ----------------
@@ -107,6 +109,8 @@ const ACOES = {
   salvarAtribuicoes:{ p: EDITA, f: salvarAtribuicoes_ },
   salvarFixas:      { p: EDITA, f: salvarFixas_ },
   salvarGrade:      { p: EDITA, f: salvarGrade_ },
+  lerVersao:        { p: ['admin', 'coordenacao', 'consulta'], f: lerVersao_, leitura: true },
+  restaurarVersao:  { p: EDITA, f: restaurarVersao_ },
   substituir:       { p: EDITA, f: substituir_ },
   salvarMatriz:     { p: EDITA, f: salvarMatriz_ },
   previaMatriz:     { p: EDITA, f: previaMatriz_, leitura: true },
@@ -143,7 +147,9 @@ function dados_(s) {
     componentes: lerComponentes_(),
     blocos: lerBlocos_(),
     grade: {},
+    versoes: lerVersoes_().slice(0, 50),
   };
+  D.vigencia = D.versoes.length ? D.versoes[0].vigencia : '';
   valores_(ABA.grade).forEach(r => {
     const d = DIAS.indexOf(txt_(r[1])), a = num_(r[2]) - 1;
     if (d >= 0 && a >= 0) D.grade[txt_(r[0]) + '|' + d + '|' + a] = { disciplina: txt_(r[4]), professor: txt_(r[5]) };
@@ -162,7 +168,7 @@ function dados_(s) {
 function salvarGrades_(d) {
   const grades = (d.grades || []).map(g => ({ nome: String(g.nome || '').trim(), nomeAntigo: String(g.nomeAntigo || '').trim(),
     itens: (g.itens || []).map(i => ({ tipo: i.tipo === 'intervalo' ? 'intervalo' : 'aula', ini: normHora_(i.ini), fim: normHora_(i.fim) })) }));
-  if (!grades.length) throw new Error('Cadastre pelo menos uma grade de horário.');
+  if (!grades.length) throw new Error('Cadastre pelo menos um período com horários de aula.');
   const nomes = grades.map(g => g.nome);
   if (nomes.some(n => !n) || new Set(nomes.map(n => n.toLowerCase())).size !== nomes.length) throw new Error('Cada grade precisa de um nome diferente.');
   grades.forEach(g => { const e = problemaGrade_(g.itens); if (e) throw new Error(g.nome + ': ' + e); });
@@ -219,7 +225,7 @@ function salvarProfessor_(d) {
 
 function excluirProfessor_(d) {
   const usos = lerCarga_().filter(c => c.professor === d.nome).map(c => c.turmas.join(' + ') + ' (' + c.disciplina + ')');
-  if (usos.length) throw new Error('Este professor ainda está na carga de: ' + usos.join(', ') + '. Use "Trocar professor" na grade antes.');
+  if (usos.length) throw new Error('Este professor ainda tem aulas em: ' + usos.join(', ') + '. Passe as aulas para outro professor antes (Atribuições ou “Trocar professor” na grade).');
   gravar_(ABA.prof, valores_(ABA.prof).filter(r => txt_(r[0]) !== d.nome));
   gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => txt_(r[0]) !== d.nome));
   return 'Excluiu professor ' + d.nome;
@@ -231,7 +237,7 @@ function salvarTurma_(d) {
   if (nome.indexOf('+') >= 0 || nome.indexOf('|') >= 0) throw new Error('O nome da turma não pode ter "+" nem "|".');
   if (!SERIES[seg]) throw new Error('Escolha o segmento.');
   if (seg !== 'Extra' && SERIES[seg].indexOf(serie) < 0) throw new Error('Escolha a série.');
-  if (!lerGrades_().some(g => g.nome === d.grade)) throw new Error('Escolha uma grade de horário válida.');
+  if (!lerGrades_().some(g => g.nome === d.grade)) throw new Error('Escolha o horário das aulas da turma.');
   const v = valores_(ABA.turmas), i = antigo ? v.findIndex(r => txt_(r[0]) === antigo) : -1;
   if (v.some((r, j) => j !== i && txt_(r[0]).toLowerCase() === nome.toLowerCase())) throw new Error('Já existe uma turma com esse nome.');
   const linha = [nome, seg, seg === 'Extra' ? '' : serie, d.grade];
@@ -260,7 +266,7 @@ function salvarCarga_(d) {
     const juntas = [...new Set((l.juntas || []).filter(t => t && t !== turma))];
     juntas.forEach(t => {
       if (!turmas[t]) throw new Error(`${disc}: turma ${t} não encontrada.`);
-      if (turmas[t].grade !== turmas[turma].grade) throw new Error(`${disc}: ${t} usa outra grade de horário. Turmas juntas precisam da mesma grade.`);
+      if (turmas[t].grade !== turmas[turma].grade) throw new Error(`${disc}: ${t} tem outro horário das aulas. Turmas juntas precisam ter o mesmo horário.`);
     });
     if (prof && profs.indexOf(prof) < 0) throw new Error(`${disc}: professor não encontrado.`);
     if (!(+l.aulas > 0)) throw new Error(`${disc}: informe as aulas por semana.`);
@@ -300,7 +306,7 @@ function conferirDuplicadas_(linhas) {
   const vistos = {};
   linhas.forEach(r => listaTurmas_(r[0]).forEach(t => {
     const k = t + '|' + txt_(r[1]).toLowerCase();
-    if (vistos[k]) throw new Error(`${t} ficaria com ${txt_(r[1])} em duas linhas.`);
+    if (vistos[k]) throw new Error(`${t} ficaria com ${txt_(r[1])} duas vezes.`);
     vistos[k] = 1;
   }));
 }
@@ -315,8 +321,13 @@ function salvarFixas_(d) {
   return 'Alterou aulas fixas (' + linhas.length + ')';
 }
 
-function salvarGrade_(d) {
-  const grade = d.grade || {}, ordem = {}, aulasDe = {}, grades = {};
+function salvarGrade_(d, s) {
+  const vig = vigencia_(d.vigencia), n = gravarGrade_(d.grade || {});
+  guardarVersao_(s, 'Salvou como oficial', vig);
+  return `Salvou a grade como oficial (${n} aulas), válida a partir de ${vig}`;
+}
+function gravarGrade_(grade) {
+  const ordem = {}, aulasDe = {}, grades = {};
   lerGrades_().forEach(g => grades[g.nome] = aulasGrade_(g));
   lerTurmas_().forEach((t, i) => { ordem[t.nome] = i; aulasDe[t.nome] = grades[t.grade] || []; });
   const linhas = Object.keys(grade).map(k => {
@@ -324,10 +335,69 @@ function salvarGrade_(d) {
     return [p[0], DIAS[+p[1]], +p[2] + 1, x ? hhmm_(x.ini) + '–' + hhmm_(x.fim) : '', c.disciplina, c.professor, p[0] in ordem ? ordem[p[0]] : 999, +p[1]];
   }).sort((x, y) => x[6] - y[6] || x[7] - y[7] || x[2] - y[2]).map(r => r.slice(0, 6));
   gravar_(ABA.grade, linhas);
-  return 'Salvou a grade (' + linhas.length + ' aulas)';
+  return linhas.length;
 }
 
-function substituir_(d) {
+// ---------------- Histórico de versões da grade oficial ----------------
+// Cada "Salvar como oficial", troca de professor e restauração guarda uma cópia da grade e das atribuições (carga).
+// A cópia vai em JSON, dividida em pedaços (uma linha por pedaço), porque a célula aceita no máximo 50 mil caracteres.
+function vigencia_(v) {   // "2026-11-16" ou "16/11/2026" → "16/11/2026"; vazio = hoje
+  const t = txt_(v);
+  if (!t) return agora_().slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t) || /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if (!m) throw new Error('Data “válida a partir de” inválida.');
+  const [a, me, di] = m[1].length === 4 ? [+m[1], +m[2], +m[3]] : [+m[3], +m[2], +m[1]];
+  const dt = new Date(a, me - 1, di);
+  if (dt.getFullYear() !== a || dt.getMonth() !== me - 1 || dt.getDate() !== di) throw new Error('Data “válida a partir de” inválida.');
+  return ('0' + di).slice(-2) + '/' + ('0' + me).slice(-2) + '/' + a;
+}
+function lerVersoes_() {   // mais recente primeiro; só as colunas leves
+  const sh = aba_(ABA.hist), n = sh.getLastRow();
+  if (n < 2) return [];
+  const data = (v, f) => v instanceof Date ? Utilities.formatDate(v, tz_(), f) : txt_(v);
+  return sh.getRange(2, 1, n - 1, 6).getValues().filter(r => num_(r[0]) > 0 && num_(r[5]) === 1)
+    .map(r => ({ versao: num_(r[0]), data: data(r[1], 'dd/MM/yyyy HH:mm'), usuario: txt_(r[2]), descricao: txt_(r[3]), vigencia: data(r[4], 'dd/MM/yyyy') }))
+    .sort((x, y) => y.versao - x.versao);
+}
+function guardarVersao_(s, descricao, vigencia) {
+  const vs = lerVersoes_(), n = vs.length ? vs[0].versao + 1 : 1;
+  const json = JSON.stringify({ g: valores_(ABA.grade).map(r => [txt_(r[0]), txt_(r[1]), num_(r[2]), txt_(r[4]), txt_(r[5])]), c: valores_(ABA.carga) });
+  const partes = []; for (let i = 0; i < json.length || !partes.length; i += PARTE_MAX) partes.push('#' + json.slice(i, i + PARTE_MAX));   // "#": o pedaço nunca começa com "=" ou "+"
+  const quando = agora_(), quem = s ? s.nome || s.u : 'planilha';
+  acrescentar_(ABA.hist, partes.map((p, i) => [n, quando, quem, descricao, vigencia, i + 1, p]));
+  if (vs.length + 1 > MAX_VERSOES) {   // guarda só as últimas
+    const corte = vs[MAX_VERSOES - 2].versao;   // a nova + as MAX_VERSOES - 1 mais recentes
+    gravar_(ABA.hist, valores_(ABA.hist).filter(r => num_(r[0]) >= corte));
+  }
+  return n;
+}
+function dadosVersao_(n) {
+  const partes = valores_(ABA.hist).filter(r => num_(r[0]) === n).sort((x, y) => num_(x[5]) - num_(y[5]));
+  if (!partes.length) throw new Error('Versão não encontrada.');
+  return JSON.parse(partes.map(r => String(r[6]).replace(/^#/, '')).join(''));
+}
+function gradeDaVersao_(v) {
+  const g = {};
+  v.g.forEach(r => { const d = DIAS.indexOf(r[1]); if (d >= 0 && r[2] > 0) g[r[0] + '|' + d + '|' + (r[2] - 1)] = { disciplina: r[3], professor: r[4] }; });
+  return g;
+}
+function lerVersao_(d) {
+  const n = +d.versao, info = lerVersoes_().filter(x => x.versao === n)[0];
+  if (!info) throw new Error('Versão não encontrada.');
+  return { info: info, grade: gradeDaVersao_(dadosVersao_(n)) };
+}
+function restaurarVersao_(d, s) {
+  const n = +d.versao, info = lerVersoes_().filter(x => x.versao === n)[0];
+  if (!info) throw new Error('Versão não encontrada.');
+  const v = dadosVersao_(n);
+  gravar_(ABA.carga, v.c);
+  limparFixas_(v.c);
+  gravarGrade_(gradeDaVersao_(v));
+  guardarVersao_(s, `Voltou para a versão de ${info.data.slice(0, 10)} (${info.descricao})`, info.vigencia);
+  return `Restaurou a versão ${n} da grade (${info.data})`;
+}
+
+function substituir_(d, s) {
   const profs = valores_(ABA.prof).map(r => txt_(r[0]));
   if (profs.indexOf(d.entra) < 0) throw new Error('Professor que entra não encontrado.');
   const linhas = {}; (d.linhas || []).forEach(l => linhas[listaTurmas_(l.turmas).join(' + ') + '|' + l.disciplina] = 1);
@@ -336,8 +406,10 @@ function substituir_(d) {
     if (txt_(r[2]) === d.sai && linhas[listaTurmas_(r[0]).join(' + ') + '|' + txt_(r[1])]) { r[2] = d.entra; n++; }
     return r;
   }));
-  salvarGrade_({ grade: d.grade });
-  return d.sai === d.entra ? 'Reencaixou as aulas de ' + d.entra : `Trocou ${d.sai} por ${d.entra} (${n} disciplina/turma)`;
+  const vig = vigencia_(d.vigencia);
+  gravarGrade_(d.grade || {});
+  guardarVersao_(s, d.sai === d.entra ? `Nova disponibilidade: ${d.entra}` : `Troca: ${d.sai} → ${d.entra}`, vig);
+  return (d.sai === d.entra ? 'Reencaixou as aulas de ' + d.entra : `Trocou ${d.sai} por ${d.entra} (${n} matéria/turma)`) + `, válida a partir de ${vig}`;
 }
 
 // ---------------- Matriz curricular e componentes ----------------
@@ -346,10 +418,10 @@ function salvarMatriz_(d) {
     apelidos: (Array.isArray(c.apelidos) ? c.apelidos : String(c.apelidos || '').split(';')).map(a => String(a).trim()).filter(String) })).filter(c => c.nome);
   const chaves = {}, nomes = {};
   comps.forEach(c => {
-    if (nomes[c.nome.toLowerCase()]) throw new Error(`Componente repetido: ${c.nome}.`);
+    if (nomes[c.nome.toLowerCase()]) throw new Error(`Matéria repetida: ${c.nome}.`);
     nomes[c.nome.toLowerCase()] = 1;
     [...new Set([c.nome, c.sigla].concat(c.apelidos).filter(String).map(normalizar_))].forEach(k => {
-      if (chaves[k] && chaves[k] !== c.nome) throw new Error(`"${k}" aparece em ${chaves[k]} e em ${c.nome}. Cada sigla/apelido só pode indicar um componente.`);
+      if (chaves[k] && chaves[k] !== c.nome) throw new Error(`"${k}" aparece em ${chaves[k]} e em ${c.nome}. Cada sigla ou outro nome só pode indicar uma matéria.`);
       chaves[k] = c.nome;
     });
   });
@@ -358,7 +430,7 @@ function salvarMatriz_(d) {
   const matriz = (d.matriz || []).map(m => {
     const comp = renomeia[m.componente] || String(m.componente || '').trim(), n = Math.round(+m.aulas);
     if (todas.indexOf(m.serie) < 0) throw new Error(`Série inválida: ${m.serie}.`);
-    if (!nomes[comp.toLowerCase()]) throw new Error(`${comp}: cadastre o componente (aba Componentes).`);
+    if (!nomes[comp.toLowerCase()]) throw new Error(`${comp}: cadastre a matéria (Matriz curricular → Matérias e siglas).`);
     if (!(n >= 1 && n <= 40)) throw new Error(`${comp} (${m.serie}): aulas por semana inválidas.`);
     if (vistas[m.serie + '|' + comp]) throw new Error(`${comp} aparece duas vezes no ${m.serie}.`);
     vistas[m.serie + '|' + comp] = 1;
@@ -547,7 +619,19 @@ function valores_(nome) {
 function gravar_(nome, linhas) {
   const sh = aba_(nome), nc = CAB[nome].length, n = sh.getLastRow();
   if (n > 1) sh.getRange(2, 1, n - 1, nc).clearContent();
+  garantirLinhas_(sh, nome, linhas.length + 1);
   if (linhas.length) sh.getRange(2, 1, linhas.length, nc).setValues(linhas.map(r => { const x = r.slice(0, nc); while (x.length < nc) x.push(''); return x.map(v => v === undefined || v === null ? '' : v); }));
+}
+function acrescentar_(nome, linhas) {   // escreve no fim da aba
+  const sh = aba_(nome), nc = CAB[nome].length, ini = sh.getLastRow() + 1;
+  garantirLinhas_(sh, nome, ini + linhas.length - 1);
+  sh.getRange(ini, 1, linhas.length, nc).setValues(linhas);
+}
+function garantirLinhas_(sh, nome, n) {   // a aba precisa ter linhas suficientes (getRange fora da aba dá erro)
+  const m = sh.getMaxRows();
+  if (n <= m) return;
+  sh.insertRowsAfter(m, n - m);
+  if (nome !== ABA.registro) sh.getRange(m + 1, 1, n - m, CAB[nome].length).setNumberFormat('@');
 }
 function trocarValor_(nome, col, de, para) {
   gravar_(nome, valores_(nome).map(r => { if (txt_(r[col]) === de) r[col] = para; return r; }));
@@ -601,7 +685,7 @@ function migrar_() {
     });
     regravar(ABA.config, linhas);
   }
-  const hp = cab(ABA.prof), semSegmentos = !!hp && hp.indexOf('Segmentos') < 0;
+  const hp = cab(ABA.prof), semSegmentos = !!hp && hp.indexOf('Segmentos') < 0, semHistorico = !ss.getSheetByName(ABA.hist);
   if (hp && hp[1] === 'Disciplinas') {
     regravar(ABA.prof, brutas(ABA.prof).map(r => [r[0], '', r[1], r[2], r[3], converterIndisp_(txt_(r[4]), turnos), r[5], r[6]]));
   }
@@ -613,6 +697,7 @@ function migrar_() {
   if (!valores_(ABA.comp).length) gravar_(ABA.comp, COMPONENTES_PADRAO.map(c => c.slice()));
   if (!valores_(ABA.matriz).length) gravar_(ABA.matriz, matrizPadrao_());
   if (semSegmentos) completarProfessores_();
+  if (semHistorico && valores_(ABA.grade).length) guardarVersao_(null, 'Grade oficial que já estava salva', '');   // v6: histórico de versões
 }
 
 // v5: professor ganha "Segmentos" e as matérias passam a ser componentes da Matriz (escolhidos por clique).
@@ -747,14 +832,14 @@ function gravarExemplo_() {
   const x = dadosExemplo_();
   gravar_(ABA.config, x.config); gravar_(ABA.comp, x.componentes); gravar_(ABA.matriz, x.matriz);
   gravar_(ABA.turmas, x.turmas); gravar_(ABA.prof, x.professores); gravar_(ABA.carga, x.carga);
-  gravar_(ABA.fixas, x.fixas); gravar_(ABA.blocos, x.blocos); gravar_(ABA.grade, []);
+  gravar_(ABA.fixas, x.fixas); gravar_(ABA.blocos, x.blocos); gravar_(ABA.grade, []); gravar_(ABA.hist, []);
   registrar_('planilha', 'Criou dados de exemplo');
 }
 
 function limparDados() {
   const ui = SpreadsheetApp.getUi();
-  if (ui.alert('Limpar dados', 'Apaga professores, turmas, carga, fixas, blocos e grade (mantém grades de horário, matriz e usuários). Continuar?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
-  [ABA.prof, ABA.turmas, ABA.carga, ABA.fixas, ABA.blocos, ABA.grade].forEach(a => gravar_(a, []));
+  if (ui.alert('Limpar dados', 'Apaga professores, turmas, atribuições, aulas fixas, horários reservados, grade e histórico (mantém grades de horário, matriz e usuários). Continuar?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  [ABA.prof, ABA.turmas, ABA.carga, ABA.fixas, ABA.blocos, ABA.grade, ABA.hist].forEach(a => gravar_(a, []));
   registrar_('planilha', 'Limpou os dados da escola');
 }
 
