@@ -6,7 +6,7 @@
 <?!= incluir_('Estilo'); ?>
 <style>
   .topo-f { background:var(--marinho); color:#fff; text-align:center; padding:20px 16px 44px; }
-  .topo-f .logo { width:60px; height:60px; }
+  .topo-f .logo { height:40px; margin:0 auto; }
   .topo-f .logo-txt { font-size:20px; }
   .topo-f h1 { font-size:19px; margin-top:8px; }
   .pagina-f { max-width:700px; margin:-28px auto 40px; padding:0 12px; display:flex; flex-direction:column; gap:12px; }
@@ -27,7 +27,7 @@
 const CFG = <?!= JSON.stringify(cfg) ?>;
 let INFO = null;
 function iniciar() {
-  $('logo').innerHTML = logoHtml(CFG);
+  $('logo').innerHTML = logoHtml(CFG, true);
   chamar('formLista').then(info => { INFO = info; montar(); })
     .catch(e => { $('pagina').innerHTML = `<div class="card">${esc(e.message)}</div>`; })
     .finally(() => ocupado(false));
@@ -36,7 +36,7 @@ function montar() {
   $('pagina').innerHTML = `
     <div class="card"><label class="campo">Seu nome
       <select id="fNome" onchange="escolher()"><option value="">Selecione…</option>
-        ${INFO.profs.map(p => `<option value="${esc(p.nome)}">${esc(p.nome)}${p.disciplinas ? ' · ' + esc(p.disciplinas) : ''}</option>`).join('')}
+        ${INFO.profs.map(p => `<option value="${esc(p.nome)}">${esc(p.completo || p.nome)}${p.disciplinas ? ' · ' + esc(p.disciplinas) : ''}</option>`).join('')}
         <option value="__novo">Não estou na lista (sou novo)</option></select></label>
       <div id="fNovo" hidden style="margin-top:12px" class="linha-campos">
         <label class="campo">Nome completo<input id="fNomeNovo"></label>
@@ -45,7 +45,7 @@ function montar() {
       </div>
     </div>
     <div id="fResto" hidden>
-      <div class="card"><p style="margin:0 0 10px">Toque nos horários em que você <b>não pode</b> dar aula (ficam vermelhos).</p>
+      <div class="card"><p style="margin:0 0 10px">Toque nas faixas de horário em que você <b>não pode</b> dar aula (ficam vermelhas).</p>
         <div id="fAviso"></div><div id="fGrade"></div></div>
       <div class="card" style="margin-top:12px"><label class="campo">Observação (opcional)<textarea id="fObs" rows="2" maxlength="500"></textarea></label></div>
       <div class="enviar"><button class="btn prim" id="fBtn" onclick="enviar()">Enviar</button></div>
@@ -64,7 +64,7 @@ async function escolher() {
       if (d.respondeuEm) $('fAviso').innerHTML = `<div class="aviso ok" style="margin-bottom:10px">Você já respondeu em ${esc(d.respondeuEm)}. Pode alterar e enviar de novo.</div>`;
     } catch (e) { toast(e.message, 'erro'); } finally { ocupado(false); }
   }
-  $('fGrade').innerHTML = htmlDisp(INFO.turnos, INFO.dias);
+  $('fGrade').innerHTML = htmlDisp(INFO.dias, INFO.faixas);
 }
 async function enviar() {
   const novo = $('fNome').value === '__novo';

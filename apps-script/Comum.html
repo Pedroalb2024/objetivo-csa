@@ -11,8 +11,10 @@ function toast(msg, tipo) {
   $('toast').appendChild(d); setTimeout(() => d.remove(), tipo === 'erro' ? 6000 : 3000);
 }
 function ocupado(sim) { $('carregando').hidden = !sim; }
-function logoHtml(cfg) {
-  return cfg.logo ? `<img class="logo" src="${esc(cfg.logo)}" alt="${esc(cfg.escola)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="logo-txt" hidden>${esc(cfg.escola)}</span>`
+// Logo oficial (azul) ou a versão branca para o topo azul-marinho; se a imagem não carregar, mostra o nome da escola
+function logoHtml(cfg, branco) {
+  const src = branco ? cfg.logoBranco : cfg.logo;
+  return src ? `<img class="logo" src="${esc(src)}" alt="${esc(cfg.escola)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="logo-txt" hidden>${esc(cfg.escola)}</span>`
     : `<span class="logo-txt">${esc(cfg.escola)}</span>`;
 }
 async function copiar(texto) {
@@ -21,21 +23,21 @@ async function copiar(texto) {
   let ok = false; try { ok = document.execCommand('copy'); } catch (e) { }
   t.remove(); ok ? toast('Copiado!') : window.prompt('Copie o texto abaixo:', texto);
 }
-function horario(tn, a) {
-  const hm = String(tn.inicio || '07:00').split(':').map(Number);
-  const ini = hm[0] * 60 + hm[1] + a * tn.duracao + (tn.intervaloApos && a >= tn.intervaloApos ? tn.intervaloMin : 0);
-  const f = x => String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0');
-  return f(ini) + '–' + f(ini + tn.duracao);
-}
+// Horários: "07:40" <-> 460 minutos
+const minutos = h => { const m = /^(\d{1,2}):(\d{2})/.exec(String(h || '')); return m ? +m[1] * 60 + +m[2] : NaN; };
+const hora = m => Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+const faixaTxt = (ini, fim) => hora(ini) + '–' + hora(fim);
+function aulasDe(g) { return g ? g.itens.filter(i => i.tipo !== 'intervalo').map(i => ({ ini: minutos(i.ini), fim: minutos(i.fim) })) : []; }
 
-// ===== Quadro de disponibilidade (clique ou arraste para marcar "Não posso") =====
+// ===== Quadro de disponibilidade por faixas de 1h (clique ou arraste para marcar "Não posso") =====
+// Chave: "Seg|7" = segunda das 7h às 8h. Uma aula é proibida se encostar em qualquer faixa marcada.
 let DISP = new Set(), pintando = null, tipoPonteiro = 'mouse';
-function htmlDisp(turnos, dias) {
-  return turnos.map(tn => `<div class="disp-turno">
-    <div class="disp-tit"><h3>${esc(tn.nome)}</h3><button class="link" data-turno="${esc(tn.nome)}" onclick="dispGrupo(this)">Turno inteiro</button></div>
-    <table class="disp"><tr><th class="h"></th>${dias.map(d => `<th><button class="link" data-turno="${esc(tn.nome)}" data-dia="${d}" onclick="dispGrupo(this)">${d}</button></th>`).join('')}</tr>
-    ${Array.from({ length: tn.aulas }, (_, a) => `<tr><th class="h"><button class="link" data-turno="${esc(tn.nome)}" data-aula="${a + 1}" onclick="dispGrupo(this)">${a + 1}ª aula</button><small>${horario(tn, a)}</small></th>
-      ${dias.map(d => { const k = d + '|' + tn.nome + '|' + (a + 1); return `<td class="slot ${DISP.has(k) ? 'nao' : ''}" data-k="${esc(k)}" onpointerdown="slotDown(event,this)" onpointerenter="slotEnter(this)" onclick="slotClick(this)"></td>`; }).join('')}</tr>`).join('')}
+function htmlDisp(dias, faixas) {
+  return Object.keys(faixas).map(per => `<div class="disp-turno">
+    <div class="disp-tit"><h3>${esc(per)}</h3><button class="link" data-per="${esc(per)}" onclick="dispGrupo(this)">${per === 'Manhã' ? 'Manhã inteira' : 'Tarde inteira'}</button></div>
+    <table class="disp"><tr><th class="h"></th>${dias.map(d => `<th><button class="link" data-per="${esc(per)}" data-dia="${d}" onclick="dispGrupo(this)">${d}</button></th>`).join('')}</tr>
+    ${faixas[per].map(h => `<tr><th class="h"><button class="link" data-per="${esc(per)}" data-h="${h}" onclick="dispGrupo(this)">${h}h–${h + 1}h</button></th>
+      ${dias.map(d => { const k = d + '|' + h; return `<td class="slot ${DISP.has(k) ? 'nao' : ''}" data-k="${k}" data-per="${esc(per)}" onpointerdown="slotDown(event,this)" onpointerenter="slotEnter(this)" onclick="slotClick(this)"></td>`; }).join('')}</tr>`).join('')}
     </table></div>`).join('');
 }
 function aplicarSlot(td, nao) {
@@ -48,8 +50,8 @@ function slotEnter(td) { if (pintando !== null) aplicarSlot(td, pintando); }
 function slotClick(td) { if (tipoPonteiro === 'mouse') return; aplicarSlot(td, !td.classList.contains('nao')); }
 document.addEventListener('pointerup', () => pintando = null);
 function dispGrupo(b) {
-  const { turno, dia, aula } = b.dataset;
-  const tds = [...document.querySelectorAll('td.slot')].filter(td => { const p = td.dataset.k.split('|'); return p[1] === turno && (!dia || p[0] === dia) && (!aula || p[2] === aula); });
+  const { per, dia, h } = b.dataset;
+  const tds = [...document.querySelectorAll('td.slot')].filter(td => { const p = td.dataset.k.split('|'); return td.dataset.per === per && (!dia || p[0] === dia) && (!h || p[1] === h); });
   const marcar = tds.some(td => !td.classList.contains('nao'));
   tds.forEach(td => aplicarSlot(td, marcar));
 }

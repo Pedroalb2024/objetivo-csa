@@ -16,8 +16,8 @@
   .suave { color:var(--suave); } .peq { font-size:12px; }
   [hidden] { display:none !important; }
 
-  /* marca do sistema: logo oficial + nome do sistema */
-  .logo { height:36px; width:36px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 2px #fff; background:var(--marinho); }
+  /* marca do sistema: logo oficial (sem cortar, sem círculo) + nome do sistema */
+  .logo { display:block; height:36px; width:auto; max-width:200px; object-fit:contain; }
   .logo-txt { font-family:'Ubuntu', Arial, sans-serif; font-weight:700; letter-spacing:.02em; }
   .faixa { height:4px; background:linear-gradient(90deg, var(--azul) 0 85%, var(--amarelo) 85% 100%); }
 
