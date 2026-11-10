@@ -23,11 +23,15 @@ class Aba {
   getName() { return this.nome; }
   getLastRow() { for (let i = this.d.length - 1; i >= 0; i--) if ((this.d[i] || []).some(v => v !== '' && v !== undefined && v !== null)) return i + 1; return 0; }
   getLastColumn() { return Math.max(0, ...this.d.map(l => { let n = 0; (l || []).forEach((v, j) => { if (v !== '' && v !== undefined) n = j + 1; }); return n; })); }
-  getMaxRows() { return Math.max(1000, this.d.length); }
-  getRange(r, c, nr, nc) { return new Faixa(this, r, c, nr || 1, nc || 1); }
+  getMaxRows() { return this.max || 1000; }   // como no Sheets: aba nova tem 1000 linhas; passar disso dá erro
+  insertRowsAfter(r, n) { this.max = this.getMaxRows() + n; }
+  getRange(r, c, nr, nc) {
+    if (r + (nr || 1) - 1 > this.getMaxRows()) throw new Error(`Intervalo fora da aba ${this.nome} (linha ${r + (nr || 1) - 1} > ${this.getMaxRows()})`);
+    return new Faixa(this, r, c, nr || 1, nc || 1);
+  }
   setFrozenRows() { }
   clearContents() { this.d = []; }
-  appendRow(v) { this.d[this.getLastRow()] = v.slice(); }
+  appendRow(v) { const n = this.getLastRow(); if (n + 1 > this.getMaxRows()) this.max = n + 1; this.d[n] = v.slice(); }
 }
 class Planilha {
   constructor() { this.abas = {}; }

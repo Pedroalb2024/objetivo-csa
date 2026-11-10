@@ -1,6 +1,6 @@
 // Testes do servidor (Codigo.js) e do gerador (Gerador.html) com a escola de exemplo e casos pequenos.
 // Uso: node tests/gerador.js
-const { criarAmbiente } = require('./ambiente');
+const { criarAmbiente } = require('./ambiente'), vm = require('vm');
 let falhas = 0, total = 0;
 const ok = (cond, msg) => { total++; if (!cond) { falhas++; console.error('  ✗ ' + msg); } };
 const caso = async (nome, fn) => { const f0 = falhas; try { await fn(); } catch (e) { falhas++; console.error('  ✗ erro: ' + (e.stack || e)); } console.log((falhas === f0 ? '✓ ' : '✗ ') + nome); };
@@ -195,21 +195,195 @@ function mini(extra) {
     ok(p.indisp.join(',') === 'Seg|7,Ter|10','disponibilidade migrada para faixas (' + p.indisp.join(',') + ')');
     ok(d.carga[0].turmas[0] === '6º A', 'carga mantida');
     ok(d.componentes.length > 30 && d.matriz.length > 50, 'componentes e matriz padrão criados');
-    ok(v.props.ESQUEMA === '4', 'versão gravada');
+    ok(v.props.ESQUEMA === '6', 'versão gravada');
+    ok(p.segmentos.join(',') === 'EFAF' && p.materias.join(',') === 'Física', 'segmentos e matérias completados pela carga');
+  });
+
+  await caso('Exemplo: matérias e segmentos dos professores coerentes com as atribuições', () => {
+    const seg = {}; D.turmas.forEach(t => seg[t.nome] = t.segmento);
+    D.carga.forEach(c => {
+      const p = D.professores.find(x => x.nome === c.professor);
+      ok(p && p.materias.includes(c.disciplina), `${c.professor} tem ${c.disciplina}`);
+      ok(p && c.turmas.every(t => p.segmentos.includes(seg[t])), `${c.professor} tem o segmento de ${c.turmas.join(' + ')}`);
+    });
+    ok(D.professores.every(p => p.materias.every(m => D.componentes.some(c => c.nome === m))), 'matérias são componentes da Matriz');
+  });
+
+  await caso('Migração v4 → v5: professor ganha segmentos e matérias viram componentes', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const prof = v.ss.getSheetByName('Professores');
+    prof.d[0] = prof.d[0].slice(0, 8);                                         // cabeçalho v4 (sem Segmentos)
+    prof.d.slice(1).forEach(l => { l[8] = ''; if (l[0] === 'Carla') l[2] = 'Ling. Ingl.'; });   // apelido do aSc
+    v.props.ESQUEMA = '4'; v.ctx.garantirEsquema_();
+    const c = v.dados().professores.find(p => p.nome === 'Carla');
+    ok(c.materias.join(',') === 'Língua Inglesa', 'apelido virou componente (' + c.materias.join(',') + ')');
+    ok(c.segmentos.join(',') === 'EFAI,EFAF', 'segmentos pela carga (' + c.segmentos.join(',') + ')');
+    ok(v.ss.getSheetByName('Professores').d[0][8] === 'Segmentos', 'cabeçalho novo');
+  });
+
+  await caso('Atribuições: salva a carga inteira, valida e protege contra edição simultânea', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const s = { u: 'teste', perfil: 'admin' }, erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
+    const d0 = v.dados(), carga = JSON.parse(JSON.stringify(d0.carga));
+    carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor = 'Helena';
+    carga.push({ turmas: ['6A', '6B'], disciplina: 'Teatro', professor: 'Igor', aulas: 1, duplas: 0, maxDia: 1 });
+    v.ctx.salvarAtribuicoes_({ carga, antes: d0.carga }, s);
+    const d1 = v.dados();
+    ok(d1.carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor === 'Helena', 'troca de professor gravada');
+    ok(d1.carga.some(c => c.turmas.join('+') === '6A+6B' && c.disciplina === 'Teatro'), 'turma junta nova gravada');
+    ok(/Outra pessoa/.test(erro(() => v.ctx.salvarAtribuicoes_({ carga, antes: d0.carga }, s))), 'recusa se a carga mudou desde que a tela abriu');
+    const ruim = JSON.parse(JSON.stringify(d1.carga)); ruim.push({ turmas: ['6A', '1A'], disciplina: 'Coral', professor: '', aulas: 1 });
+    ok(/mesmo horário/.test(erro(() => v.ctx.salvarAtribuicoes_({ carga: ruim, antes: d1.carga }, s))), 'junta com horários diferentes recusada');
+    const dup = JSON.parse(JSON.stringify(d1.carga)); dup.push({ turmas: ['6A'], disciplina: 'Teatro', professor: '', aulas: 1 });
+    ok(/duas vezes/.test(erro(() => v.ctx.salvarAtribuicoes_({ carga: dup, antes: d1.carga }, s))), 'matéria repetida na turma recusada');
+    const sem = JSON.parse(JSON.stringify(d1.carga)); sem.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor = '';
+    v.ctx.salvarAtribuicoes_({ carga: sem, antes: d1.carga }, s);
+    ok(G.modelo(v.dados()).erros.some(e => /falta escolher o professor/.test(e)), 'sem professor vira pendência');
+  });
+
+  await caso('Sobrecarga: professor com mais aulas que horários livres', () => {
+    const d = JSON.parse(JSON.stringify(D)), p = d.professores.find(x => x.nome === 'Sandra');   // 16 aulas no EFAF Manhã
+    p.indisp = ['Seg', 'Ter', 'Qua', 'Qui'].flatMap(dia => [7, 8, 9, 10, 11, 12].map(h => dia + '|' + h));
+    const M = G.modelo(d);
+    ok(M.sobrecarga.Sandra && M.sobrecarga.Sandra.aulas === 16 && M.sobrecarga.Sandra.livres < 16, 'Sandra sobrecarregada (' + JSON.stringify(M.sobrecarga.Sandra) + ')');
+    ok(Object.keys(G.modelo(D).sobrecarga).length === 0, 'exemplo sem sobrecarga');
   });
 
   await caso('Servidor: carga com turmas juntas, validações e renomear turma', () => {
     const v = criarAmbiente(); v.ctx.gravarExemplo_();
     const s = { u: 'teste', perfil: 'admin' };
     const erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
-    ok(/outra grade/.test(erro(() => v.ctx.salvarCarga_({ turma: '6A', linhas: [{ disciplina: 'X', professor: '', aulas: 1, juntas: ['1A'] }] }, s))), 'junta com grade diferente é recusada');
-    ok(/duas linhas/.test(erro(() => v.ctx.salvarCarga_({ turma: '5A', linhas: [{ disciplina: 'Arte', professor: 'Helena', aulas: 2, juntas: ['5B'] }] }, s))), 'disciplina repetida na turma junta é recusada');
+    ok(/outro horário/.test(erro(() => v.ctx.salvarCarga_({ turma: '6A', linhas: [{ disciplina: 'X', professor: '', aulas: 1, juntas: ['1A'] }] }, s))), 'junta com grade diferente é recusada');
+    ok(/duas vezes/.test(erro(() => v.ctx.salvarCarga_({ turma: '5A', linhas: [{ disciplina: 'Arte', professor: 'Helena', aulas: 2, juntas: ['5B'] }] }, s))), 'disciplina repetida na turma junta é recusada');
     v.ctx.salvarTurma_({ nomeAntigo: '5B', nome: '5º B', segmento: 'EFAI', serie: '5º ano', grade: 'EFAI Manhã' }, s);
     const d = v.dados();
     ok(d.carga.some(c => c.turmas.join('|') === '5A|5º B' && c.disciplina === 'Educação Física'), 'renomear turma atualiza a linha junta');
     v.ctx.excluirTurma_({ nome: '5º B' }, s);
     ok(v.dados().carga.some(c => c.turmas.join('|') === '5A' && c.disciplina === 'Educação Física'), 'excluir turma tira só ela da linha junta');
     ok(/10 em 10/.test(erro(() => v.ctx.salvarGrades_({ grades: [{ nome: 'X', itens: [{ tipo: 'aula', ini: '07:05', fim: '07:50' }] }] }, s))), 'horário fora de 10 em 10 é recusado');
+  });
+
+  await caso('Gerar: sem seletor de modo, roda por tempo e mostra as 3 melhores', async () => {
+    const app = require('fs').readFileSync(require('path').join(__dirname, '..', 'apps-script', 'App.html'), 'utf8');
+    ok(!/Caprichado|Rápido|id="tent"/.test(app), 'tela sem Rápido/Normal/Caprichado');
+    ok(/tempoMs: TEMPO_GERAR/.test(app) && /TEMPO_GERAR = (2\d|30)000/.test(app), 'a tela gera por tempo (20–30 s)');
+    const prog = [], t = Date.now();
+    const r = await new Promise(res => G.gerar(D, { tempoMs: 2500, semente: 21 }, (p, n) => prog.push([p, n]), res));
+    const dt = Date.now() - t;
+    ok(dt >= 2400 && dt < 8000, 'parou pelo tempo (' + dt + ' ms)');
+    ok(r.tentativas >= 2, 'fez várias tentativas (' + r.tentativas + ')');
+    ok(r.opcoes.length >= 1 && r.opcoes.length <= 3, 'até 3 opções (' + r.opcoes.length + ')');
+    ok(r.encontradas >= r.opcoes.length, 'conta as opções encontradas');
+    ok(prog.length >= 2 && prog[prog.length - 1][0] === 1 && prog.every(([p, n], i) => i === 0 || (p >= prog[i - 1][0] && n >= prog[i - 1][1])), 'progresso crescente, termina em 100%');
+    r.opcoes.forEach((o, i) => {
+      ok(G.validar(D, o.grade).problemas.length === 0 && sobreposicoes(D, o.grade) === 0, `opção ${i + 1} sem conflitos`);
+      ok(o.metricas.mediaParado === Math.round(o.metricas.janelasMin / o.metricas.nProfs), `opção ${i + 1}: média parada por professor`);
+    });
+    const vis = m => [Math.round(m.mediaParado / 5), Object.values(m.parado).filter(x => x > 120).length];
+    ok(r.opcoes.every((o, i) => { if (!i) return true; const a = vis(r.opcoes[i - 1].metricas), b = vis(o.metricas); return a[0] < b[0] || (a[0] === b[0] && a[1] <= b[1]); }), 'a recomendada vem primeiro pelo que a tela mostra');
+    const r2 = await gerar(G, D, { tentativas: 12, semente: 4 });
+    ok(r2.opcoes.length <= 3, 'padrão: 3 melhores');
+  });
+
+  await caso('Tempo parado de cada professor (frases das opções)', () => {
+    const d = mini({ carga: [{ turmas: ['1A'], disciplina: 'Mat', professor: 'P', aulas: 2, duplas: 0, maxDia: 2 }, { turmas: ['1A'], disciplina: 'Port', professor: 'Q', aulas: 2, duplas: 0, maxDia: 2 }] });
+    const g = { '1A|0|0': { disciplina: 'Mat', professor: 'P' }, '1A|0|1': { disciplina: 'Port', professor: 'Q' }, '1A|0|2': { disciplina: 'Port', professor: 'Q' }, '1A|0|3': { disciplina: 'Mat', professor: 'P' } };
+    const m = G.avaliar(G.modelo(d), g);
+    ok(m.parado.P === 80, 'P: 7:40 → 9:30 = 110 min, menos 30 de folga = 80 (deu ' + m.parado.P + ')');
+    ok(m.parado.Q === 0, 'Q: intervalo de 30 min não conta');
+    ok(m.nProfs === 2 && m.mediaParado === 40, 'média de 40 min por professor');
+  });
+
+  await caso('Histórico da grade: salvar, trocar, ver e restaurar versões', () => {
+    if (!oficial) return ok(false, 'sem grade oficial');
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const s = { u: 'ana', nome: 'Ana Teste', perfil: 'coordenacao' }, mapa = g => Object.keys(g).sort().map(k => k + '=' + g[k].disciplina + '/' + g[k].professor).join(';');
+    ok(v.dados().versoes.length === 0, 'começa sem versões');
+    v.ctx.salvarGrade_({ grade: oficial, vigencia: '2026-02-02' }, s);
+    let d = v.dados();
+    ok(Object.keys(d.grade).length === Object.keys(oficial).length, 'grade oficial gravada');
+    ok(d.versoes.length === 1 && d.versoes[0].descricao === 'Salvou como oficial' && d.versoes[0].usuario === 'Ana Teste', 'versão 1: quem e o quê');
+    const partes = v.ss.getSheetByName('Histórico da grade').d.slice(1).filter(r => r[0] === 1);
+    ok(partes.length >= 2 && partes.every(r => String(r[6]).length <= 40001 && String(r[6])[0] === '#'), 'cópia dividida em pedaços (' + partes.length + ')');
+    const linhas = d.carga.filter(c => c.professor === 'Igor').map(c => ({ turmas: c.turmas.join(' + '), disciplina: c.disciplina }));
+    const g2 = JSON.parse(JSON.stringify(d.grade)); Object.values(g2).forEach(c => { if (c.professor === 'Igor') c.professor = 'Mônica'; });
+    v.ctx.substituir_({ sai: 'Igor', entra: 'Mônica', linhas, grade: g2, vigencia: '2026-08-03' }, s);
+    d = v.dados();
+    ok(d.versoes.length === 2 && d.versoes[0].descricao === 'Troca: Igor → Mônica', 'troca grava versão com descrição');
+    ok(!d.carga.some(c => c.professor === 'Igor') && !Object.values(d.grade).some(c => c.professor === 'Igor'), 'troca aplicada na carga e na grade');
+    ok(mapa(v.ctx.lerVersao_({ versao: 1 }).grade) === mapa(oficial), 'ver a versão 1 devolve a grade antiga');
+    v.ctx.restaurarVersao_({ versao: 1 }, s);
+    d = v.dados();
+    ok(mapa(d.grade) === mapa(oficial), 'restaurar volta a grade');
+    ok(d.carga.filter(c => c.professor === 'Igor').length === linhas.length, 'restaurar volta os professores das turmas');
+    ok(d.versoes.length === 3 && /^Voltou para a versão de/.test(d.versoes[0].descricao) && d.versoes[0].vigencia === '02/02/2026', 'restaurar também vira versão (com a vigência da restaurada)');
+    const ACOES = vm.runInContext('ACOES', v.ctx);
+    ok(ACOES.restaurarVersao.p.indexOf('consulta') < 0 && ACOES.lerVersao.leitura, 'consulta não restaura; ver é só leitura');
+    v.ctx.gravar_('Fixas', Array.from({ length: 1500 }, (_, i) => ['1A', 'Seg', 1, 'X' + i]));
+    ok(v.ctx.valores_('Fixas').length === 1500, 'aba com mais de 1000 linhas: cresce sozinha (a grade inteira passa disso)');
+    let erro = ''; try { v.ctx.restaurarVersao_({ versao: 99 }, s); } catch (e) { erro = e.message; }
+    ok(/não encontrada/.test(erro), 'versão inexistente é recusada');
+  });
+
+  await caso('Histórico: guarda só as últimas versões; a migração cria a primeira', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const MAX = vm.runInContext('MAX_VERSOES', v.ctx);
+    for (let i = 0; i < MAX + 3; i++) v.ctx.guardarVersao_(null, 'teste ' + i, '');
+    const todas = v.ctx.lerVersoes_(), vs = v.dados().versoes;
+    ok(todas.length === MAX && todas[todas.length - 1].versao === 4, 'só as últimas ' + MAX);
+    ok(vs.length === 50 && vs[0].versao === MAX + 3, 'a tela recebe as 50 mais recentes');
+    const w = criarAmbiente(); w.ctx.gravarExemplo_();
+    w.ctx.gravar_('Grade', [['1A', 'Seg', 1, '07:00–07:40', 'Matemática', 'Bianca']]);
+    w.ss.deleteSheet(w.ss.getSheetByName('Histórico da grade')); w.props.ESQUEMA = '5';
+    w.ctx.garantirEsquema_();
+    const d = w.dados();
+    ok(w.props.ESQUEMA === '6' && d.versoes.length === 1 && d.versoes[0].descricao === 'Grade oficial que já estava salva', 'migração v5 → v6 guarda a grade que já existia');
+  });
+
+  await caso('Vigência: “válida a partir de” na grade oficial e na troca', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
+    ok(v.ctx.vigencia_('2026-11-16') === '16/11/2026' && v.ctx.vigencia_('16/11/2026') === '16/11/2026', 'aceita data do calendário e dd/mm/aaaa');
+    ok(/^\d{2}\/\d{2}\/\d{4}$/.test(v.ctx.vigencia_('')), 'sem data = hoje');
+    ok(/inválida/.test(erro(() => v.ctx.vigencia_('2026-02-30'))) && /inválida/.test(erro(() => v.ctx.vigencia_('amanhã'))), 'data impossível é recusada');
+    const um = { '1A|0|0': { disciplina: 'Matemática', professor: 'Bianca' } };
+    ok(/inválida/.test(erro(() => v.ctx.salvarGrade_({ grade: um, vigencia: '31/04/2026' }))), 'salvar com data inválida é recusado');
+    ok(Object.keys(v.dados().grade).length === 0 && v.dados().versoes.length === 0, '…e nada é gravado');
+    v.ctx.salvarGrade_({ grade: um, vigencia: '2026-03-09' });
+    ok(v.dados().vigencia === '09/03/2026', 'grade oficial mostra a vigência');
+    v.ctx.substituir_({ sai: 'Bianca', entra: 'Cecília', linhas: [{ turmas: '1A', disciplina: 'Matemática' }], grade: { '1A|0|0': { disciplina: 'Matemática', professor: 'Cecília' } }, vigencia: '2026-09-14' });
+    ok(v.dados().vigencia === '14/09/2026', 'a troca muda a vigência');
+    const app = require('fs').readFileSync(require('path').join(__dirname, '..', 'apps-script', 'App.html'), 'utf8');
+    ok(/function cabImpressao[\s\S]{0,200}D\.vigencia/.test(app), 'a impressão mostra a vigência');
+  });
+
+  await caso('Afetados pela troca: quem sai, quem entra, quem teve aula mudada e a mensagem', async () => {
+    const antes = { '1A|0|0': { disciplina: 'A', professor: 'P' }, '1A|0|1': { disciplina: 'B', professor: 'Q' }, '1A|0|2': { disciplina: 'C', professor: 'R' }, '1A|0|3': { disciplina: 'C', professor: 'R' } };
+    const d = mini({ carga: [{ turmas: ['1A'], disciplina: 'A', professor: 'S', aulas: 1, duplas: 0, maxDia: 1 }, { turmas: ['1A'], disciplina: 'B', professor: 'Q', aulas: 1, duplas: 0, maxDia: 1 },
+      { turmas: ['1A'], disciplina: 'C', professor: 'R', aulas: 2, duplas: 0, maxDia: 2 }] });
+    d.professores.push({ nome: 'S', indisp: ['Seg|7'] });   // quem entra não pode 7h–8h
+    const g = JSON.parse(JSON.stringify(antes)); g['1A|0|0'].professor = 'S';
+    const r = await reencaixar(G, d, g, 'S');
+    ok(r.ok, 'troca P → S encaixou');
+    if (!r.ok) return;
+    const af = G.afetados(d, antes, r.grade, 'P', 'S'), por = {}; af.forEach(a => por[a.professor] = a);
+    ok(af.map(a => a.papel).join(',') === 'sai,entra,mudou', 'ordem: sai, entra, mudou (' + af.map(a => a.professor + ':' + a.papel).join(',') + ')');
+    ok(por.P && por.P.saem.length === 1 && por.P.saem[0].quando === 'Seg 7:00–7:40' && !por.P.entram.length, 'P deixa a aula de 7:00');
+    ok(por.S && por.S.entram.length === 1 && por.S.entram[0].disciplina === 'A' && !/7:00/.test(por.S.entram[0].quando), 'S assume A em outro horário');
+    ok(por.R && por.R.saem.length === 1 && por.R.entram.length === 1 && por.R.entram[0].quando === 'Seg 7:00–7:40', 'R teve uma aula de C mudada para 7:00');
+    ok(!por.Q, 'Q não foi afetado');
+    const msg = G.mensagem(por.P, '16/11/2026', 'Escola Teste');
+    ok(/Olá, P!/.test(msg) && /16\/11\/2026/.test(msg) && /Você deixa estas aulas/.test(msg) && /Seg 7:00–7:40 · 1A · A/.test(msg), 'mensagem do WhatsApp com as mudanças');
+    ok(/Suas novas aulas/.test(G.mensagem(por.S, '16/11/2026')) && /Saem do seu horário[\s\S]*Entram no seu horário/.test(G.mensagem(por.R, '16/11/2026')), 'mensagens de quem entra e de quem mudou');
+    if (!oficial) return;
+    const D2 = JSON.parse(JSON.stringify(D)), g2 = JSON.parse(JSON.stringify(oficial));
+    D2.professores.push({ nome: 'Novo Prof', indisp: [], maxDia: 0 });
+    D2.carga.forEach(c => { if (c.professor === 'Igor') c.professor = 'Novo Prof'; });
+    Object.values(g2).forEach(c => { if (c.professor === 'Igor') c.professor = 'Novo Prof'; });
+    const r2 = await reencaixar(G, D2, g2, 'Novo Prof'), af2 = r2.ok ? G.afetados(D2, oficial, r2.grade, 'Igor', 'Novo Prof') : [];
+    const aulaDe = k => { const [t, , a] = k.split('|'); return D.grades.find(x => x.nome === D.turmas.find(y => y.nome === t).grade).itens.filter(i => i.tipo === 'aula')[+a]; };
+    const aulasIgor = new Set(Object.entries(oficial).filter(([, c]) => c.professor === 'Igor').map(([k, c]) => c.disciplina + k.split('|')[1] + aulaDe(k).ini + aulaDe(k).fim)).size;
+    ok(r2.ok && af2.length === 2 && af2[0].papel === 'sai' && af2[0].saem.length === aulasIgor && af2[1].entram.length === aulasIgor, 'só Igor e o novo professor (' + aulasIgor + ' aulas; turmas juntas contam uma vez)');
   });
 
   console.log(`\n${total - falhas}/${total} verificações ok.`);

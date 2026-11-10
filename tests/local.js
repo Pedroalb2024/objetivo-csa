@@ -13,7 +13,7 @@ amb.ctx.gravarExemplo_();
 amb.ctx.gravar_('Usuários', [['admin', 'teste', 'Coordenação (teste)', 'admin', 'Sim', '']]);
 // Já deixa uma grade oficial salva, gerada pelo próprio gerador
 amb.gerador().gerar(amb.dados(), { tentativas: 8, semente: 11 }, null, r => {
-  if (r.opcoes.length) amb.ctx.salvarGrade_({ grade: r.opcoes[0].grade });
+  if (r.opcoes.length) amb.ctx.salvarGrade_({ grade: r.opcoes[0].grade, vigencia: '2026-02-02' }, { u: 'admin', nome: 'Coordenação (teste)' });
   console.log(r.opcoes.length ? 'Grade oficial de exemplo gerada.' : 'Não gerou a grade de exemplo: ' + r.gargalos.join(' | '));
 });
 
