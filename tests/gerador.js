@@ -386,6 +386,83 @@ function mini(extra) {
     ok(r2.ok && af2.length === 2 && af2[0].papel === 'sai' && af2[0].saem.length === aulasIgor && af2[1].entram.length === aulasIgor, 'só Igor e o novo professor (' + aulasIgor + ' aulas; turmas juntas contam uma vez)');
   });
 
+  await caso('Professor: salvar com turmas e matérias (atribuir pelo professor)', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const s = { u: 'teste', perfil: 'admin' }, erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
+    const d0 = v.dados(), p = d0.professores.find(x => x.nome === 'Otávio'), carga = JSON.parse(JSON.stringify(d0.carga));
+    carga.find(c => c.turmas[0] === '6C' && c.disciplina === 'Matemática').professor = 'Otávio';   // passa a 6C de Rafael para Otávio
+    carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Matemática').professor = '';         // tira a 6A
+    const dados = { nomeAntigo: 'Otávio', nome: 'Otávio', completo: p.completo, materias: p.materias, segmentos: p.segmentos, indisp: [], blocos: [], carga, cargaAntes: d0.carga };
+    v.ctx.salvarProfessor_(dados, s);
+    let d1 = v.dados();
+    ok(d1.carga.find(c => c.turmas[0] === '6C' && c.disciplina === 'Matemática').professor === 'Otávio', '6C passou para Otávio');
+    ok(d1.carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Matemática').professor === '', '6A ficou sem professor (pendência)');
+    ok(/Outra pessoa/.test(erro(() => v.ctx.salvarProfessor_(dados, s))), 'recusa se as atribuições mudaram desde que a janela abriu');
+    ok(v.dados().carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Matemática').professor === '', '…e não grava nada');
+    // renomear e mexer nas turmas ao mesmo tempo
+    const c2 = JSON.parse(JSON.stringify(d1.carga)).map(c => Object.assign(c, { professor: c.professor === 'Otávio' ? 'Otávio P.' : c.professor }));
+    c2.find(c => c.turmas[0] === '6A' && c.disciplina === 'Matemática').professor = 'Otávio P.';
+    v.ctx.salvarProfessor_(Object.assign({}, dados, { nome: 'Otávio P.', carga: c2, cargaAntes: d1.carga }), s);
+    const d2 = v.dados();
+    ok(!d2.carga.some(c => c.professor === 'Otávio') && d2.carga.filter(c => c.professor === 'Otávio P.').length === d1.carga.filter(c => c.professor === 'Otávio').length + 1, 'renomeou e gravou as turmas');
+    ok(d2.professores.some(x => x.nome === 'Otávio P.') && !d2.professores.some(x => x.nome === 'Otávio'), 'professor renomeado');
+    // sem "carga": só o cadastro (como antes)
+    v.ctx.salvarProfessor_({ nomeAntigo: 'Otávio P.', nome: 'Otávio P.', materias: ['Matemática'], segmentos: ['EFAF'], indisp: ['Seg|7'], blocos: [] }, s);
+    ok(JSON.stringify(v.dados().carga) === JSON.stringify(d2.carga), 'sem turmas na chamada, as atribuições não mudam');
+  });
+
+  await caso('Começar ano letivo: guarda, apaga o que muda e mantém a estrutura', () => {
+    if (!oficial) return ok(false, 'sem grade oficial');
+    for (const opcao of ['manter', 'apagar']) {
+      const v = criarAmbiente(); v.ctx.gravarExemplo_();
+      const s = { u: 'admin', nome: 'Admin', perfil: 'admin' }, erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
+      v.ctx.salvarGrade_({ grade: oficial, vigencia: '2026-02-02' }, s);
+      v.ctx.formEnviar({ nome: 'Bianca', indisp: ['Seg|7'], obs: '' });
+      v.ctx.conferirEstrutura_({ ok: true });
+      const d0 = v.dados();
+      ok(d0.ano.conferido && d0.professores.find(p => p.nome === 'Bianca').respondeuEm, 'antes: conferido e Bianca respondeu');
+      ok(/ano/.test(erro(() => v.ctx.comecarAno_({ ano: '27', professores: opcao }, s))) && /professores/.test(erro(() => v.ctx.comecarAno_({ ano: '2027' }, s))), 'pede o ano e a escolha dos professores');
+      v.ctx.comecarAno_({ ano: '2027', professores: opcao }, s);
+      const d = v.dados();
+      ok(Object.keys(d.grade).length === 0 && d.fixas.length === 0 && d.blocos.length === 0, `${opcao}: grade oficial, aulas fixas e horários reservados apagados`);
+      ok(d.carga.length >= d0.carga.length && d.carga.every(c => !c.professor), `${opcao}: matérias das turmas ficam, sem professor`);
+      ok(d.carga.some(c => c.turmas.join('+') === '5A+5B') && d.carga.some(c => c.disciplina === 'Teatro'), `${opcao}: turmas juntas e contraturno continuam`);
+      ok(d.versoes.length === 2 && /antes de começar 2027/.test(d.versoes[0].descricao), `${opcao}: a grade de hoje foi para o histórico`);
+      ok(JSON.stringify(d.grades) === JSON.stringify(d0.grades) && d.turmas.length === d0.turmas.length && d.matriz.length === d0.matriz.length && d.usuarios.length === d0.usuarios.length, `${opcao}: horários, turmas, matriz e usuários mantidos`);
+      if (opcao === 'apagar') ok(d.professores.length === 0, 'apagar: professores apagados');
+      else ok(d.professores.length === d0.professores.length && d.professores.every(p => !p.respondeuEm) && d.professores.find(p => p.nome === 'Bianca').indisp.join() === 'Seg|7', 'manter: professores ficam, voltam a "não respondeu" e guardam o que marcaram');
+      ok(d.ano.ano === '2027' && !d.ano.conferido, `${opcao}: ano gravado e passo 1 volta a pendente`);
+      ok(G.modelo(d).erros.some(e => /falta escolher o professor/.test(e)), `${opcao}: vira pendência "falta professor"`);
+    }
+    const ACOES = vm.runInContext('ACOES', criarAmbiente().ctx);
+    ok(ACOES.comecarAno.p.join() === 'admin' && ACOES.conferirEstrutura.p.indexOf('consulta') < 0, 'só admin começa o ano; consulta não marca passos');
+  });
+
+  await caso('Domínio próprio: o endereço do site fica num lugar só', () => {
+    const fs = require('fs'), path = require('path'), dir = path.join(__dirname, '..', 'apps-script');
+    const v = criarAmbiente(), SITE = vm.runInContext('SITE', v.ctx), CONFIG = vm.runInContext('CONFIG', v.ctx);
+    ok(CONFIG.ASSETS === SITE && CONFIG.URL_PUBLICA === SITE, 'arquivos e link usam SITE');
+    const usos = fs.readdirSync(dir).filter(f => /\.(js|html)$/.test(f)).map(f => (fs.readFileSync(path.join(dir, f), 'utf8').match(/github\.io/g) || []).length).reduce((a, b) => a + b, 0);
+    ok(usos === 1, 'o endereço aparece uma vez só no código (' + usos + ')');
+    ok(v.ctx.cfg_().logo === SITE + 'logo.png', 'logo vem do SITE');
+  });
+
+  await caso('Telas: menu enxuto, Configuração, Conferência e celular', () => {
+    const fs = require('fs'), path = require('path'), ler = f => fs.readFileSync(path.join(__dirname, '..', 'apps-script', f), 'utf8');
+    const app = ler('App.html'), estilo = ler('Estilo.html'), form = ler('Formulario.html'), comum = ler('Comum.html');
+    const telas = [...app.matchAll(/\{ id: '(\w+)', nome: '([^']+)'([^\n]*)\}/g)];
+    ok(telas.filter(t => !/pai:/.test(t[3])).map(t => t[2]).join(' · ') === 'Início · Grade horária · Professores · Conferência das turmas · Configuração', 'menu: ' + telas.filter(t => !/pai:/.test(t[3])).map(t => t[2]).join(' · '));
+    ok(telas.filter(t => /pai: 'config'/.test(t[3])).map(t => t[2]).join(' · ') === 'Começar ano letivo · Horários das aulas · Turmas · Matriz curricular · Aulas fixas · Usuários', 'cartões da Configuração na ordem');
+    ok(!/\(raro\)|Dia a dia|telaAtribuicoes/.test(app), 'sem "(raro)", sem grupos e sem a tela Atribuições');
+    ok(/← Configuração/.test(app), 'botão “← Configuração”');
+    ok(/abrirMenu/.test(app) && /btn-menu/.test(app) && /\.menu\.aberto/.test(app), 'menu ☰ com gaveta');
+    ok(/function listaDiaTurma/.test(app) && /dias-abas/.test(app) && /só aparece no computador/.test(app), 'grade no celular: um dia por vez; todas as turmas só no computador');
+    ok(/max-width:700px/.test(estilo) && /table\.cartao/.test(estilo) && /min-height:44px/.test(estilo) && /\.modal \.caixa \{ max-width:none; min-height:100%/.test(estilo), 'celular: cartões, toque de 44px e janelas em tela cheia');
+    ok(/\.enviar \{ position:fixed/.test(form) && /disp-grade/.test(comum) && /disp-dia/.test(comum), 'formulário: um dia por linha e Enviar fixo embaixo');
+    ok(/Passar \$\{l\.turmas\.join\(' \+ '\)\} de \$\{l\.professor\} para/.test(app) && /textoGrupo/.test(app) && /Não cabe:/.test(app), 'professor: passar turma, atalho por série e aviso de não caber');
+    ok(/turmas completas/.test(app) && /conf-extra/.test(app) && /Sem professor \(/.test(app), 'conferência: resumo, contraturno recolhido e sem professor no topo');
+  });
+
   console.log(`\n${total - falhas}/${total} verificações ok.`);
   if (falhas) process.exit(1);
 })();
