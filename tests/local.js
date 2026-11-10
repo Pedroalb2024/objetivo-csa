@@ -22,7 +22,7 @@ function pagina(arquivo, q) {
   let html = fs.readFileSync(path.join(DIR, arquivo), 'utf8')
     .replace(/<\?!= incluir_\('(\w+)'\); \?>/g, (_, f) => fs.readFileSync(path.join(DIR, f + '.html'), 'utf8'))
     .replace('<?!= JSON.stringify(cfg) ?>', JSON.stringify(cfg));
-  let antes = `<link rel="icon" href="docs/icone.png"><script>
+  let antes = `<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="docs/icone.png"><script>
     function runner(ok, falha) { return new Proxy({}, { get(_, k) {
       if (k === 'withSuccessHandler') return f => runner(f, falha);
       if (k === 'withFailureHandler') return f => runner(ok, f);

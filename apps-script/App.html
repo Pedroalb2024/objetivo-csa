@@ -21,17 +21,70 @@
   .corpo-app { display:grid; grid-template-columns:210px 1fr; min-height:calc(100vh - 60px); }
   .corpo-app > *, .duas > *, .grade-layout > * { min-width:0; }
   .menu { background:var(--sup); border-right:1px solid var(--borda); padding:14px 10px; display:flex; flex-direction:column; gap:2px; }
-  .menu button { text-align:left; background:none; border:none; padding:10px 12px; border-radius:8px; font:600 13px 'Open Sans', Arial, sans-serif; color:var(--suave); cursor:pointer; position:relative; }
+  .menu button { text-align:left; background:none; border:none; padding:11px 12px; border-radius:8px; font:600 13.5px 'Open Sans', Arial, sans-serif; color:var(--suave); cursor:pointer; position:relative; display:flex; gap:10px; align-items:center; }
+  .menu button .ic { width:22px; text-align:center; font-size:16px; }
+  .btn-menu { display:none; background:none; border:1px solid rgba(255,255,255,.3); color:#fff; border-radius:8px; font-size:22px; width:44px; height:44px; cursor:pointer; flex-shrink:0; }
+  #veu { position:fixed; inset:0; background:rgba(4,19,57,.45); z-index:39; }
+  .voltar { margin-bottom:8px; }
   .menu button:hover { background:var(--fundo); color:var(--texto); }
   .menu button.on { background:var(--azul-claro); color:var(--marinho); }
   .menu button.on::before { content:''; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:3px; background:var(--amarelo); }
   .tela { padding:22px 26px 60px; max-width:1320px; width:100%; }
-  .menu-grupo { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--suave); margin:14px 12px 4px; }
-  .menu-grupo:first-child { margin-top:2px; } .menu-grupo span { font-weight:400; text-transform:none; letter-spacing:0; }
+  /* Configuração: cartões grandes */
+  .cartoes { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; }
+  .cartao-cfg { display:flex; gap:14px; align-items:flex-start; text-align:left; cursor:pointer; border:1px solid var(--borda); background:var(--sup); border-radius:var(--raio); box-shadow:var(--sombra); padding:18px; font:inherit; color:inherit; }
+  .cartao-cfg:hover { border-color:var(--azul); }
+  .cartao-cfg .ic { font-size:28px; line-height:1; width:50px; height:50px; border-radius:12px; background:var(--azul-claro); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .cartao-cfg b { display:block; font:500 17px 'Ubuntu', Arial, sans-serif; color:var(--marinho); margin-bottom:3px; }
+  .cartao-cfg span { color:var(--suave); font-size:13px; }
+  .cartao-cfg.alerta .ic { background:var(--alerta-bg); }
+  /* Início: guia em passos */
+  .passos { display:flex; flex-direction:column; gap:10px; }
+  .passo-g { display:flex; gap:14px; align-items:flex-start; }
+  .passo-g > div { flex:1; min-width:0; }
+  .passo-g .num { width:34px; height:34px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font:700 15px 'Ubuntu', Arial, sans-serif; background:#e7eaf0; color:var(--suave); }
+  .passo-g.ok .num { background:var(--ok); color:#fff; } .passo-g.atual .num { background:var(--marinho); color:#fff; }
+  .passo-g.atual { border-color:var(--azul); box-shadow:0 0 0 2px var(--azul-claro), var(--sombra); }
+  .passo-g h2 { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:4px; }
+  .passo-g p { margin:0; }
+  .passo-g .acoes { margin-top:10px; }
+  .passo-g .faltam { margin-top:8px; font-size:12.5px; }
+  .passo-g .faltam .tag { margin:0 3px 3px 0; }
   .pend { display:flex; flex-direction:column; } .pend-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 2px; border-bottom:1px solid var(--borda); font-size:13.5px; }
   .pend-item:last-child { border-bottom:none; } .pend-item .btn { flex-shrink:0; }
   tr.grupo-linha td { background:#f0f3f8; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--suave); padding:6px 10px; }
   .dica-fixa { background:var(--azul-claro); color:var(--marinho); border-radius:8px; padding:7px 12px; font-size:12.5px; margin-bottom:8px; }
+  /* Conferência das turmas */
+  .conf-resumo { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:12px; }
+  .conf-resumo b { font:700 22px 'Ubuntu', Arial, sans-serif; color:var(--marinho); }
+  .conf-resumo .barrinha { flex:1; min-width:120px; max-width:320px; height:8px; } .conf-resumo .barrinha i { background:var(--ok); }
+  details.conf-extra { margin-top:10px; border-top:1px dashed var(--borda); padding-top:8px; }
+  details.conf-extra summary { padding:8px 0; }
+  .at-lista tr.grupo-linha td { background:#f0f3f8; }
+  .at-lista tr.semprof td:first-child { box-shadow:inset 4px 0 0 var(--alerta); }
+  .so-aqui { font-size:11px; font-weight:700; color:var(--alerta); display:block; }
+  /* Professor: turmas de cada matéria */
+  .abas-prof { display:flex; gap:4px; border-bottom:1px solid var(--borda); margin:-4px 0 4px; overflow-x:auto; }
+  .abas-prof button { background:none; border:none; border-bottom:3px solid transparent; padding:10px 12px; font:600 13.5px 'Open Sans', Arial, sans-serif; color:var(--suave); cursor:pointer; white-space:nowrap; min-height:44px; }
+  .abas-prof button.on { color:var(--marinho); border-bottom-color:var(--amarelo); }
+  .pt-mat { border:1px solid var(--borda); border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+  .pt-mat h3 { font-size:15px; }
+  .pt-serie { display:flex; gap:8px; align-items:flex-start; padding:6px 0; border-top:1px dashed var(--borda); }
+  .pt-serie-nome { width:84px; flex-shrink:0; font-size:12px; font-weight:700; color:var(--suave); padding-top:8px; }
+  .pt-chips { display:flex; flex-wrap:wrap; gap:6px; flex:1; align-items:center; }
+  .pt { border:1px solid var(--borda); background:#fff; border-radius:18px; padding:5px 12px; font:600 13px 'Open Sans', Arial, sans-serif; cursor:pointer; color:var(--texto); min-height:34px; }
+  .pt small { font-weight:400; color:var(--suave); }
+  .pt.meu { background:var(--azul); border-color:var(--azul); color:#fff; } .pt.meu small { color:#dfe7f7; } .pt.meu::before { content:'✓ '; }
+  .pt.outro { background:#f0f3f8; color:var(--suave); border-style:dashed; }
+  .pt.livre { border-color:#efd58a; background:var(--alerta-bg); color:var(--alerta); }
+  .opcao-radio { display:flex; gap:10px; align-items:flex-start; border:1px solid var(--borda); border-radius:10px; padding:12px; margin-bottom:8px; cursor:pointer; font-size:13.5px; }
+  .opcao-radio:has(input:checked) { border-color:var(--azul); background:var(--azul-claro); }
+  .opcao-radio input { margin-top:2px; flex-shrink:0; }
+  .barra-salvar { position:sticky; bottom:0; z-index:15; display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--alerta-bg); border:1px solid #efd58a; border-radius:10px; padding:8px 12px; margin-top:12px; box-shadow:var(--sombra); }
+  .barra-salvar span { margin-right:auto; font-weight:700; color:var(--alerta); }
+  .pergunta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--alerta-bg); color:var(--alerta); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:13.5px; }
+  .pergunta span { flex:1; min-width:180px; font-weight:600; }
+  .total-prof { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
   /* atribuições */
   .at-turmas { display:flex; flex-direction:column; gap:8px; }
   .at-seg { display:flex; gap:10px; align-items:flex-start; }
@@ -80,6 +133,16 @@
   .grade-layout { display:grid; grid-template-columns:240px 1fr; gap:14px; align-items:start; }
   .grade-lado { display:flex; flex-direction:column; gap:12px; }
   .grade-lado h3 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--suave); margin-bottom:8px; }
+  .dias-abas { display:flex; gap:4px; margin-bottom:10px; }
+  .dias-abas button { flex:1; min-height:44px; border:1px solid var(--borda); background:#fff; border-radius:8px; font:700 14px 'Open Sans', Arial, sans-serif; color:var(--suave); cursor:pointer; }
+  .dias-abas button.on { background:var(--marinho); border-color:var(--marinho); color:#fff; }
+  .lista-dia { display:flex; flex-direction:column; gap:6px; }
+  .ld { display:flex; gap:12px; align-items:center; border:1px solid var(--borda); border-radius:10px; padding:10px 12px; background:#fff; min-height:56px; }
+  .ld .h { width:50px; flex-shrink:0; font-size:12.5px; font-weight:700; color:var(--marinho); line-height:1.25; }
+  .ld .h small { display:block; font-weight:400; color:var(--suave); }
+  .ld b { display:block; font-size:15px; } .ld .p { font-size:13px; color:var(--suave); }
+  .ld.vazia { background:#fafbfc; color:var(--suave); } .ld.conf { border-color:var(--erro); box-shadow:inset 0 0 0 1px var(--erro); }
+  .ld-int { text-align:center; font-size:12px; color:#8a6d1a; background:#fbf6e6; border-radius:8px; padding:4px; }
   .opcao { border:1px solid var(--borda); border-radius:8px; padding:7px 10px; margin-bottom:6px; cursor:pointer; font-size:13px; }
   .opcao.ativa { border-color:var(--azul); background:var(--azul-claro); }
   .opcao small { display:block; color:var(--suave); font-size:11.5px; margin-top:2px; } .opcao small .link { font-size:11.5px; padding:0; text-align:left; }
@@ -110,11 +173,38 @@
   .sub-linhas label { display:flex; gap:6px; align-items:center; font-size:13px; }
   #impressao { display:none; }
   @media (max-width:900px) {
+    /* menu vira gaveta lateral aberta pelo botão ☰ */
     .corpo-app { grid-template-columns:1fr; }
-    .menu { flex-direction:row; overflow-x:auto; border-right:none; border-bottom:1px solid var(--borda); padding:8px; position:sticky; top:52px; z-index:10; }
-    .menu button { white-space:nowrap; } .menu button.on::before { display:none; } .menu-grupo { display:none; }
+    .btn-menu { display:inline-flex; align-items:center; justify-content:center; }
+    .menu { position:fixed; top:0; bottom:0; left:0; width:270px; max-width:85vw; z-index:40; transform:translateX(-105%); transition:transform .2s; box-shadow:0 0 40px rgba(0,0,0,.25); padding-top:18px; overflow-y:auto; border-right:none; }
+    .menu.aberto { transform:none; }
+    .menu button { min-height:48px; font-size:15px; }
     .duas, .grade-layout { grid-template-columns:1fr; } .at-seg { flex-direction:column; gap:4px; } .at-seg-nome { padding-top:0; }
-    .tela { padding:16px 12px 60px; } .topo .quem { display:none; } .topo b { display:none; }
+    .grade-layout > .card { order:-1; }
+    .tela { padding:16px 16px 60px; } .topo { padding:8px 12px; gap:10px; } .topo .quem { display:none; } .topo b { display:none; }
+  }
+  @media (max-width:700px) {
+    h1 { font-size:20px; }
+    .cab-tela { flex-direction:column; align-items:stretch; }
+    .cab-tela .acoes .btn, .cab-tela .acoes select { flex:1 1 auto; justify-content:center; }
+    .card { padding:14px; }
+    .stats { grid-template-columns:1fr 1fr; } .stat b { font-size:20px; }
+    .pt-serie { flex-direction:column; gap:4px; } .pt-serie-nome { width:auto; padding-top:2px; }
+    .pt { min-height:44px; padding:6px 14px; font-size:14px; }
+    .at-chip { min-height:44px; padding:6px 12px; font-size:14px; }
+    .passo-g { gap:10px; } .passo-g .acoes .btn { flex:1 1 auto; justify-content:center; }
+    .pend-item { flex-direction:column; align-items:stretch; } .pend-item .btn { justify-content:center; }
+    .item { flex-wrap:wrap; }
+    .abas select { flex:1 1 100%; min-width:0; }
+    .at-sep { flex-basis:100%; height:0; }
+    /* Conferência no celular: cartão inteiro destacado, "⋯" no canto e seletor largo */
+    table.cartao.at-lista tr { position:relative; }
+    table.cartao.at-lista tr:not(.grupo-linha) td:first-child { padding-right:56px; }
+    table.cartao.at-lista tr:not(.grupo-linha) td:last-child { position:absolute; top:6px; right:8px; padding:0; }
+    table.cartao.at-lista tr.semprof, table.cartao.at-lista tr.sobre { background:var(--alerta-bg); border-color:#efd58a; }
+    table.cartao.at-lista tr.sobre { background:var(--erro-bg); border-color:#f3c7c3; }
+    table.cartao.at-lista tr td { background:none !important; box-shadow:none !important; }
+    table.cartao.at-lista select { max-width:none; }
   }
   @media print {
     .topo, .faixa, .menu, .cab-tela .acoes, .grade-lado, .abas, #toast, .carregando { display:none !important; }
@@ -144,11 +234,13 @@
 
 <div id="app" hidden>
   <header class="topo">
+    <button class="btn-menu" onclick="abrirMenu(true)" aria-label="Abrir o menu">☰</button>
     <span id="topoLogo"></span><b>Grade Horária</b>
     <div class="usuario"><span class="quem" id="topoUsuario"></span><button class="btn mini" onclick="sair()">Sair</button></div>
   </header>
   <div class="faixa"></div>
   <div class="corpo-app"><nav id="menu" class="menu"></nav><main id="tela" class="tela"></main></div>
+  <div id="veu" hidden onclick="abrirMenu(false)"></div>
 </div>
 
 <div id="modal" class="modal" hidden><div class="caixa" id="modalCaixa"></div></div>
@@ -162,16 +254,19 @@ const CFG = <?!= JSON.stringify(cfg) ?>;
 let TOKEN = null, D = null, TELA = 'inicio';
 const TODOS = ['admin', 'coordenacao', 'consulta'], EDITA = ['admin', 'coordenacao'];
 const NOME_PERFIL = { admin: 'Administrador', coordenacao: 'Coordenação', consulta: 'Consulta' };
+// Menu: só as 5 primeiras. As telas com "pai" abrem pelos cartões da Configuração (frase = texto do cartão).
 const TELAS = [
-  { id: 'inicio', nome: 'Início', grupo: 'Dia a dia', p: TODOS, sub: 'O que falta para fechar a grade, com atalho para resolver cada item.' },
-  { id: 'grade', nome: 'Grade horária', grupo: 'Dia a dia', p: TODOS, sub: 'Gere opções de grade, escolha uma, ajuste e salve a oficial. Troca de professor e versões anteriores também ficam aqui.' },
-  { id: 'professores', nome: 'Professores', grupo: 'Dia a dia', p: EDITA, sub: 'Quem dá aula, quais matérias ensina e em que horários não pode.' },
-  { id: 'atribuicoes', nome: 'Atribuições', grupo: 'Dia a dia', p: EDITA, sub: 'Quem dá cada matéria em cada turma, e quantas aulas por semana.' },
-  { id: 'fixas', nome: 'Aulas fixas', grupo: 'Dia a dia', p: EDITA, sub: 'Aulas que precisam ficar sempre no mesmo horário. O gerador não mexe nelas.' },
-  { id: 'matriz', nome: 'Matriz curricular', grupo: 'Configuração', p: EDITA, sub: 'Quantas aulas por semana cada série tem de cada matéria.' },
-  { id: 'turmas', nome: 'Turmas', grupo: 'Configuração', p: EDITA, sub: 'Cadastro das turmas: nome, segmento, série e horário das aulas.' },
-  { id: 'horarios', nome: 'Horários das aulas', grupo: 'Configuração', p: EDITA, sub: 'Início e fim de cada aula e dos intervalos, em cada período (EFAI Manhã, EFAF Manhã…).' },
-  { id: 'usuarios', nome: 'Usuários', grupo: 'Configuração', p: ['admin'], sub: 'Quem pode entrar no sistema e o que cada um pode fazer.' },
+  { id: 'inicio', nome: 'Início', ic: '🏠', p: TODOS, sub: 'O que falta fazer, com um botão para resolver cada item.' },
+  { id: 'grade', nome: 'Grade horária', ic: '🗓️', p: TODOS, sub: 'Gere opções, escolha uma e salve a grade oficial. A troca de professor e as versões anteriores também ficam aqui.' },
+  { id: 'professores', nome: 'Professores', ic: '👩‍🏫', p: EDITA, sub: 'Abra um professor para marcar as turmas de cada matéria dele e os horários em que não pode.' },
+  { id: 'conferencia', nome: 'Conferência das turmas', ic: '✅', p: EDITA, sub: 'Veja se toda turma tem professor em todas as matérias e resolva o que faltar.' },
+  { id: 'config', nome: 'Configuração', ic: '⚙️', p: EDITA, sub: 'Coisas que se ajustam poucas vezes por ano.' },
+  { id: 'ano', nome: 'Começar ano letivo', ic: '🎓', pai: 'config', p: ['admin'], frase: 'Guarda a grade deste ano e limpa o que muda de um ano para o outro.', sub: 'Use uma vez por ano, antes de montar a grade do ano seguinte.' },
+  { id: 'horarios', nome: 'Horários das aulas', ic: '⏰', pai: 'config', p: EDITA, frase: 'Início e fim de cada aula e dos intervalos, em cada período.', sub: 'Início e fim de cada aula e dos intervalos, em cada período (EFAI Manhã, EFAF Manhã…).' },
+  { id: 'turmas', nome: 'Turmas', ic: '🏫', pai: 'config', p: EDITA, frase: 'Nome, segmento, série e horário das aulas de cada turma.', sub: 'Cadastro das turmas: nome, segmento, série e horário das aulas.' },
+  { id: 'matriz', nome: 'Matriz curricular', ic: '📚', pai: 'config', p: EDITA, frase: 'Quantas aulas por semana cada série tem de cada matéria.', sub: 'Quantas aulas por semana cada série tem de cada matéria.' },
+  { id: 'fixas', nome: 'Aulas fixas', ic: '📌', pai: 'config', p: EDITA, frase: 'Aulas que ficam sempre no mesmo horário; o gerador não mexe nelas.', sub: 'Aulas que precisam ficar sempre no mesmo horário. O gerador não mexe nelas.' },
+  { id: 'usuarios', nome: 'Usuários', ic: '👤', pai: 'config', p: ['admin'], frase: 'Quem pode entrar no sistema e o que cada um pode fazer.', sub: 'Quem pode entrar no sistema e o que cada um pode fazer.' },
 ];
 const podeEditar = () => EDITA.includes(D.usuario.perfil);
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -203,16 +298,18 @@ function abrirApp() {
   $('login').hidden = true; $('app').hidden = false;
   $('topoLogo').innerHTML = logoHtml(CFG, true);
   $('topoUsuario').textContent = D.usuario.nome;
-  const minhas = TELAS.filter(t => t.p.includes(D.usuario.perfil));
-  $('menu').innerHTML = ['Dia a dia', 'Configuração'].map(g => { const ts = minhas.filter(t => t.grupo === g); return !ts.length ? '' :
-    `<div class="menu-grupo">${g}${g === 'Configuração' ? ' <span>(raro)</span>' : ''}</div>` + ts.map(t => `<button data-t="${t.id}" onclick="ir('${t.id}')">${t.nome}</button>`).join(''); }).join('');
+  $('menu').innerHTML = TELAS.filter(t => !t.pai && t.p.includes(D.usuario.perfil))
+    .map(t => `<button data-t="${t.id}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span>${t.nome}</button>`).join('');
   GR = novoGR(); ir(TELA, true);
 }
+function abrirMenu(abrir) { $('menu').classList.toggle('aberto', abrir); $('veu').hidden = !abrir; }
+const celular = () => window.matchMedia('(max-width: 700px)').matches;
+window.matchMedia('(max-width: 700px)').addEventListener('change', () => { if (D && TELA === 'grade' && $('modal').hidden) telaGrade(); });
 async function sair() {
   if (temAlteracao() && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
   try { await chamar('sair', TOKEN); } catch (e) { }
   TOKEN = null; D = null; try { sessionStorage.removeItem('gh_token'); } catch (e) { }
-  AT = null; HO = null; FX = null; MZ = null; mostrarLogin();
+  AT = null; HO = null; FX = null; MZ = null; PED = null; mostrarLogin();
 }
 function expirou() {
   TOKEN = null; try { sessionStorage.removeItem('gh_token'); } catch (e) { }
@@ -230,30 +327,43 @@ async function consultar(nome, dados) {   // ação só de leitura (não muda D)
   catch (e) { if (/SESSAO_EXPIRADA/.test(e.message)) return expirou() || null; toast(e.message, 'erro'); return null; }
   finally { ocupado(false); }
 }
-const sujoTela = t => (t === 'atribuicoes' && AT && AT.sujo) || (t === 'horarios' && HO_SUJO) || (t === 'fixas' && FX_SUJO) || (t === 'matriz' && MZ && MZ.sujo);
+const sujoTela = t => (t === 'conferencia' && AT && AT.sujo) || (t === 'horarios' && HO_SUJO) || (t === 'fixas' && FX_SUJO) || (t === 'matriz' && MZ && MZ.sujo);
 function temAlteracao() { return !!(AT && AT.sujo) || !!HO_SUJO || !!FX_SUJO || !!(MZ && MZ.sujo) || (GR && GR.editado); }
 function ir(t, forcar) {
   if (!TELAS.some(x => x.id === t && x.p.includes(D.usuario.perfil))) t = 'inicio';
+  abrirMenu(false);
   if (!forcar && t !== TELA) {
     if (sujoTela(TELA) && !confirm('Há alterações não salvas nesta tela. Sair sem salvar?')) return;
-    if (TELA === 'atribuicoes') AT = null; if (TELA === 'horarios') { HO = null; HO_SUJO = false; } if (TELA === 'fixas') { FX = null; FX_SUJO = false; } if (TELA === 'matriz') MZ = null;
+    if (TELA === 'conferencia') AT = null; if (TELA === 'horarios') { HO = null; HO_SUJO = false; } if (TELA === 'fixas') { FX = null; FX_SUJO = false; } if (TELA === 'matriz') MZ = null;
   }
   TELA = t;
-  document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  const pai = TELAS.find(x => x.id === t).pai || t;
+  document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('on', b.dataset.t === pai));
   render(); window.scrollTo(0, 0);
 }
 function render() {
-  ({ inicio: telaInicio, professores: telaProfessores, atribuicoes: telaAtribuicoes, turmas: telaTurmas, matriz: telaMatriz, grade: telaGrade, fixas: telaFixas, horarios: telaHorarios, usuarios: telaUsuarios })[TELA]();
+  ({ inicio: telaInicio, professores: telaProfessores, conferencia: telaConferencia, config: telaConfig, ano: telaAno, turmas: telaTurmas, matriz: telaMatriz,
+    grade: telaGrade, fixas: telaFixas, horarios: telaHorarios, usuarios: telaUsuarios })[TELA]();
 }
-function cabecalho(tit, acoes) {   // título + frase curta explicando para que serve a tela
+function cabecalho(tit, acoes) {   // título + frase curta explicando para que serve a tela; telas da Configuração têm "← Configuração"
   const t = TELAS.find(x => x.id === TELA);
-  return `<div class="cab-tela"><div><h1>${tit}</h1>${t && t.sub ? `<p class="sub">${t.sub}</p>` : ''}</div><div class="acoes">${acoes || ''}</div></div>`;
+  return `${t && t.pai ? `<button class="btn mini voltar" onclick="ir('${t.pai}')">← Configuração</button>` : ''}
+    <div class="cab-tela"><div><h1>${tit}</h1>${t && t.sub ? `<p class="sub">${t.sub}</p>` : ''}</div><div class="acoes">${acoes || ''}</div></div>`;
+}
+
+// ================= Configuração (cartões grandes) =================
+function telaConfig() {
+  $('tela').innerHTML = cabecalho('Configuração') + `<div class="cartoes">${TELAS.filter(t => t.pai === 'config' && t.p.includes(D.usuario.perfil)).map(t =>
+    `<button class="cartao-cfg ${t.id === 'ano' ? 'alerta' : ''}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span><div><b>${t.nome}</b><span>${t.frase}</span></div></button>`).join('')}</div>`;
 }
 function abrirModal(titulo, corpo, rodape) {
   $('modalCaixa').innerHTML = `<div class="cab"><h2>${titulo}</h2><button class="link" onclick="fecharModal()" style="font-size:22px;color:var(--suave)">×</button></div><div class="corpo">${corpo}</div><div class="rod">${rodape}</div>`;
   $('modal').hidden = false;
 }
-function fecharModal() { $('modal').hidden = true; $('modalCaixa').innerHTML = ''; window.aoMudarDisp = null; }
+function fecharModal() {
+  if (PED && PED.mudouCarga && !confirm('As turmas marcadas para este professor ainda não foram salvas. Fechar sem salvar?')) return;
+  PED = null; $('modal').hidden = true; $('modalCaixa').innerHTML = ''; window.aoMudarDisp = null;
+}
 
 // ---------- ajudantes ----------
 const profPorNome = n => D.professores.find(p => p.nome === n);
@@ -283,22 +393,69 @@ function difMatriz(t) {
 }
 
 // ================= Início =================
-let PEND = [];
+// Sem grade oficial (começo do ano ou primeira vez): guia em 5 passos. Com grade: resumo e pendências.
+let PEND = [], PASSOS = [];
 function telaInicio() {
+  if (podeEditar() && !Object.keys(D.grade).length) return telaGuia();
   const resp = D.professores.filter(p => p.respondeuEm).length, regulares = D.turmas.filter(t => t.segmento !== 'Extra');
-  const completas = regulares.filter(t => somaCarga(t.nome) === capacidade(t.nome)).length;
+  const completas = regulares.filter(t => statusTurma(t.nome).ok).length;
   const nGrade = Object.keys(D.grade).length;
   let h = cabecalho(`Olá, ${esc(D.usuario.nome.split(' ')[0])}`) + `<div class="stats">
-    <div class="card stat" onclick="ir('grade')"><b>${nGrade ? 'Salva' : 'Não salva'}</b><span>grade horária oficial</span></div>`;
+    <div class="card stat" onclick="ir('grade')"><b>${nGrade ? 'Salva' : 'Não salva'}</b><span>grade horária oficial${D.vigencia ? ' · desde ' + esc(D.vigencia) : ''}</span></div>`;
   if (podeEditar()) {
-    h += `<div class="card stat" onclick="ir('professores')"><b>${resp}/${D.professores.length}</b><span>professores marcaram a disponibilidade</span></div>
-      <div class="card stat" onclick="ir('atribuicoes')"><b>${completas}/${regulares.length}</b><span>turmas com a semana completa</span></div>`;
+    h += `<div class="card stat" onclick="ir('professores')"><b>${resp}/${D.professores.length}</b><span>professores responderam o formulário</span></div>
+      <div class="card stat" onclick="ir('conferencia')"><b>${completas}/${regulares.length}</b><span>turmas completas</span></div>`;
     PEND = pendencias();
-    h += '</div>' + (PEND.length ? `<div class="card"><h2 style="margin-bottom:10px">O que falta <span class="tag alerta">${PEND.length}</span></h2><div class="pend">${PEND.map((p, i) =>
-      `<div class="pend-item"><span>${esc(p.texto)}</span><button class="btn mini" onclick="PEND[${i}].ir()">${esc(p.botao)} →</button></div>`).join('')}</div></div>`
-      : '<div class="aviso ok">Tudo pronto: nenhuma pendência.</div>');
+    h += '</div>' + listaPendencias();
   } else h += '</div>';
   $('tela').innerHTML = h;
+}
+function listaPendencias() {
+  return PEND.length ? `<div class="card"><h2 style="margin-bottom:10px">O que falta <span class="tag alerta">${PEND.length}</span></h2><div class="pend">${PEND.map((p, i) =>
+    `<div class="pend-item"><span>${esc(p.texto)}</span><button class="btn mini" onclick="PEND[${i}].ir()">${esc(p.botao)} →</button></div>`).join('')}</div></div>`
+    : '<div class="aviso ok">Tudo pronto: nenhuma pendência.</div>';
+}
+// Guia: cada passo tem situação (feito / falta) e botões que levam direto para resolver
+function passosGuia() {
+  const nP = D.professores.length, resp = D.professores.filter(p => p.respondeuEm), naoResp = D.professores.filter(p => !p.respondeuEm);
+  const comProf = D.carga.filter(c => c.professor).length, regs = D.turmas.filter(t => t.segmento !== 'Extra');
+  const completas = regs.filter(t => statusTurma(t.nome).ok).length;
+  const M = D.professores.length && D.carga.length ? Gerador.modelo(D) : null, nSob = M ? Object.keys(M.sobrecarga).length : 0;
+  return [
+    { tit: 'Conferir horários, turmas e matriz', ok: !!D.ano.conferido,
+      txt: 'Veja se os horários das aulas, as turmas e a matriz curricular estão certos para este ano.',
+      sit: D.ano.conferido ? 'Conferido.' : `${D.grades.length} períodos de aula · ${D.turmas.length} turmas · matriz de ${new Set(D.matriz.map(m => m.serie)).size} séries.`,
+      botoes: `<button class="btn" onclick="ir('horarios')">Horários das aulas</button><button class="btn" onclick="ir('turmas')">Turmas</button><button class="btn" onclick="ir('matriz')">Matriz curricular</button>
+        ${D.ano.conferido ? '<button class="btn" onclick="acao(\'conferirEstrutura\',{ok:false})">Desmarcar</button>' : '<button class="btn prim" onclick="acao(\'conferirEstrutura\',{ok:true},\'Marcado como conferido.\')">Está tudo certo ✓</button>'}` },
+    { tit: 'Enviar o formulário aos professores', ok: nP > 0 && !naoResp.length,
+      txt: 'Cada professor marca, pelo celular, os horários em que não pode dar aula. Professor novo se cadastra pelo próprio formulário.',
+      sit: !nP ? 'Ninguém respondeu ainda.' : `${resp.length} de ${nP} professores responderam.`,
+      extra: naoResp.length && nP ? `<div class="faltam"><span class="suave">Faltam responder:</span> ${naoResp.slice(0, 15).map(p => `<span class="tag neutra">${esc(p.nome)}</span>`).join('')}${naoResp.length > 15 ? ` e mais ${naoResp.length - 15}` : ''}</div>` : '',
+      botoes: `<button class="btn" onclick="copiar(D.linkForm)">Copiar o link</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>${nP ? `<button class="btn" onclick="FILTRO='naoresp';ir('professores')">Ver quem falta</button>` : ''}` },
+    { tit: 'Atribuir turmas aos professores', ok: D.carga.length > 0 && comProf === D.carga.length,
+      txt: 'Abra cada professor e, em “Turmas e matérias”, toque nas turmas de cada matéria que ele dá.',
+      sit: D.carga.length ? `${comProf} de ${D.carga.length} matérias das turmas já têm professor.` : 'As turmas ainda não têm matérias: confira a matriz curricular.',
+      botoes: `<button class="btn prim" onclick="ir('professores')">Ir para Professores</button>` },
+    { tit: 'Conferir as turmas', ok: regs.length > 0 && completas === regs.length && !nSob,
+      txt: 'Veja se toda turma tem professor em todas as matérias e se cada professor cabe nos horários em que pode.',
+      sit: `${completas} de ${regs.length} turmas completas${nSob ? ` · ${nSob} ${nSob === 1 ? 'professor não cabe' : 'professores não cabem'} nos horários livres` : ''}.`,
+      botoes: `<button class="btn prim" onclick="ir('conferencia')">Conferência das turmas</button>` },
+    { tit: 'Gerar e salvar a grade oficial', ok: Object.keys(D.grade).length > 0,
+      txt: 'O sistema monta opções de grade em cerca de 25 segundos. Escolha uma, ajuste se quiser e salve como oficial.',
+      sit: Object.keys(D.grade).length ? 'Grade oficial salva.' : 'Ainda não salva.',
+      botoes: `<button class="btn prim" onclick="ir('grade')">Ir para a Grade horária</button>` },
+  ];
+}
+function telaGuia() {
+  PASSOS = passosGuia(); PEND = pendencias();
+  const atual = PASSOS.findIndex(p => !p.ok), feitos = PASSOS.filter(p => p.ok).length;
+  $('tela').innerHTML = cabecalho(D.ano.ano ? `Ano letivo ${esc(D.ano.ano)}: passo a passo` : 'Passo a passo para montar a grade')
+    + `<p class="suave" style="margin:-6px 0 14px">${feitos} de ${PASSOS.length} passos feitos. Siga na ordem; cada botão leva direto ao lugar certo.</p>
+    <div class="passos">${PASSOS.map((p, i) => `<div class="card passo-g ${p.ok ? 'ok' : i === atual ? 'atual' : ''}"><span class="num">${p.ok ? '✓' : i + 1}</span><div>
+      <h2>${p.tit} ${p.ok ? '<span class="tag ok">feito</span>' : '<span class="tag alerta">pendente</span>'}</h2>
+      <p class="peq suave">${p.txt}</p><p style="margin-top:6px"><b>${p.sit}</b></p>${p.extra || ''}
+      <div class="acoes">${p.botoes}</div></div></div>`).join('')}</div>
+    ${PEND.length ? `<details style="margin-top:14px"><summary>Ver a lista completa do que falta (${PEND.length})</summary><div style="margin-top:10px">${listaPendencias()}</div></details>` : ''}`;
 }
 // Pendências em linguagem simples, cada uma com o caminho para resolver
 function pendencias() {
@@ -309,113 +466,229 @@ function pendencias() {
   const semProf = {};
   D.carga.filter(c => !c.professor).forEach(c => { const s = (turmaDe(c.turmas[0]) || {}).segmento || '?'; semProf[s] = (semProf[s] || 0) + 1; });
   Object.entries(semProf).forEach(([s, n]) => { const c = D.carga.find(x => !x.professor && ((turmaDe(x.turmas[0]) || {}).segmento || '?') === s);
-    add(`${n} ${n === 1 ? 'matéria ainda está' : 'matérias ainda estão'} sem professor no ${s === 'Extra' ? 'contraturno' : s}.`, 'Escolher professores', () => irAtrib(c && c.turmas[0])); });
-  if (M) Object.entries(M.sobrecarga).forEach(([p, x]) => add(`${p} tem ${x.aulas} aulas, mas só ${x.livres} horários livres${x.grade ? ' (' + x.grade + ')' : ''}. Libere horários ou passe aulas para outro professor.`, 'Ver professor', () => { ir('professores'); editarProfessor(p); }));
+    add(`${n} ${n === 1 ? 'matéria ainda está' : 'matérias ainda estão'} sem professor no ${s === 'Extra' ? 'contraturno' : s}.`, 'Escolher professores', () => irConf(c && c.turmas[0])); });
+  if (M) Object.entries(M.sobrecarga).forEach(([p, x]) => add(`${p} tem ${x.aulas} aulas, mas só ${x.livres} horários livres${x.grade ? ' (' + x.grade + ')' : ''}. Libere horários ou tire turmas dele.`, 'Abrir o professor', () => { ir('professores'); editarProfessor(p); }));
   regulares.forEach(t => {
     const u = somaCarga(t.nome), cap = capacidade(t.nome);
-    if (u < cap) add(`A turma ${t.nome} tem ${u} aulas por semana; faltam ${cap - u} para completar os ${cap} horários.`, 'Ver a turma', () => irAtrib(t.nome));
-    else if (u > cap) add(`A turma ${t.nome} tem ${u} aulas por semana, ${u - cap} a mais do que cabe (${cap}).`, 'Ver a turma', () => irAtrib(t.nome));
+    if (u < cap) add(`A turma ${t.nome} tem ${u} aulas por semana; faltam ${cap - u} para completar os ${cap} horários.`, 'Ver a turma', () => irConf(t.nome));
+    else if (u > cap) add(`A turma ${t.nome} tem ${u} aulas por semana, ${u - cap} a mais do que cabe (${cap}).`, 'Ver a turma', () => irConf(t.nome));
   });
   regulares.forEach(t => { const dif = difMatriz(t); if (dif.length) add(`A turma ${t.nome} não segue a matriz do ${t.serie} (${dif.slice(0, 2).join(', ')}${dif.length > 2 ? '…' : ''}).`, 'Aplicar a matriz', () => { ir('matriz'); abrirAplicar(); }); });
   if (M) M.erros.filter(e => !/falta escolher o professor|horários livres|passam do limite/.test(e)).forEach(e => {
     if (/Aula fixa/.test(e)) add(e, 'Ver aulas fixas', () => ir('fixas'));
     else if (/horário das aulas/.test(e)) add(e, 'Ver turmas', () => ir('turmas'));
-    else add(e, 'Ver atribuições', () => ir('atribuicoes'));
+    else add(e, 'Ver a turma', () => irConf((e.match(/^([^·:]+?)(?: \+ | · |:)/) || [])[1]));
   });
-  D.professores.filter(p => !aulasProf(p.nome) && p.respondeuEm).forEach(p => add(`${p.nome} marcou a disponibilidade, mas ainda não tem aulas.`, 'Dar aulas', () => { ir('atribuicoes'); if (AT) { AT.aba = 'prof'; telaAtribuicoes(); } }));
+  D.professores.filter(p => !aulasProf(p.nome) && p.respondeuEm).forEach(p => add(`${p.nome} respondeu o formulário, mas ainda não tem turmas.`, 'Marcar as turmas', () => { ir('professores'); editarProfessor(p.nome, 'turmas'); }));
   const nao = D.professores.filter(p => !p.respondeuEm).length;
-  if (nao) add(`${nao} ${nao === 1 ? 'professor ainda não marcou' : 'professores ainda não marcaram'} os horários em que não podem (formulário).`, 'Enviar o link', () => ir('professores'));
+  if (nao) add(`${nao} ${nao === 1 ? 'professor ainda não respondeu' : 'professores ainda não responderam'} o formulário dos horários em que não podem.`, 'Ver quem falta', () => { FILTRO = 'naoresp'; ir('professores'); });
   if (!Object.keys(D.grade).length) add('A grade oficial ainda não foi salva.', 'Montar a grade', () => ir('grade'));
   else { const v = Gerador.validar(D, D.grade); if (v.problemas.length) add(`A grade oficial tem ${v.problemas.length} conflito(s): algum cadastro mudou depois que ela foi salva.`, 'Ver a grade', () => ir('grade')); }
   return P;
 }
-function irAtrib(turma) { ir('atribuicoes'); if (TELA === 'atribuicoes' && AT && turma && turmaDe(turma)) { AT.turma = turma; AT.aba = 'turma'; telaAtribuicoes(); } }
+function irConf(turma) { ir('conferencia'); if (TELA === 'conferencia' && AT && turma && turmaDe(turma)) { AT.turma = turma; AT.aba = 'turma'; telaConferencia(); } }
 
 // ================= Professores =================
-let BUSCA = '', PED = null;
+// O cadastro do professor é o lugar principal para atribuir: em "Turmas e matérias", cada matéria dele mostra as turmas
+// dos segmentos dele; tocar na turma dá ou tira. Edita uma cópia das atribuições (PED.carga) e salva tudo junto.
+let BUSCA = '', FILTRO = '', PED = null;
+const FILTROS = { '': 'Todos', naoresp: 'Não responderam o formulário', semturma: 'Sem turmas' };
 function telaProfessores() {
   $('tela').innerHTML = cabecalho('Professores',
     `<button class="btn" onclick="copiar(D.linkForm)">Copiar link do formulário</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>
      <button class="btn prim" onclick="editarProfessor()">+ Professor</button>`)
-    + `<div class="card"><input placeholder="Buscar professor ou matéria…" value="${esc(BUSCA)}" oninput="BUSCA=this.value;listaProfessores()" style="max-width:300px;margin-bottom:8px"><div id="listaProf" class="rolar"></div></div>`;
+    + `<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input placeholder="Buscar professor ou matéria…" value="${esc(BUSCA)}" oninput="BUSCA=this.value;listaProfessores()" style="max-width:300px">
+        <div class="chips">${Object.entries(FILTROS).map(([k, v]) => `<span class="chip ${FILTRO === k ? 'on' : ''}" onclick="FILTRO='${k}';telaProfessores()">${v}</span>`).join('')}</div></div>
+      <div id="listaProf"></div></div>`;
   listaProfessores();
 }
 function listaProfessores() {
-  const total = totalFaixas(), l = D.professores.filter(p => (p.nome + ' ' + p.completo + ' ' + p.materias.join(' ')).toLowerCase().indexOf(BUSCA.toLowerCase()) >= 0);
-  $('listaProf').innerHTML = !D.professores.length ? '<p class="suave">Nenhum professor. Envie o link do formulário ou clique em “+ Professor”.</p>' :
-    `<table class="tab"><tr><th>Professor</th><th>Matérias</th><th>Segmentos</th><th>Aulas/sem.</th><th title="Horas na semana em que pode dar aula (de ${total})">Horas livres</th><th>Formulário</th></tr>${l.map(p => {
+  const total = totalFaixas(), b = BUSCA.toLowerCase();
+  const l = D.professores.filter(p => (p.nome + ' ' + p.completo + ' ' + p.materias.join(' ')).toLowerCase().indexOf(b) >= 0
+    && (FILTRO !== 'naoresp' || !p.respondeuEm) && (FILTRO !== 'semturma' || !aulasProf(p.nome)));
+  $('listaProf').innerHTML = !D.professores.length ? '<p class="suave">Nenhum professor ainda. Envie o link do formulário (cada professor se cadastra por ele) ou toque em “+ Professor”.</p>'
+    : !l.length ? '<p class="suave">Nenhum professor com esse filtro.</p>'
+    : `<table class="tab cartao"><tr><th>Professor</th><th>Matérias</th><th>Aulas por semana</th><th title="Horas na semana em que pode dar aula (de ${total})">Horas livres</th><th>Formulário</th></tr>${l.map(p => {
       const aulas = aulasProf(p.nome);
       return `<tr class="clic" data-n="${esc(p.nome)}" onclick="editarProfessor(this.dataset.n)">
-        <td><b>${esc(p.nome)}</b>${p.completo ? `<div class="peq suave">${esc(p.completo)}</div>` : ''}</td>
-        <td class="suave">${p.materias.length ? esc(p.materias.map(sigla).join(', ')) : '<span class="tag alerta">escolher</span>'}</td>
-        <td>${p.segmentos.map(s => `<span class="tag neutra">${s}</span>`).join(' ') || '<span class="suave">—</span>'}</td>
-        <td>${aulas || '<span class="tag alerta">sem aulas</span>'}</td>
-        <td>${total - p.indisp.length} de ${total}</td>
-        <td>${p.respondeuEm ? `<span class="tag ok">${esc(p.respondeuEm.slice(0, 5))}</span>` : '<span class="suave">não respondeu</span>'}</td></tr>`;
+        <td><div><b>${esc(p.nome)}</b>${p.completo ? `<div class="peq suave">${esc(p.completo)}</div>` : ''}</div></td>
+        <td data-r="Matérias" class="suave">${p.materias.length ? esc(p.materias.map(sigla).join(', ')) : '<span class="tag alerta">escolher</span>'}</td>
+        <td data-r="Aulas por semana">${aulas || '<span class="tag alerta">sem turmas</span>'}</td>
+        <td data-r="Horas livres">${total - p.indisp.length} de ${total}</td>
+        <td data-r="Formulário">${p.respondeuEm ? `<span class="tag ok">respondeu ${esc(p.respondeuEm.slice(0, 5))}</span>` : '<span class="tag alerta">não respondeu</span>'}</td></tr>`;
     }).join('')}</table>`;
 }
-function editarProfessor(nome) {
+function editarProfessor(nome, aba) {
   const p = nome ? profPorNome(nome) : { nome: '', completo: '', materias: [], segmentos: [], tel: '', maxDia: '', indisp: [], respondeuEm: '', obs: '' };
-  PED = { antigo: nome || '', blocos: D.blocos.filter(b => b.professor === nome).map(b => ({ ...b })), materias: p.materias.slice(), segmentos: p.segmentos.slice() };
+  if (!p) return;
+  PED = { antigo: nome || '', chave: nome || '\u0001novo', aba: aba || 'turmas', blocos: D.blocos.filter(b => b.professor === nome).map(b => ({ ...b })),
+    materias: p.materias.slice(), segmentos: p.segmentos.slice(), verMats: !p.materias.length, carga: clone(D.carga), cargaAntes: D.carga, mudouCarga: false, pergunta: null };
   DISP = new Set(p.indisp);
-  const atrib = nome ? D.carga.filter(c => c.professor === nome) : [], total = atrib.reduce((s, c) => s + c.aulas, 0);
+  const temGrade = nome && Object.keys(D.grade).length && aulasProf(nome);
   abrirModal(nome ? esc(nome) : 'Novo professor', `
     <div class="linha-campos">
-      <label class="campo">Nome curto *<input id="pNome" value="${esc(p.nome)}" placeholder="Como aparece na grade"></label>
+      <label class="campo">Nome curto *<input id="pNome" value="${esc(p.nome)}" placeholder="Como aparece na grade" oninput="totalProf()"></label>
       <label class="campo">Nome completo<input id="pCompleto" value="${esc(p.completo)}"></label>
-      <label class="campo">WhatsApp<input id="pTel" value="${esc(p.tel)}"></label>
-      <label class="campo" title="Deixe vazio se não houver limite">Máx. aulas por dia<input id="pMax" type="number" min="1" max="12" value="${p.maxDia || ''}" placeholder="sem limite" style="max-width:140px"></label>
     </div>
-    ${p.respondeuEm ? `<div class="aviso ok">Marcou a disponibilidade no formulário em ${esc(p.respondeuEm)}${p.obs ? ` · “${esc(p.obs)}”` : ''}</div>` : ''}
-    <div><h3 style="margin-bottom:6px">Segmentos em que dá aula</h3><div class="chips" id="pSegs"></div></div>
-    <div><div class="disp-tit"><h3>Matérias</h3><span class="peq suave">clique para marcar</span></div><div id="pMats"></div></div>
-    ${nome ? `<div><div class="disp-tit"><h3>Aulas atribuídas</h3><span class="tag neutra">${total} aulas por semana</span></div>
-      ${atrib.length ? `<div class="rolar"><table class="tab"><tr><th>Matéria</th><th>Turmas (aulas por semana)</th><th>Total</th></tr>${[...new Set(atrib.map(c => c.disciplina))].map(m => { const ls = atrib.filter(c => c.disciplina === m);
-        return `<tr><td><b>${esc(m)}</b></td><td>${ls.map(c => `${esc(c.turmas.join(' + '))} <span class="suave">(${c.aulas})</span>`).join(' · ')}</td><td>${ls.reduce((x, c) => x + c.aulas, 0)}</td></tr>`; }).join('')}</table></div>`
-        : '<p class="peq suave" style="margin:0">Nenhuma aula atribuída ainda.</p>'}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn mini" data-t="${esc(atrib.length ? atrib[0].turmas[0] : '')}" onclick="fecharModal();irAtrib(this.dataset.t)">Mudar em Atribuições</button>
-        ${total ? `<button class="btn mini" data-n="${esc(nome)}" onclick="substituirProfessor(this.dataset.n)">Substituir este professor na grade</button>` : ''}</div></div>` : ''}
-    <div><div class="disp-tit"><h3>Disponibilidade</h3><span class="tag neutra" id="pResumo"></span></div>${htmlDisp(D.dias, D.faixas)}</div>
-    <div><div class="disp-tit"><h3>Horários reservados (sem turma)</h3><button class="btn mini" onclick="PED.blocos.push({tipo:D.tiposBloco[0],disciplina:'',dia:'Seg',ini:'',fim:''});desenharBlocos()">+ Horário reservado</button></div>
-      <div id="pBlocos" class="rolar"></div></div>`,
+    ${p.respondeuEm ? `<div class="aviso ok">Respondeu o formulário em ${esc(p.respondeuEm)}${p.obs ? ` · “${esc(p.obs)}”` : ''}</div>` : nome ? '<div class="aviso alerta">Ainda não respondeu o formulário dos horários.</div>' : ''}
+    <div class="abas-prof">${[['turmas', 'Turmas e matérias'], ['disp', 'Horários em que não pode'], ['dados', 'Mais dados']].map(([k, v]) => `<button data-a="${k}" onclick="abaProf('${k}')">${v}</button>`).join('')}</div>
+    <div data-pane="turmas" style="display:flex;flex-direction:column;gap:14px">
+      <div class="total-prof" id="pTotal"></div>
+      <div><h3 style="margin-bottom:6px">1. Segmentos em que dá aula</h3><div class="chips" id="pSegs"></div></div>
+      <div><div class="disp-tit"><h3>2. Matérias que dá</h3></div><div id="pMats"></div></div>
+      <div><div class="disp-tit"><h3>3. Turmas de cada matéria</h3><span class="peq suave">toque na turma para dar ou tirar</span></div><div id="pTurmas"></div></div>
+      ${temGrade ? `<div class="aviso">Mudar as turmas aqui não muda a grade oficial. Para trocar quem dá as aulas no meio do ano, sem mexer no horário dos outros professores, use
+        <button class="link" data-n="${esc(nome)}" onclick="substituirProfessor(this.dataset.n)">Substituir este professor na grade</button>.</div>` : ''}
+    </div>
+    <div data-pane="disp" hidden><p class="peq" id="pResumo" style="margin:0 0 10px"></p>${htmlDisp(D.dias, D.faixas)}</div>
+    <div data-pane="dados" hidden style="flex-direction:column;gap:14px">
+      <div class="linha-campos">
+        <label class="campo">WhatsApp<input id="pTel" value="${esc(p.tel)}" inputmode="tel"></label>
+        <label class="campo" title="Deixe vazio se não houver limite">Máximo de aulas por dia<input id="pMax" type="number" min="1" max="12" value="${p.maxDia || ''}" placeholder="sem limite" style="max-width:140px" oninput="totalProf()"></label>
+      </div>
+      <div><div class="disp-tit"><h3>Horários reservados (sem turma)</h3><button class="btn mini" onclick="PED.blocos.push({tipo:D.tiposBloco[0],disciplina:'',dia:'Seg',ini:'',fim:''});desenharBlocos()">+ Horário reservado</button></div>
+        <div id="pBlocos"></div></div>
+      ${temGrade ? `<div><button class="btn" data-n="${esc(nome)}" onclick="substituirProfessor(this.dataset.n)">Substituir este professor na grade</button></div>` : ''}
+    </div>`,
     `${nome ? '<button class="btn perigo esq" onclick="excluirProfessor()">Excluir</button>' : ''}<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="salvarProfessor()">Salvar</button>`);
-  window.aoMudarDisp = () => { $('pResumo').textContent = `${totalFaixas() - DISP.size} de ${totalFaixas()} horas livres na semana`; };
-  window.aoMudarDisp(); desenharBlocos(); desenharChips();
+  window.aoMudarDisp = () => { $('pResumo').innerHTML = `<b>${totalFaixas() - DISP.size} de ${totalFaixas()} horas livres na semana.</b>`; totalProf(); };
+  desenharBlocos(); desenharChips(); abaProf(PED.aba); window.aoMudarDisp();
+}
+function abaProf(a) {
+  PED.aba = a;
+  document.querySelectorAll('.abas-prof button').forEach(b => b.classList.toggle('on', b.dataset.a === a));
+  document.querySelectorAll('[data-pane]').forEach(x => { x.hidden = x.dataset.pane !== a; if (!x.hidden) x.style.display = 'flex'; });
+  totalProf();
 }
 function substituirProfessor(nome) {   // abre a troca de professor já preenchida
   if (!Object.keys(D.grade).length) return toast('Ainda não há grade oficial salva.', 'erro');
-  fecharModal(); ir('grade'); if (TELA === 'grade') abrirTroca(nome);
+  fecharModal(); if (PED) return; ir('grade'); if (TELA === 'grade') abrirTroca(nome);
 }
 function desenharChips() {
-  const chip = (txt, on, acao) => `<span class="chip ${on ? 'on' : ''}" data-v="${esc(txt)}" onclick="${acao}(this.dataset.v)">${esc(txt)}</span>`;
-  $('pSegs').innerHTML = Object.keys(D.series).map(s => chip(s, PED.segmentos.includes(s), 'chipSeg')).join('');
-  const nomes = D.componentes.map(c => c.nome), curr = [];
-  D.matriz.forEach(m => { if (!curr.includes(m.componente)) curr.push(m.componente); });
-  const outras = nomes.filter(n => !curr.includes(n)), soltas = PED.materias.filter(m => !nomes.includes(m) && !curr.includes(m));
-  $('pMats').innerHTML = `<div class="peq suave" style="margin:2px 0 4px">Do currículo</div><div class="chips">${curr.map(n => chip(n, PED.materias.includes(n), 'chipMat')).join('')}</div>
-    <div class="peq suave" style="margin:10px 0 4px">Contraturno e outras</div><div class="chips">${outras.map(n => chip(n, PED.materias.includes(n), 'chipMat')).join('')}
-    ${soltas.map(n => `<span class="chip on fora" title="Não está na Matriz: clique para tirar" data-v="${esc(n)}" onclick="chipMat(this.dataset.v)">${esc(n)}</span>`).join('')}</div>`;
+  const chip = (txt, on, acao, v) => `<span class="chip ${on ? 'on' : ''}" data-v="${esc(v || txt)}" onclick="${acao}(this.dataset.v)">${esc(txt)}</span>`;
+  $('pSegs').innerHTML = Object.keys(D.series).map(s => chip(s === 'Extra' ? 'Contraturno' : s, PED.segmentos.includes(s), 'chipSeg', s)).join('');
+  if (!PED.verMats) {
+    $('pMats').innerHTML = `<div class="chips">${PED.materias.map(n => chip(n, true, 'chipMat')).join('')}<button class="btn mini" onclick="PED.verMats=true;desenharChips()">Mudar as matérias</button></div>`;
+  } else {
+    const nomes = D.componentes.map(c => c.nome), series = [].concat(...PED.segmentos.map(sg => D.series[sg] || [])), curr = [];
+    D.matriz.forEach(m => { if ((!series.length || series.includes(m.serie)) && !curr.includes(m.componente)) curr.push(m.componente); });
+    const todasCurr = new Set(D.matriz.map(m => m.componente));
+    const outras = nomes.filter(n => !curr.includes(n) && !todasCurr.has(n)), soltas = PED.materias.filter(m => !curr.includes(m) && !outras.includes(m));
+    $('pMats').innerHTML = `<div class="peq suave" style="margin:2px 0 4px">Do currículo${series.length ? ' (segmentos marcados)' : ''}</div><div class="chips">${curr.map(n => chip(n, PED.materias.includes(n), 'chipMat')).join('')}</div>
+      <div class="peq suave" style="margin:10px 0 4px">Contraturno e outras</div><div class="chips">${outras.map(n => chip(n, PED.materias.includes(n), 'chipMat')).join('')}
+      ${soltas.map(n => `<span class="chip on fora" title="Toque para tirar" data-v="${esc(n)}" onclick="chipMat(this.dataset.v)">${esc(n)}</span>`).join('')}</div>
+      ${PED.materias.length ? '<div style="margin-top:10px"><button class="btn mini prim" onclick="PED.verMats=false;desenharChips()">Pronto</button></div>' : ''}`;
+  }
+  desenharTurmasProf();
 }
 function chipSeg(v) { const l = PED.segmentos, i = l.indexOf(v); i >= 0 ? l.splice(i, 1) : l.push(v); desenharChips(); }
 function chipMat(v) { const l = PED.materias, i = l.indexOf(v); i >= 0 ? l.splice(i, 1) : l.push(v); desenharChips(); }
+
+// ---- Turmas de cada matéria (dentro do cadastro do professor) ----
+const ptLinha = (turma, m) => PED.carga.find(l => l.turmas.includes(turma) && l.disciplina === m);
+const naMatriz = m => D.matriz.some(x => x.componente === m);
+const nomeProfEd = () => ($('pNome') && $('pNome').value.trim()) || PED.antigo || 'este professor';
+const textoGrupo = g => g === 'Contraturno' ? 'em todos os grupos do contraturno' : /série/.test(g) ? 'em toda a ' + g : 'em todo o ' + g;
+function ptCandidatas(m) {   // turmas dos segmentos do professor que têm (ou podem ter) a matéria; as que já são dele aparecem sempre
+  const eu = PED.chave;
+  return turmasEmOrdem().filter(t => {
+    const l = ptLinha(t.nome, m);
+    if (l && l.professor === eu) return true;
+    if (!PED.segmentos.includes(t.segmento)) return false;
+    if (t.segmento === 'Extra') return !naMatriz(m) || !!l;
+    return !!l || D.matriz.some(x => x.serie === t.serie && x.componente === m);
+  });
+}
+function desenharTurmasProf() {
+  if (!PED || !$('pTurmas')) return;
+  const eu = PED.chave, minhas = PED.carga.filter(l => l.professor === eu);
+  PED.mats = [...new Set(PED.materias.concat(minhas.map(l => l.disciplina)))]; PED.grupos = [];
+  if (!PED.segmentos.length && !minhas.length) { $('pTurmas').innerHTML = '<p class="peq suave" style="margin:0">Marque acima os segmentos em que o professor dá aula.</p>'; return totalProf(); }
+  if (!PED.mats.length) { $('pTurmas').innerHTML = '<p class="peq suave" style="margin:0">Marque acima as matérias que o professor dá.</p>'; return totalProf(); }
+  $('pTurmas').innerHTML = PED.mats.map((m, mi) => {
+    const ts = ptCandidatas(m), aulas = minhas.filter(l => l.disciplina === m).reduce((x, l) => x + l.aulas, 0), grupos = PED.grupos[mi] = [];
+    ts.forEach(t => { const g = t.segmento === 'Extra' ? 'Contraturno' : t.serie || t.segmento; let x = grupos.find(y => y.g === g); if (!x) grupos.push(x = { g, ts: [] }); x.ts.push(t); });
+    const pq = PED.pergunta && PED.pergunta.mi === mi ? `<div class="pergunta"><span>${esc(PED.pergunta.texto)}</span><button class="btn mini prim" onclick="ptConfirmar()">Passar</button><button class="btn mini" onclick="PED.pergunta=null;desenharTurmasProf()">Cancelar</button></div>` : '';
+    return `<div class="pt-mat"><div class="disp-tit"><h3>${esc(m)}</h3><span class="tag ${aulas ? 'neutra' : 'alerta'}">${aulas} ${aulas === 1 ? 'aula' : 'aulas'} por semana</span></div>
+      ${!ts.length ? `<p class="peq suave" style="margin:0">Nenhuma turma dos segmentos marcados tem ${esc(m)} na matriz.</p>` : grupos.map((g, gi) => `<div class="pt-serie"><span class="pt-serie-nome">${esc(g.g)}</span>
+        <div class="pt-chips">${g.ts.map(t => ptChip(m, t)).join('')}
+        ${g.ts.length > 1 && g.ts.some(t => { const l = ptLinha(t.nome, m); return !l || l.professor !== eu; }) ? `<button class="link" onclick="ptGrupo(${mi},${gi})">Dar ${esc(m)} ${esc(textoGrupo(g.g))}</button>` : ''}</div></div>`).join('')}
+      ${pq}</div>`;
+  }).join('');
+  totalProf();
+}
+function ptChip(m, t) {
+  const l = ptLinha(t.nome, m), juntas = l && l.turmas.length > 1 ? l.turmas.filter(x => x !== t.nome) : [];
+  const cls = l && l.professor === PED.chave ? 'meu' : l && l.professor ? 'outro' : 'livre';
+  const tit = cls === 'meu' ? 'Toque para tirar' : cls === 'outro' ? `Hoje com ${l.professor}. Toque para passar` : 'Sem professor. Toque para dar';
+  return `<button class="pt ${cls}" title="${esc(tit)}" data-m="${esc(m)}" data-t="${esc(t.nome)}" onclick="ptClique(this.dataset.m,this.dataset.t)">${esc(t.nome)}${cls === 'outro' ? ' · ' + esc(l.professor) : ''}${juntas.length ? ` <small>junto c/ ${esc(juntas.join(', '))}</small>` : ''}</button>`;
+}
+function ptClique(m, turma) {
+  const l = ptLinha(turma, m);
+  PED.pergunta = null;
+  if (l && l.professor === PED.chave) { l.professor = ''; return ptMudou(); }
+  if (l && l.professor) { PED.pergunta = { mi: PED.mats.indexOf(m), texto: `Passar ${l.turmas.join(' + ')} de ${l.professor} para ${nomeProfEd()}?`, linhas: [l], dar: [] }; return desenharTurmasProf(); }
+  ptDar(m, turma); ptMudou();
+}
+function ptDar(m, turma) {
+  let l = ptLinha(turma, m);
+  if (!l) {
+    const t = turmaDe(turma), mz = D.matriz.find(x => x.serie === t.serie && x.componente === m), n = mz ? mz.aulas : 1;
+    l = { turmas: [turma], disciplina: m, professor: '', aulas: n, duplas: 0, maxDia: Math.max(Math.ceil(n / 5), Math.min(n, 2)) };
+    PED.carga.push(l);
+    if (!mz) toast(`${m} entrou na ${turma} com 1 aula por semana. Para mudar, use a Conferência das turmas (botão ⋯).`);
+  }
+  l.professor = PED.chave;
+}
+function ptGrupo(mi, gi) {   // "Dar Matemática em todo o 6º ano"
+  const m = PED.mats[mi], g = PED.grupos[mi][gi], outros = [], dar = [];
+  g.ts.forEach(t => { const l = ptLinha(t.nome, m); if (l && l.professor === PED.chave) return; if (l && l.professor) { if (!outros.includes(l)) outros.push(l); } else dar.push([m, t.nome]); });
+  if (outros.length) { PED.pergunta = { mi, texto: `Passar ${outros.map(l => `${l.turmas.join(' + ')} de ${l.professor}`).join(', ')} para ${nomeProfEd()}?`, linhas: outros, dar }; return desenharTurmasProf(); }
+  dar.forEach(([mm, t]) => ptDar(mm, t)); ptMudou();
+}
+function ptConfirmar() { const q = PED.pergunta; q.linhas.forEach(l => l.professor = PED.chave); q.dar.forEach(([m, t]) => ptDar(m, t)); PED.pergunta = null; ptMudou(); }
+function ptMudou() { PED.mudouCarga = true; desenharTurmasProf(); }
+// Total do professor e se cabe nos horários em que ele pode (motivo em linguagem simples)
+function totalProf() {
+  if (!PED || !$('pTotal')) return;
+  const eu = PED.chave, minhas = PED.carga.filter(l => l.professor === eu), aulas = minhas.reduce((x, l) => x + l.aulas, 0);
+  const maxDia = +($('pMax') && $('pMax').value) || 0, nome = nomeProfEd();
+  const D2 = Object.assign({}, D, { carga: minhas, professores: [{ nome: eu, maxDia, indisp: [...DISP] }], blocos: PED.blocos.map(b => Object.assign({}, b, { professor: eu })), fixas: [] });
+  const s = aulas ? Gerador.modelo(D2).sobrecarga[eu] : null, nT = new Set([].concat(...minhas.map(l => l.turmas))).size;
+  $('pTotal').innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="tag ${aulas ? 'neutra' : 'alerta'}" style="font-size:14px;padding:5px 12px">${aulas} ${aulas === 1 ? 'aula' : 'aulas'} por semana</span>
+      <span class="peq suave">${nT ? `em ${nT} ${nT === 1 ? 'turma' : 'turmas'}` : 'nenhuma turma ainda'}</span>${PED.mudouCarga ? '<span class="tag alerta">não salvo</span>' : ''}</div>`
+    + (!s ? '' : `<div class="aviso erro">⚠ Não cabe: ${s.grade ? `são ${s.aulas} aulas no período ${esc(s.grade)}, mas, pelos horários em que ${esc(nome)} pode, só sobram ${s.livres} horários nesse período. Libere horários na aba “Horários em que não pode” ou tire turmas.`
+      : `são ${s.aulas} aulas na semana, mas o limite é de ${maxDia} por dia (${s.livres} na semana). Aumente o limite em “Mais dados” ou tire turmas.`}</div>`);
+}
 function desenharBlocos() {
   $('pBlocos').innerHTML = !PED.blocos.length ? '<p class="peq suave" style="margin:0">Complementação de carga horária, plantão de dúvidas… O professor fica ocupado nesse horário e o gerador não põe aula nele.</p>'
-    : `<table class="tab"><tr><th>Tipo</th><th>Matéria</th><th>Dia</th><th>Início</th><th>Fim</th><th></th></tr>${PED.blocos.map((b, i) => `<tr>
+    : `<table class="tab cartao"><tr><th>Tipo</th><th>Matéria</th><th>Dia</th><th>Início</th><th>Fim</th><th></th></tr>${PED.blocos.map((b, i) => `<tr>
       <td><select onchange="PED.blocos[${i}].tipo=this.value;desenharBlocos()">${D.tiposBloco.map(t => `<option ${t === b.tipo ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></td>
-      <td>${b.tipo === 'Plantão de Dúvidas' ? `<input list="listaComp" value="${esc(b.disciplina)}" oninput="PED.blocos[${i}].disciplina=this.value" placeholder="Ex.: Física">` : '<span class="suave">—</span>'}</td>
-      <td><select style="min-width:76px" onchange="PED.blocos[${i}].dia=this.value">${D.dias.map(d => `<option ${d === b.dia ? 'selected' : ''}>${d}</option>`).join('')}</select></td>
-      <td><input type="time" step="600" value="${esc(b.ini)}" onchange="PED.blocos[${i}].ini=this.value"></td>
-      <td><input type="time" step="600" value="${esc(b.fim)}" onchange="PED.blocos[${i}].fim=this.value"></td>
-      <td><button class="link" style="color:var(--erro)" onclick="PED.blocos.splice(${i},1);desenharBlocos()">✕</button></td></tr>`).join('')}</table>
+      <td data-r="Matéria">${b.tipo === 'Plantão de Dúvidas' ? `<input list="listaComp" value="${esc(b.disciplina)}" oninput="PED.blocos[${i}].disciplina=this.value" placeholder="Ex.: Física">` : '<span class="suave">—</span>'}</td>
+      <td data-r="Dia"><select style="min-width:76px" onchange="PED.blocos[${i}].dia=this.value">${D.dias.map(d => `<option ${d === b.dia ? 'selected' : ''}>${d}</option>`).join('')}</select></td>
+      <td data-r="Início"><input type="time" step="600" value="${esc(b.ini)}" onchange="PED.blocos[${i}].ini=this.value"></td>
+      <td data-r="Fim"><input type="time" step="600" value="${esc(b.fim)}" onchange="PED.blocos[${i}].fim=this.value"></td>
+      <td><button class="btn mini perigo" onclick="PED.blocos.splice(${i},1);desenharBlocos()">Tirar</button></td></tr>`).join('')}</table>
       <datalist id="listaComp">${D.componentes.map(c => `<option value="${esc(c.nome)}">`).join('')}</datalist>`;
 }
 async function salvarProfessor() {
-  const dados = { nomeAntigo: PED.antigo, nome: $('pNome').value, completo: $('pCompleto').value, materias: PED.materias, segmentos: PED.segmentos,
+  const nome = $('pNome').value.trim();
+  const dados = { nomeAntigo: PED.antigo, nome, completo: $('pCompleto').value, materias: PED.materias, segmentos: PED.segmentos,
     maxDia: +$('pMax').value || '', tel: $('pTel').value, indisp: [...DISP], blocos: PED.blocos };
-  if (await acao('salvarProfessor', dados, 'Professor salvo.')) fecharModal();
+  if (PED.mudouCarga) {
+    if (!nome) return toast('Informe o nome curto do professor.', 'erro');
+    dados.carga = PED.carga.map(l => Object.assign({}, l, { professor: l.professor === PED.chave ? nome : l.professor }));
+    dados.cargaAntes = PED.cargaAntes;
+  }
+  const ped = PED; ped.mudouCarga = false;
+  if (await acao('salvarProfessor', dados, dados.carga ? 'Professor e turmas salvos.' : 'Professor salvo.')) { PED = null; fecharModal(); }
+  else if (PED === ped) ped.mudouCarga = !!dados.carga;
 }
 async function excluirProfessor() {
-  if (confirm(`Excluir ${PED.antigo}?`) && await acao('excluirProfessor', { nome: PED.antigo }, 'Professor excluído.')) fecharModal();
+  if (!confirm(`Excluir ${PED.antigo}?`)) return;
+  const ped = PED, m = ped.mudouCarga; ped.mudouCarga = false;
+  if (await acao('excluirProfessor', { nome: ped.antigo }, 'Professor excluído.')) { PED = null; fecharModal(); } else ped.mudouCarga = m;
 }
 
 // ================= Turmas (só o cadastro) =================
@@ -424,13 +697,13 @@ function telaTurmas() {
     const ts = D.turmas.filter(t => seg ? t.segmento === seg : !D.series[t.segmento]); if (!ts.length) return '';
     return `<tr class="grupo-linha"><td colspan="5">${seg || 'Sem segmento'}</td></tr>` + ts.map(t => {
       const u = somaCarga(t.nome), cap = capacidade(t.nome), cls = t.segmento === 'Extra' ? (u > cap ? 'erro' : 'neutra') : u === cap ? 'ok' : u > cap ? 'erro' : 'alerta';
-      return `<tr class="clic" data-t="${esc(t.nome)}" onclick="editarTurma(this.dataset.t)"><td><b>${esc(t.nome)}</b></td><td>${esc(t.serie || '—')}</td><td>${esc(t.grade || '—')}</td>
-        <td><span class="tag ${cls}">${u} de ${cap}</span></td><td class="suave peq">${cargaDe(t.nome).length} matérias</td></tr>`;
+      return `<tr class="clic" data-t="${esc(t.nome)}" onclick="editarTurma(this.dataset.t)"><td><b>${esc(t.nome)}</b></td><td data-r="Série">${esc(t.serie || '—')}</td><td data-r="Horário das aulas">${esc(t.grade || '—')}</td>
+        <td data-r="Aulas por semana"><span class="tag ${cls}">${u} de ${cap}</span></td><td data-r="Matérias" class="suave peq">${cargaDe(t.nome).length} matérias</td></tr>`;
     }).join('');
   }).join('');
   $('tela').innerHTML = cabecalho('Turmas', '<button class="btn prim" onclick="editarTurma()">+ Turma</button>')
-    + `<div class="card rolar">${linhas ? `<table class="tab"><tr><th>Turma</th><th>Série</th><th>Horário das aulas</th><th title="Aulas atribuídas por semana / horários da semana">Aulas/semana</th><th></th></tr>${linhas}</table>` : '<p class="suave">Nenhuma turma. Clique em “+ Turma”.</p>'}
-      <p class="peq suave" style="margin:10px 0 0">Quem dá cada matéria em cada turma fica em <button class="link" onclick="ir('atribuicoes')">Atribuições</button>.</p></div>`;
+    + `<div class="card">${linhas ? `<table class="tab cartao"><tr><th>Turma</th><th>Série</th><th>Horário das aulas</th><th title="Aulas atribuídas por semana / horários da semana">Aulas/semana</th><th></th></tr>${linhas}</table>` : '<p class="suave">Nenhuma turma. Clique em “+ Turma”.</p>'}
+      <p class="peq suave" style="margin:10px 0 0">Quem dá cada matéria se marca no cadastro de cada <button class="link" onclick="ir('professores')">professor</button>; para ver turma por turma, use a <button class="link" onclick="ir('conferencia')">Conferência das turmas</button>.</p></div>`;
 }
 function editarTurma(nome) {
   const t = nome ? turmaDe(nome) : { nome: '', segmento: 'EFAI', serie: '', grade: D.grades[0] ? D.grades[0].nome : '' };
@@ -450,7 +723,7 @@ function seriesTurma(atual) {
   $('tSerie').disabled = !l.length;
 }
 async function salvarTurma(antigo) {
-  if (AT && AT.sujo && !confirm('Há atribuições não salvas; elas serão descartadas. Continuar?')) return;
+  if (AT && AT.sujo && !confirm('Há mudanças na Conferência das turmas que não foram salvas; elas serão descartadas. Continuar?')) return;
   const nome = $('tNome').value.trim(), copia = !antigo && $('tCopia').value;
   if (!await acao('salvarTurma', { nomeAntigo: antigo, nome: nome, segmento: $('tSeg').value, serie: $('tSerie').value, grade: $('tGrade').value }, 'Turma salva.')) return;
   fecharModal(); AT = null;
@@ -461,13 +734,15 @@ async function excluirTurma(nome) {
   if (await acao('excluirTurma', { nome }, 'Turma excluída.')) { fecharModal(); AT = null; }
 }
 
-// ================= Atribuições (quem dá cada matéria em cada turma) =================
-// Escolhe a turma → lista das matérias dela com o professor de cada uma. Edita em memória e salva tudo de uma vez.
+// ================= Conferência das turmas =================
+// Escolhe a turma → lista das matérias com o professor; as sem professor ficam no topo, com o seletor para resolver na hora.
+// Aulas por semana vêm da matriz (só leitura); exceções ficam no "⋯". Edita uma cópia (AT.carga) e salva tudo de uma vez.
 let AT = null;
-function iniciarAT(turma) {
-  AT = { carga: clone(D.carga), sujo: false, aba: 'turma', turma: '' };
-  const todas = turmasEmOrdem();
-  AT.turma = turma && turmaDe(turma) ? turma : ((todas.find(t => !statusTurma(t.nome).ok) || todas[0] || {}).nome || '');
+const cargaAtual = () => AT ? AT.carga : D.carga;
+function iniciarAT(turma, aba) {
+  AT = { carga: clone(D.carga), base: D.carga, sujo: false, aba: aba || 'turma', turma: '' };
+  const regs = turmasEmOrdem().filter(t => t.segmento !== 'Extra');
+  AT.turma = turma && turmaDe(turma) ? turma : ((regs.find(t => !statusTurma(t.nome).ok) || regs[0] || D.turmas[0] || {}).nome || '');
 }
 function turmasEmOrdem() {
   const segs = Object.keys(D.series), r = [];
@@ -478,73 +753,80 @@ function turmasEmOrdem() {
   });
   return r;
 }
-const atCarga = turma => AT.carga.filter(l => l.turmas.includes(turma));
+const atCarga = turma => cargaAtual().filter(l => l.turmas.includes(turma));
 const atModelo = () => Gerador.modelo(Object.assign({}, D, { carga: AT.carga }));
 const irmasDe = t => t.serie ? D.turmas.filter(x => x.serie === t.serie && x.segmento === t.segmento && x.nome !== t.nome) : [];
 const faltaMatriz = t => D.matriz.filter(m => m.serie === t.serie && !atCarga(t.nome).some(l => l.disciplina === m.componente));
 // com/total = matérias com professor; ok = todas com professor e a semana completa (contraturno: não precisa completar)
 function statusTurma(nome) {
-  const t = turmaDe(nome), ls = (AT ? atCarga(nome) : cargaDe(nome)), falta = faltaMatriz(t).length;
+  const t = turmaDe(nome), ls = atCarga(nome), falta = faltaMatriz(t).length;
   const com = ls.filter(l => l.professor).length, total = ls.length + falta, aulas = ls.reduce((s, l) => s + l.aulas, 0), cap = capacidade(nome);
   return { com, total, aulas, cap, ok: total > 0 && com === total && (t.segmento === 'Extra' ? aulas <= cap : aulas === cap) };
 }
-function telaAtribuicoes() {
-  if (!AT) iniciarAT();
-  $('tela').innerHTML = cabecalho('Atribuições', `<button class="btn" onclick="AT=null;telaAtribuicoes()" ${AT.sujo ? '' : 'disabled'}>Descartar</button>
-      <button class="btn prim" onclick="salvarAtribuicoes()" ${AT.sujo ? '' : 'disabled'}>Salvar</button>`)
-    + `<div class="card"><div class="abas"><button class="btn mini ${AT.aba === 'turma' ? 'on' : ''}" onclick="AT.aba='turma';telaAtribuicoes()">Por turma</button>
-        <button class="btn mini ${AT.aba === 'prof' ? 'on' : ''}" onclick="AT.aba='prof';telaAtribuicoes()">Por professor</button>
-        ${AT.sujo ? '<span class="tag alerta" style="margin-left:auto">Alterações não salvas</span>' : ''}</div><div id="atCorpo"></div></div>`;
+function telaConferencia() {
+  if (!AT || (!AT.sujo && AT.base !== D.carga)) iniciarAT(AT && AT.turma, AT && AT.aba);   // algo mudou em outra tela: recomeça da versão salva
+  $('tela').innerHTML = cabecalho('Conferência das turmas')
+    + `<div class="card"><div class="abas"><button class="btn mini ${AT.aba === 'turma' ? 'on' : ''}" onclick="AT.aba='turma';redesenharAT()">Por turma</button>
+        <button class="btn mini ${AT.aba === 'prof' ? 'on' : ''}" onclick="AT.aba='prof';redesenharAT()">Por professor</button></div><div id="atCorpo"></div>
+      ${AT.sujo ? `<div class="barra-salvar"><span>Há mudanças não salvas</span><button class="btn" onclick="AT=null;telaConferencia()">Descartar</button><button class="btn prim" onclick="salvarAtribuicoes()">Salvar</button></div>` : ''}</div>`;
   AT.aba === 'prof' ? atPorProfessor() : atPorTurma();
 }
-function redesenharAT() { const y = window.scrollY; telaAtribuicoes(); window.scrollTo(0, y); }
+function redesenharAT() { const y = window.scrollY; telaConferencia(); window.scrollTo(0, y); }
 function atSujo() { AT.sujo = true; }
 function atTurma(t) { AT.turma = t; AT.aba = 'turma'; AT.ultimo = -1; redesenharAT(); }
 
 function atPorTurma() {
-  const M = atModelo(), todas = turmasEmOrdem();
-  let h = '<p class="peq suave" style="margin:0 0 8px">Escolha a turma. O número mostra quantas matérias já têm professor (verde: turma pronta).</p><div class="at-turmas">';
-  Object.keys(D.series).concat(['Outras']).forEach(seg => {
-    const ts = todas.filter(t => seg === 'Outras' ? !D.series[t.segmento] : t.segmento === seg); if (!ts.length) return;
-    let ant = null;
-    h += `<div class="at-seg"><span class="at-seg-nome">${seg === 'Extra' ? 'Contraturno' : seg}</span><div class="at-chips">` + ts.map(t => {
-      const st = statusTurma(t.nome), sep = ant !== null && t.serie !== ant ? '<span class="at-sep"></span>' : ''; ant = t.serie;
-      return sep + `<button class="at-chip ${st.ok ? 'ok' : 'alerta'} ${t.nome === AT.turma ? 'on' : ''}" data-t="${esc(t.nome)}" onclick="atTurma(this.dataset.t)"
-        title="${st.com} de ${st.total} matérias com professor · ${st.aulas} de ${st.cap} aulas por semana">${esc(t.nome)} <small>${st.com}/${st.total}</small></button>`;
-    }).join('') + '</div></div>';
+  const M = atModelo(), todas = turmasEmOrdem(), st = {};
+  todas.forEach(t => st[t.nome] = statusTurma(t.nome));
+  const regs = todas.filter(t => t.segmento !== 'Extra'), extras = todas.filter(t => t.segmento === 'Extra');
+  const okR = regs.filter(t => st[t.nome].ok).length, okX = extras.filter(t => st[t.nome].ok).length, atual = turmaDe(AT.turma);
+  const chips = ts => { let ant = null; return ts.map(t => { const x = st[t.nome], sep = ant !== null && t.serie !== ant ? '<span class="at-sep"></span>' : ''; ant = t.serie;
+    return sep + `<button class="at-chip ${x.ok ? 'ok' : 'alerta'} ${t.nome === AT.turma ? 'on' : ''}" data-t="${esc(t.nome)}" onclick="atTurma(this.dataset.t)"
+      title="${x.com} de ${x.total} matérias com professor · ${x.aulas} de ${x.cap} aulas por semana">${esc(t.nome)} <small>${x.com}/${x.total}</small></button>`; }).join(''); };
+  let h = `<div class="conf-resumo"><div><b>${okR} de ${regs.length}</b> turmas completas</div><div class="barrinha"><i style="width:${regs.length ? Math.round(okR / regs.length * 100) : 0}%"></i></div></div>
+    <p class="peq suave" style="margin:0 0 10px">Verde: turma completa. Amarelo: falta algo. O número mostra quantas matérias já têm professor. Toque numa turma.</p><div class="at-turmas">`;
+  Object.keys(D.series).filter(sg => sg !== 'Extra').concat(['Outras']).forEach(seg => {
+    const ts = regs.filter(t => seg === 'Outras' ? !D.series[t.segmento] : t.segmento === seg); if (!ts.length) return;
+    h += `<div class="at-seg"><span class="at-seg-nome">${seg}</span><div class="at-chips">${chips(ts)}</div></div>`;
   });
   h += '</div>';
-  $('atCorpo').innerHTML = h + (AT.turma && turmaDe(AT.turma) ? painelTurma(AT.turma, M) : '<p class="suave">Nenhuma turma cadastrada.</p>');
+  if (extras.length) h += `<details class="conf-extra" ${atual && atual.segmento === 'Extra' ? 'open' : ''}><summary>Contraturno · ${okX} de ${extras.length} grupos com professor em tudo</summary>
+    <div class="at-chips" style="margin-top:6px">${chips(extras)}</div></details>`;
+  $('atCorpo').innerHTML = h + (atual ? painelTurma(AT.turma, M) : '<p class="suave">Nenhuma turma cadastrada.</p>');
 }
 function painelTurma(nome, M) {
   const t = turmaDe(nome), seg = t.segmento, st = statusTurma(nome), irmas = irmasDe(t);
   const ordem = D.matriz.filter(m => m.serie === t.serie).map(m => m.componente);
   const idx = AT.carga.map((_, i) => i).filter(i => AT.carga[i].turmas.includes(nome))
     .sort((a, b) => { const x = ordem.indexOf(AT.carga[a].disciplina), y = ordem.indexOf(AT.carga[b].disciplina); return (x < 0 ? 999 : x) - (y < 0 ? 999 : y) || AT.carga[a].disciplina.localeCompare(AT.carga[b].disciplina, 'pt'); });
-  const semana = seg === 'Extra' ? `<span class="tag neutra">${st.aulas} aula(s) por semana</span>`
+  const sem = idx.filter(i => !AT.carga[i].professor), com = idx.filter(i => AT.carga[i].professor), faltam = faltaMatriz(t);
+  const semana = seg === 'Extra' ? `<span class="tag neutra">${st.aulas} ${st.aulas === 1 ? 'aula' : 'aulas'} por semana</span>`
     : `<span class="tag ${st.aulas === st.cap ? 'ok' : 'alerta'}">${st.aulas} de ${st.cap} aulas por semana</span>${st.aulas < st.cap ? ` <span class="peq suave">faltam ${st.cap - st.aulas}</span>` : st.aulas > st.cap ? ` <span class="peq" style="color:var(--erro)">${st.aulas - st.cap} a mais do que cabe</span>` : ''}`;
   const linha = i => {
     const l = AT.carga[i], outras = l.turmas.filter(x => x !== nome), sob = l.professor && M.sobrecarga[l.professor];
     const mz = (D.matriz.find(m => m.serie === t.serie && m.componente === l.disciplina) || {}).aulas;
     const difere = l.professor && i === AT.ultimo ? irmas.filter(x => { const y = AT.carga.find(c => c.turmas.includes(x.nome) && c.disciplina === l.disciplina); return y && !y.turmas.includes(nome) && y.professor !== l.professor; }) : [];
     return `<tr class="${!l.professor ? 'semprof' : sob ? 'sobre' : ''}">
-      <td><b>${esc(l.disciplina)}</b>${outras.length ? `<div class="peq suave">🔗 junto com ${esc(outras.join(', '))}</div>` : ''}${l.duplas ? `<div class="peq suave">${l.duplas} aula(s) dupla(s)</div>` : ''}</td>
-      <td><input type="number" min="1" max="20" value="${l.aulas}" onchange="atAulas(${i},this.value)" style="width:66px">${mz && mz !== l.aulas ? `<div class="peq" style="color:var(--alerta)">a matriz pede ${mz}</div>` : ''}</td>
-      <td><select onchange="atProf(${i},this.value)">${opcoesProf(listasProf(l.disciplina, seg), l.disciplina, seg, l.professor)}</select>
+      <td><div><b>${esc(l.disciplina)}</b>${outras.length ? `<div class="peq suave">🔗 junto com ${esc(outras.join(', '))}</div>` : ''}${l.duplas ? `<div class="peq suave">${l.duplas} aula(s) dupla(s)</div>` : ''}</div></td>
+      <td data-r="Aulas por semana"><div>${l.aulas}${mz && mz !== l.aulas ? `<span class="so-aqui">só nesta turma (a matriz pede ${mz})</span>` : !mz && seg !== 'Extra' ? '<span class="so-aqui">fora da matriz</span>' : ''}</div></td>
+      <td data-r="Professor"><div style="flex:1;min-width:0;text-align:left"><select onchange="atProf(${i},this.value)">${opcoesProf(listasProf(l.disciplina, seg), l.disciplina, seg, l.professor)}</select>
         ${sob ? `<div class="peq" style="color:var(--erro)">⚠ ${esc(l.professor)} fica com ${sob.aulas} aulas, mas só tem ${sob.livres} horários livres.</div>` : ''}
-        ${difere.length ? `<button class="link peq" onclick="atSerie(${i})">Usar ${esc(l.professor)} também ${difere.length === 1 ? 'na' : 'nas turmas'} ${esc(difere.map(x => x.nome).join(', '))}</button>` : ''}</td>
-      <td style="text-align:right"><button class="btn mini" title="Aula dupla, turmas juntas, tirar a matéria" onclick="atMais(${i})">⋯</button></td></tr>`;
+        ${difere.length ? `<button class="link peq" onclick="atSerie(${i})">Usar ${esc(l.professor)} também ${difere.length === 1 ? 'na' : 'nas turmas'} ${esc(difere.map(x => x.nome).join(', '))}</button>` : ''}</div></td>
+      <td style="text-align:right"><button class="btn mini" title="Outra quantidade só nesta turma, aula dupla, turmas juntas, tirar a matéria" onclick="atMais(${i})">⋯</button></td></tr>`;
   };
-  const faltam = faltaMatriz(t);
+  const falta = m => `<tr class="semprof"><td><div><b>${esc(m.componente)}</b><span class="so-aqui">falta na turma</span></div></td><td data-r="Aulas por semana">${m.aulas}</td>
+    <td data-r="Professor"><div style="flex:1;min-width:0;text-align:left"><select data-c="${esc(m.componente)}" onchange="atAdicionar(this.dataset.c,this.value)">${opcoesProf(listasProf(m.componente, seg), m.componente, seg, '', '— escolher —')}</select></div></td><td></td></tr>`;
+  const grupo = rot => `<tr class="grupo-linha"><td colspan="4">${rot}</td></tr>`;
+  const nSem = sem.length + faltam.length;
   return `<div class="at-painel"><div class="cab-tela" style="margin:16px 0 10px">
       <div><h2>${esc(nome)} <span class="peq suave">· ${esc(t.serie || 'contraturno')} · ${esc(t.grade)}</span></h2><div style="margin-top:4px">${semana}</div></div>
-      <div class="acoes"><button class="btn" onclick="atCopiar()">Copiar professores de outra turma</button><button class="btn" onclick="atNovaMateria()">+ Matéria</button></div></div>
-    ${idx.length || faltam.length ? `<div class="rolar"><table class="tab at-lista"><tr><th>Matéria</th><th>Aulas por semana</th><th>Professor</th><th></th></tr>
-      ${idx.map(linha).join('')}
-      ${faltam.map(m => `<tr class="falta"><td><b>${esc(m.componente)}</b> <span class="tag alerta">falta na turma</span></td><td>${m.aulas}</td>
-        <td><button class="btn mini" data-c="${esc(m.componente)}" onclick="atAdicionar(this.dataset.c)">Adicionar à turma</button></td><td></td></tr>`).join('')}</table></div>`
-      : '<p class="suave">Esta turma ainda não tem matérias. Use “+ Matéria”.</p>'}
-    <p class="peq suave" style="margin:10px 0 0">Na lista de professores aparecem primeiro os que dão a matéria neste segmento. Em “⋯”: usar o professor nas outras turmas da série, aula dupla, turmas juntas e tirar a matéria.</p></div>`;
+      <div class="acoes"><button class="btn" onclick="atCopiar()">Copiar professores de outra turma</button><button class="btn" title="Mais opções da turma" onclick="atMaisTurma()">⋯ Mais</button></div></div>
+    ${idx.length || faltam.length ? `<table class="tab at-lista cartao"><tr><th>Matéria</th><th>Aulas por semana</th><th>Professor</th><th></th></tr>
+      ${nSem ? grupo(`⚠ Sem professor (${nSem})`) + faltam.map(falta).join('') + sem.map(linha).join('') : ''}
+      ${com.length ? grupo(`Com professor (${com.length})`) + com.map(linha).join('') : ''}</table>`
+      : '<p class="suave">Esta turma ainda não tem matérias. Use “⋯ Mais” → “+ Matéria”.</p>'}
+    <p class="peq suave" style="margin:10px 0 0">As aulas por semana vêm da matriz curricular. Na lista de professores aparecem primeiro os que dão a matéria neste segmento.
+      Exceções só desta turma (outra quantidade de aulas, aula dupla, turmas juntas, tirar a matéria) ficam no “⋯” da linha.</p></div>`;
 }
 // Professores que têm a matéria (e o segmento) primeiro; os outros em "Outros professores"
 function listasProf(comp, seg) {
@@ -552,36 +834,32 @@ function listasProf(comp, seg) {
   ordenarNomes(D.professores.map(p => p.nome)).forEach(n => { const p = profPorNome(n); (p.materias.includes(comp) && (!p.segmentos.length || p.segmentos.includes(seg)) ? pref : outros).push(n); });
   return { pref, outros };
 }
-function opcoesProf(L, comp, seg, atual) {
+function opcoesProf(L, comp, seg, atual, vazio) {
   const o = n => `<option ${n === atual ? 'selected' : ''}>${esc(n)}</option>`;
-  return `<option value="">— a definir —</option>` + (L.pref.length ? `<optgroup label="Dão ${esc(sigla(comp))}${seg ? ' no ' + esc(seg) : ''}">${L.pref.map(o).join('')}</optgroup>` : '')
+  return `<option value="">${vazio || '— a definir —'}</option>` + (L.pref.length ? `<optgroup label="Dão ${esc(sigla(comp))}${seg ? ' no ' + esc(seg === 'Extra' ? 'contraturno' : seg) : ''}">${L.pref.map(o).join('')}</optgroup>` : '')
     + `<optgroup label="Outros professores">${L.outros.map(o).join('')}</optgroup>`;
 }
 function atProf(i, v) { AT.carga[i].professor = v; AT.ultimo = i; atSujo(); redesenharAT(); }   // "ultimo": mostra o atalho para a série nessa linha
-function atAulas(i, v) {
-  const l = AT.carga[i], n = Math.round(+v);
-  if (!(n > 0)) { toast('Informe as aulas por semana.', 'erro'); return redesenharAT(); }
-  l.aulas = n; if (l.duplas * 2 > n) l.duplas = Math.floor(n / 2);
-  if ((l.maxDia || 2) * D.dias.length < n) l.maxDia = Math.max(Math.ceil(n / D.dias.length), Math.min(n, 2));
-  atSujo(); redesenharAT();
-}
 function atSerie(i) {   // mesmo professor nas outras turmas da série
   const l = AT.carga[i], t = turmaDe(AT.turma), nomes = [];
   irmasDe(t).forEach(x => AT.carga.forEach(y => { if (y !== l && y.turmas.includes(x.nome) && y.disciplina === l.disciplina && y.professor !== l.professor) { y.professor = l.professor; nomes.push(x.nome); } }));
   toast(nomes.length ? `${l.professor} também em ${nomes.join(', ')}.` : 'As outras turmas da série já têm esse professor.'); if (nomes.length) atSujo(); redesenharAT();
 }
-function atAdicionar(comp) {
+function atAdicionar(comp, prof) {   // matéria da matriz que faltava na turma: entra já com o professor escolhido
+  if (!prof) return;
   const t = turmaDe(AT.turma), n = (D.matriz.find(m => m.serie === t.serie && m.componente === comp) || {}).aulas || 1;
-  AT.carga.push({ turmas: [AT.turma], disciplina: comp, professor: '', aulas: n, duplas: 0, maxDia: Math.max(Math.ceil(n / 5), Math.min(n, 2)) });
+  AT.carga.push({ turmas: [AT.turma], disciplina: comp, professor: prof, aulas: n, duplas: 0, maxDia: Math.max(Math.ceil(n / 5), Math.min(n, 2)) });
   atSujo(); redesenharAT();
 }
-// "⋯": aula dupla, máximo no dia, turmas juntas, tirar a matéria
+// "⋯" da linha: outra quantidade só nesta turma, aula dupla, máximo no dia, turmas juntas, tirar a matéria
 function atMais(i) {
-  const turma = AT.turma, t = turmaDe(turma), l = AT.carga[i];
+  const turma = AT.turma, t = turmaDe(turma), l = AT.carga[i], mz = (D.matriz.find(m => m.serie === t.serie && m.componente === l.disciplina) || {}).aulas;
   AT.ed = { i, turma, linha: clone(l) };
   const mesmas = D.turmas.filter(x => x.nome !== turma && x.grade === t.grade), irmas = irmasDe(t).filter(x => !l.turmas.includes(x.nome));
   abrirModal(`${esc(l.disciplina)} · ${esc(turma)}`, `${l.professor && irmas.length ? `<div><button class="btn mini" onclick="fecharModal();atSerie(${i})">Usar ${esc(l.professor)} em ${esc(l.disciplina)} também ${irmas.length === 1 ? 'na' : 'nas turmas'} ${esc(irmas.map(x => x.nome).join(', '))}</button></div>` : ''}
     <div class="linha-campos">
+      <label class="campo">Aulas por semana nesta turma<input id="adAulas" type="number" min="1" max="20" value="${l.aulas}">
+        <span style="font-weight:400">${mz ? `A matriz do ${esc(t.serie)} pede ${mz}. Mude só se esta turma for exceção.` : 'Esta matéria não está na matriz desta série.'}</span></label>
       <label class="campo" title="Duas aulas seguidas, sem intervalo no meio">Aulas duplas por semana<input id="adDuplas" type="number" min="0" value="${l.duplas || 0}"></label>
       <label class="campo">Máximo de aulas no mesmo dia<input id="adMax" type="number" min="1" value="${l.maxDia || 2}"></label></div>
     <div><div class="campo" style="margin-bottom:6px">Turmas juntas (mesmo horário e mesmo professor)</div>
@@ -589,10 +867,12 @@ function atMais(i) {
     `<button class="btn perigo esq" onclick="atTirar()">Tirar ${esc(l.disciplina)} de ${esc(turma)}</button><button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="atOkMais()">Ok</button>`);
 }
 function atOkMais() {
-  const e = AT.ed, l = e.linha, antes = AT.carga[e.i].turmas;
-  l.duplas = +$('adDuplas').value || 0; l.maxDia = +$('adMax').value || 2;
+  const e = AT.ed, l = e.linha, antes = AT.carga[e.i].turmas, n = Math.round(+$('adAulas').value);
+  if (!(n > 0)) return toast('Informe as aulas por semana.', 'erro');
+  l.aulas = n; l.duplas = +$('adDuplas').value || 0; l.maxDia = +$('adMax').value || 2;
   if (l.duplas * 2 > l.aulas) return toast(`Aulas duplas demais para ${l.aulas} aulas por semana.`, 'erro');
   if (l.duplas && l.maxDia < 2) return toast('Com aula dupla, o máximo no mesmo dia precisa ser pelo menos 2.', 'erro');
+  if (l.maxDia * D.dias.length < l.aulas) l.maxDia = Math.ceil(l.aulas / D.dias.length);
   l.turmas = [e.turma].concat([...document.querySelectorAll('.adJ:checked')].map(x => x.value));
   const outras = AT.carga.map((_, j) => j).filter(j => j !== e.i && AT.carga[j].disciplina === l.disciplina && AT.carga[j].turmas.some(t => l.turmas.includes(t)));
   if (outras.length) {
@@ -609,6 +889,13 @@ function atTirar() {
   if (!confirm(`Tirar ${l.disciplina} da turma ${e.turma}?`)) return;
   l.turmas = l.turmas.filter(t => t !== e.turma); AT.carga = AT.carga.filter(x => x.turmas.length);
   fecharModal(); atSujo(); redesenharAT();
+}
+function atMaisTurma() {   // "⋯ Mais" da turma
+  abrirModal(`Mais opções · ${esc(AT.turma)}`, `<div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" onclick="atNovaMateria()">+ Matéria nesta turma (fora da matriz, como contraturno ou projeto)</button>
+      <button class="btn" onclick="atCopiar()">Copiar professores de outra turma</button></div>
+    <p class="peq suave" style="margin:0">Para mudar as aulas por semana de uma matéria só nesta turma, use o “⋯” da linha da matéria.</p>`,
+    '<button class="btn" onclick="fecharModal()">Fechar</button>');
 }
 function atCopiar() {
   const t = turmaDe(AT.turma), irmas = irmasDe(t).map(x => x.nome), outras = turmasEmOrdem().map(x => x.nome).filter(n => n !== t.nome && !irmas.includes(n));
@@ -634,7 +921,7 @@ function atNovaMateria() {
       <label class="campo">Aulas por semana<input id="anAulas" type="number" min="1" value="1"></label>
       <label class="campo">Professor<select id="anProf"></select></label></div>
     <datalist id="anLista">${D.componentes.map(c => `<option value="${esc(c.nome)}">`).join('')}</datalist>
-    ${mesmas.length ? `<div><div class="campo" style="margin-bottom:6px">Junto com (mesmo horário e mesmo professor) — opcional</div><div class="sub-linhas">${mesmas.map(x => `<label><input type="checkbox" class="anT" value="${esc(x.nome)}">${esc(x.nome)}</label>`).join('')}</div></div>` : ''}`,
+    ${mesmas.length ? `<div><div class="campo" style="margin-bottom:6px">Junto com (mesmo horário e mesmo professor), se for o caso</div><div class="sub-linhas">${mesmas.map(x => `<label><input type="checkbox" class="anT" value="${esc(x.nome)}">${esc(x.nome)}</label>`).join('')}</div></div>` : ''}`,
     `<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="anOk()">Adicionar</button>`);
   anProfs();
 }
@@ -656,16 +943,16 @@ function atPorProfessor() {
   const linhas = ordenarNomes(D.professores.map(p => p.nome)).map(n => {
     const ls = AT.carga.filter(l => l.professor === n), tot = ls.reduce((s, l) => s + l.aulas, 0), sob = M.sobrecarga[n];
     const mats = [...new Set(ls.map(l => l.disciplina))].map(m => `<div><b>${esc(sigla(m))}</b>: ${ls.filter(l => l.disciplina === m).map(item).join(', ')}</div>`).join('');
-    return `<tr class="${sob ? 'sobre' : ''}"><td><b>${esc(n)}</b></td><td class="peq">${mats || '<span class="suave">nenhuma aula</span>'}</td>
-      <td>${tot || '<span class="tag alerta">0</span>'}${sob ? `<div class="peq" style="color:var(--erro)">só ${sob.livres} horários livres</div>` : ''}</td></tr>`;
+    return `<tr class="${sob ? 'sobre' : ''}"><td><b>${esc(n)}</b></td><td data-r="Turmas" class="peq"><div style="text-align:left">${mats || '<span class="suave">nenhuma turma</span>'}</div></td>
+      <td data-r="Aulas por semana"><div>${tot || '<span class="tag alerta">0</span>'}${sob ? `<div class="peq" style="color:var(--erro)">só ${sob.livres} horários livres</div>` : ''}</div></td></tr>`;
   }).join('');
   $('atCorpo').innerHTML = `${semProf.length ? `<div class="aviso alerta" style="margin-bottom:10px">${semProf.length} matéria(s) sem professor: ${semProf.slice(0, 8).map(item).join(', ')}${semProf.length > 8 ? '…' : ''}</div>` : ''}
-    <div class="rolar"><table class="tab at-lista"><tr><th>Professor</th><th>O que dá (aulas por semana)</th><th>Total</th></tr>${linhas}</table></div>
-    <p class="peq suave" style="margin:10px 0 0">Clique numa turma para mudar o professor.</p>`;
+    <table class="tab at-lista cartao"><tr><th>Professor</th><th>O que dá (aulas por semana)</th><th>Total</th></tr>${linhas}</table>
+    <p class="peq suave" style="margin:10px 0 0">Toque numa turma para ver a turma. Para mudar as turmas de um professor, abra-o em <button class="link" onclick="ir('professores')">Professores</button>.</p>`;
 }
 async function salvarAtribuicoes() {
   const aba = AT.aba, turma = AT.turma;
-  if (await acao('salvarAtribuicoes', { carga: AT.carga, antes: D.carga }, 'Atribuições salvas.')) { iniciarAT(turma); AT.aba = aba; telaAtribuicoes(); }
+  if (await acao('salvarAtribuicoes', { carga: AT.carga, antes: D.carga }, 'Mudanças salvas.')) { iniciarAT(turma, aba); telaConferencia(); }
 }
 
 // ================= Matriz curricular =================
@@ -844,15 +1131,15 @@ function telaFixas() {
   $('tela').innerHTML = cabecalho('Aulas fixas',
     `<button class="btn" onclick="FX.push({turma:(D.turmas[0]||{}).nome||'',dia:'Seg',aula:1,disciplina:''});FX_SUJO=true;telaFixas()">+ Aula fixa</button>
      <button class="btn prim" onclick="salvarFixas()">Salvar</button>`)
-    + `<div class="card rolar">${!FX.length ? '<p class="suave">Nenhuma. Use para aulas que precisam ficar sempre no mesmo horário; o gerador não mexe nelas.</p>' : `<table class="tab"><tr><th>Turma</th><th>Dia</th><th>Aula</th><th>Matéria</th><th>Professor</th><th></th></tr>
+    + `<div class="card">${!FX.length ? '<p class="suave">Nenhuma. Use para aulas que precisam ficar sempre no mesmo horário; o gerador não mexe nelas.</p>' : `<table class="tab cartao"><tr><th>Turma</th><th>Dia</th><th>Aula</th><th>Matéria</th><th>Professor</th><th></th></tr>
       ${FX.map((f, i) => {
         const au = aulasTurma(f.turma), c = cargaDe(f.turma), prof = (c.find(x => x.disciplina === f.disciplina) || {}).professor || '—';
         return `<tr><td><select onchange="FX[${i}].turma=this.value;FX[${i}].disciplina='';FX_SUJO=true;telaFixas()">${D.turmas.map(t => `<option ${t.nome === f.turma ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}</select></td>
-          <td><select onchange="FX[${i}].dia=this.value;FX_SUJO=true">${D.dias.map(d => `<option ${d === f.dia ? 'selected' : ''}>${d}</option>`).join('')}</select></td>
-          <td><select onchange="FX[${i}].aula=+this.value;FX_SUJO=true">${au.map((x, a) => `<option value="${a + 1}" ${a + 1 === +f.aula ? 'selected' : ''}>${a + 1}ª · ${faixaTxt(x.ini, x.fim)}</option>`).join('')}</select></td>
-          <td><select onchange="FX[${i}].disciplina=this.value;FX_SUJO=true;telaFixas()"><option value="">—</option>${c.map(x => `<option ${x.disciplina === f.disciplina ? 'selected' : ''}>${esc(x.disciplina)}</option>`).join('')}</select></td>
-          <td class="suave">${esc(prof)}</td>
-          <td><button class="link" style="color:var(--erro)" onclick="FX.splice(${i},1);FX_SUJO=true;telaFixas()">✕</button></td></tr>`;
+          <td data-r="Dia"><select onchange="FX[${i}].dia=this.value;FX_SUJO=true">${D.dias.map(d => `<option ${d === f.dia ? 'selected' : ''}>${d}</option>`).join('')}</select></td>
+          <td data-r="Aula"><select onchange="FX[${i}].aula=+this.value;FX_SUJO=true">${au.map((x, a) => `<option value="${a + 1}" ${a + 1 === +f.aula ? 'selected' : ''}>${a + 1}ª · ${faixaTxt(x.ini, x.fim)}</option>`).join('')}</select></td>
+          <td data-r="Matéria"><select onchange="FX[${i}].disciplina=this.value;FX_SUJO=true;telaFixas()"><option value="">—</option>${c.map(x => `<option ${x.disciplina === f.disciplina ? 'selected' : ''}>${esc(x.disciplina)}</option>`).join('')}</select></td>
+          <td data-r="Professor" class="suave">${esc(prof)}</td>
+          <td><button class="btn mini perigo" onclick="FX.splice(${i},1);FX_SUJO=true;telaFixas()">Tirar</button></td></tr>`;
       }).join('')}</table>`}</div>`;
 }
 async function salvarFixas() {
@@ -861,14 +1148,48 @@ async function salvarFixas() {
   FX = null; telaFixas();
 }
 
+// ================= Começar ano letivo (só admin) =================
+function telaAno() {
+  const hoje = new Date(), sug = hoje.getMonth() >= 6 ? hoje.getFullYear() + 1 : hoje.getFullYear();
+  const nGrade = Object.keys(D.grade).length, nAtr = D.carga.filter(c => c.professor).length;
+  $('tela').innerHTML = cabecalho('Começar ano letivo') + `<div class="card" style="max-width:780px;display:flex;flex-direction:column;gap:18px">
+    <label class="campo" style="max-width:220px">Ano letivo que vai começar<input id="anoNovo" type="number" min="2020" max="2099" value="${sug}" oninput="anoTexto()"></label>
+    <div><h3 style="margin-bottom:6px">1. Antes de apagar</h3><div class="aviso ok">${nGrade ? 'A grade oficial de hoje fica guardada em “Versões anteriores” (na Grade horária), para consultar depois.' : 'Ainda não há grade oficial para guardar.'}</div></div>
+    <div><h3 style="margin-bottom:6px">2. Vai ser apagado</h3><div class="aviso erro"><ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
+      <li>A grade oficial (${nGrade} aulas)</li>
+      <li>Quem dá cada matéria em cada turma (${nAtr} ${nAtr === 1 ? 'atribuição' : 'atribuições'}). As matérias de cada turma continuam, sem professor, seguindo a matriz curricular.</li>
+      <li>As aulas fixas (${D.fixas.length})</li>
+      <li>Os horários reservados dos professores (${D.blocos.length})</li></ul></div></div>
+    <div><h3 style="margin-bottom:6px">3. E os professores? (${D.professores.length} cadastrados)</h3>
+      <label class="opcao-radio"><input type="radio" name="anoProf" value="manter" onchange="anoTexto()"><span><b>Manter os professores.</b> Continuam cadastrados, com as matérias. Todos voltam para “não respondeu” e respondem o formulário de novo (o que marcaram antes já vem preenchido).</span></label>
+      <label class="opcao-radio"><input type="radio" name="anoProf" value="apagar" onchange="anoTexto()"><span><b>Apagar todos os professores.</b> Começa do zero: cada professor se cadastra pelo formulário.</span></label></div>
+    <div><h3 style="margin-bottom:6px">4. Continua igual</h3><div class="aviso" style="background:var(--azul-claro);color:var(--marinho)">Horários das aulas (${D.grades.length} períodos) · Turmas (${D.turmas.length}) · Matriz curricular · Usuários${(D.versoes || []).length ? ' · Versões anteriores da grade' : ''}</div></div>
+    <label style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" id="anoOk" onchange="anoTexto()"> Entendi o que será apagado.</label>
+    <div><button class="btn perigo" id="anoBtn" onclick="comecarAno()" disabled style="min-height:46px"></button>
+      <p class="peq suave" id="anoFalta" style="margin:6px 0 0"></p></div>
+  </div>`;
+  anoTexto();
+}
+function anoTexto() {
+  const ano = $('anoNovo').value, prof = (document.querySelector('[name=anoProf]:checked') || {}).value, okAno = /^20\d\d$/.test(ano);
+  $('anoBtn').textContent = 'Começar o ano letivo ' + (okAno ? ano : '');
+  $('anoBtn').disabled = !(prof && $('anoOk').checked && okAno);
+  $('anoFalta').textContent = !okAno ? 'Escreva o ano (ex.: 2027).' : !prof ? 'Escolha o que fazer com os professores.' : !$('anoOk').checked ? 'Marque “Entendi o que será apagado”.' : '';
+}
+async function comecarAno() {
+  const ano = $('anoNovo').value, prof = document.querySelector('[name=anoProf]:checked').value;
+  if (!confirm(`Começar o ano letivo ${ano}?\n\nApaga a grade oficial, quem dá cada matéria, as aulas fixas e os horários reservados${prof === 'apagar' ? ' e TODOS OS PROFESSORES' : ''}.\nA grade de hoje fica guardada nas versões anteriores.`)) return;
+  if (await acao('comecarAno', { ano, professores: prof }, `Ano letivo ${ano} começado. Siga o passo a passo.`)) { GR = novoGR(); AT = null; ir('inicio'); }
+}
+
 // ================= Usuários =================
 function telaUsuarios() {
   $('tela').innerHTML = cabecalho('Usuários', '<button class="btn prim" onclick="editarUsuario()">+ Usuário</button>')
-    + `<div class="card rolar" style="margin-bottom:14px"><table class="tab"><tr><th>Usuário</th><th>Senha</th><th>Nome</th><th>Perfil</th><th>Situação</th><th>Último acesso</th></tr>
+    + `<div class="card" style="margin-bottom:14px"><table class="tab cartao"><tr><th>Usuário</th><th>Senha</th><th>Nome</th><th>Perfil</th><th>Situação</th><th>Último acesso</th></tr>
       ${D.usuarios.map(u => `<tr class="clic" data-u="${esc(u.usuario)}" onclick="editarUsuario(this.dataset.u)">
-        <td><b>${esc(u.usuario)}</b></td><td><span class="senha">${esc(u.senha)}</span></td><td>${esc(u.nome)}</td>
-        <td>${NOME_PERFIL[u.perfil] || esc(u.perfil)}</td><td>${u.ativo ? '<span class="tag ok">Ativo</span>' : '<span class="tag erro">Desativado</span>'}</td>
-        <td class="suave">${esc(u.ultimo || '—')}</td></tr>`).join('')}</table>
+        <td><b>${esc(u.usuario)}</b></td><td data-r="Senha"><span class="senha">${esc(u.senha)}</span></td><td data-r="Nome">${esc(u.nome)}</td>
+        <td data-r="Perfil">${NOME_PERFIL[u.perfil] || esc(u.perfil)}</td><td data-r="Situação">${u.ativo ? '<span class="tag ok">Ativo</span>' : '<span class="tag erro">Desativado</span>'}</td>
+        <td data-r="Último acesso" class="suave">${esc(u.ultimo || '—')}</td></tr>`).join('')}</table>
       <p class="peq suave" style="margin:10px 0 0">Coordenação: cadastra e monta a grade · Consulta: só vê e imprime.</p></div>
     <div class="card"><details><summary>Registro de atividades</summary><table class="tab" style="margin-top:8px"><tr><th>Quando</th><th>Quem</th><th>O que fez</th></tr>
       ${(D.registro || []).map(r => `<tr><td class="suave" style="white-space:nowrap">${esc(r.quando)}</td><td>${esc(r.usuario)}</td><td>${esc(r.acao)}</td></tr>`).join('')}</table></details></div>`;
@@ -900,7 +1221,7 @@ async function excluirUsuario(u) {
 // ================= Grade horária =================
 const TEMPO_GERAR = 25000;   // o gerador tenta grades diferentes por 25 s e mostra as 3 melhores
 let GR = null, SUB = null, AF = null;
-function novoGR() { return { opcoes: [], atual: null, nome: '', versao: 0, editado: false, visao: 'turma', item: '', sel: null, ruins: new Set(), mudou: new Set(), gerando: null }; }
+function novoGR() { const d = new Date().getDay(); return { opcoes: [], atual: null, nome: '', versao: 0, editado: false, visao: 'turma', item: '', sel: null, ruins: new Set(), mudou: new Set(), gerando: null, dia: d >= 1 && d <= 5 ? d - 1 : 0 }; }
 function comFixas(g) {
   (D.fixas || []).forEach(f => {
     const l = linhaDe(f.turma, f.disciplina), ts = l ? l.turmas : [f.turma];
@@ -1084,11 +1405,47 @@ function situacaoGrade() {
 }
 function desenharGrade() {
   if (!$('conteudo')) return;
-  if (!GR.atual) { $('conteudo').innerHTML = `<p class="suave" style="padding:30px;text-align:center">${podeEditar() ? 'Clique em “Gerar opções”.' : 'A grade ainda não foi publicada.'}</p>`; return; }
+  if (!GR.atual) { $('conteudo').innerHTML = `<p class="suave" style="padding:30px;text-align:center">${podeEditar() ? 'Toque em “Gerar opções”.' : 'A grade ainda não foi publicada.'}</p>`; return; }
   const nome = GR.nome === 'Oficial' ? 'Oficial' : GR.nome;
+  if (celular()) {   // celular: um dia por vez, em lista
+    if (GR.visao === 'geral') { $('conteudo').innerHTML = '<div class="aviso alerta">“Todas as turmas” é uma tabela muito larga e só aparece no computador. No celular, veja uma turma ou um professor por vez.</div>'; return; }
+    const D_ = GR.dia, abas = `<div class="dias-abas">${D.dias.map((x, i) => `<button class="${i === D_ ? 'on' : ''}" onclick="GR.dia=${i};desenharGrade()">${x}</button>`).join('')}</div>`;
+    $('conteudo').innerHTML = situacaoGrade() + `<h2 style="margin-bottom:8px">${esc(GR.item)} <span class="peq suave">· ${esc(nome)}${GR.editado ? ' (alterada, não salva)' : ''}</span></h2>` + abas
+      + (GR.visao === 'turma' ? listaDiaTurma(GR.item, D_) : listaDiaProf(GR.item, D_))
+      + (podeEditar() && GR.visao === 'turma' && !GR.versao ? '<p class="peq suave" style="margin:10px 0 0">Para trocar aulas de lugar, use o computador.</p>' : '');
+    return;
+  }
   $('conteudo').innerHTML = situacaoGrade() + (GR.visao === 'turma' ? `<h2 style="margin-bottom:8px">${esc(GR.item)} <span class="peq suave">· ${esc(nome)}${GR.editado ? ' (alterada, não salva)' : ''}</span></h2>`
-      + (podeEditar() && !GR.versao ? '<div class="dica-fixa">Clique em duas aulas da mesma turma para trocá-las.</div>' : '') + tabelaTurma(GR.item, podeEditar() && !GR.versao)
+      + (podeEditar() && !GR.versao ? '<div class="dica-fixa">Para trocar duas aulas de lugar, clique numa e depois na outra (da mesma turma).</div>' : '') + tabelaTurma(GR.item, podeEditar() && !GR.versao)
     : GR.visao === 'prof' ? tabelaProf(GR.item) : tabelaGeral());
+}
+// Celular: lista vertical do dia (horário · matéria · professor ou turma)
+function listaDiaTurma(turma, d) {
+  const g = gradeDaTurma(turma); if (!g) return '<p class="suave">Turma sem horário das aulas.</p>';
+  let a = 0;
+  return '<div class="lista-dia">' + g.itens.map(it => {
+    const ini = minutos(it.ini), fim = minutos(it.fim);
+    if (it.tipo === 'intervalo') return `<div class="ld-int">intervalo · ${faixaTxt(ini, fim)}</div>`;
+    const k = turma + '|' + d + '|' + a, c = GR.atual && GR.atual[k], l = c && linhaDe(turma, c.disciplina); a++;
+    const junta = l && l.turmas.length > 1 ? ' · junto com ' + l.turmas.filter(t => t !== turma).join(', ') : '';
+    return `<div class="ld ${c ? '' : 'vazia'} ${GR.ruins.has(k) ? 'conf' : ''}" style="${c ? cor(c.disciplina) : ''}"><span class="h">${hora(ini)}<small>${hora(fim)}</small></span>
+      <div>${c ? `<b>${c.fixa ? '🔒 ' : ''}${esc(c.disciplina)}</b><div class="p">${esc(c.professor + junta)}</div>` : 'sem aula'}</div></div>`;
+  }).join('') + '</div>';
+}
+function listaDiaProf(nome, d) {
+  const itens = {};
+  Object.entries(GR.atual || {}).forEach(([k, c]) => {
+    const [t, ds, as] = k.split('|'); if (c.professor !== nome || +ds !== d) return;
+    const x = aulasDe(gradeDaTurma(t))[+as]; if (!x) return;
+    const id = x.ini + '|' + x.fim + '|' + c.disciplina, e = itens[id] = itens[id] || { ini: x.ini, fim: x.fim, disc: c.disciplina, turmas: [], conf: false };
+    e.turmas.push(t); if (GR.ruins.has(k)) e.conf = true;
+  });
+  const bl = D.blocos.filter(b => b.professor === nome && b.dia === D.dias[d]).map(b => ({ ini: minutos(b.ini), fim: minutos(b.fim), b }));
+  const l = Object.values(itens).concat(bl).sort((x, y) => x.ini - y.ini);
+  if (!l.length) return '<p class="suave" style="text-align:center;padding:20px">Sem aulas neste dia.</p>';
+  return `<div class="lista-dia">${l.map(x => `<div class="ld ${x.conf ? 'conf' : ''}" style="${x.b ? 'background:#fbf6e6' : cor(x.disc)}"><span class="h">${hora(x.ini)}<small>${hora(x.fim)}</small></span><div>`
+    + (x.b ? `<b>${x.b.tipo === 'Plantão de Dúvidas' ? 'Plantão de dúvidas' : 'Complementação de carga horária'}</b><div class="p">${esc(x.b.disciplina || 'horário reservado')}</div>`
+      : `<b>${esc(x.disc)}</b><div class="p">Turma ${esc(x.turmas.join(' + '))}</div>`) + '</div></div>').join('')}</div>`;
 }
 // Troca duas aulas da mesma turma. Aula de turmas juntas é trocada em todas as turmas juntas.
 function clicarCel(k) {
@@ -1124,9 +1481,9 @@ function abrirVersoes() {
   const vs = D.versoes || [];
   abrirModal('Versões anteriores da grade oficial', !vs.length ? '<p class="suave">Ainda não há versões. Cada “Salvar como oficial” e cada troca de professor guarda uma versão aqui.</p>'
     : `<p class="peq suave" style="margin:0">Cada vez que a grade oficial muda, a versão fica guardada. “Ver” mostra a versão sem mudar nada.</p>
-      <div class="rolar"><table class="tab"><tr><th>Quando</th><th>Quem</th><th>O que mudou</th><th>Válida a partir de</th><th></th></tr>
-      ${vs.map((v, i) => `<tr><td style="white-space:nowrap">${esc(v.data)}</td><td>${esc(v.usuario)}</td><td>${esc(v.descricao)}${i === 0 ? ' <span class="tag ok">atual</span>' : ''}</td><td>${esc(v.vigencia || '—')}</td>
-        <td style="white-space:nowrap">${i === 0 ? '' : `<button class="btn mini" onclick="verVersao(${v.versao})">Ver</button>${podeEditar() ? ` <button class="btn mini" onclick="restaurarVersao(${v.versao})">Restaurar</button>` : ''}`}</td></tr>`).join('')}</table></div>`,
+      <table class="tab cartao"><tr><th>Quando</th><th>Quem</th><th>O que mudou</th><th>Válida a partir de</th><th></th></tr>
+      ${vs.map((v, i) => `<tr><td style="white-space:nowrap"><b>${esc(v.data)}</b></td><td data-r="Quem">${esc(v.usuario)}</td><td data-r="O que mudou"><div>${esc(v.descricao)}${i === 0 ? ' <span class="tag ok">atual</span>' : ''}</div></td><td data-r="Válida a partir de">${esc(v.vigencia || '—')}</td>
+        <td style="white-space:nowrap;gap:6px">${i === 0 ? '' : `<button class="btn mini" onclick="verVersao(${v.versao})">Ver</button>${podeEditar() ? ` <button class="btn mini" onclick="restaurarVersao(${v.versao})">Restaurar</button>` : ''}`}</td></tr>`).join('')}</table>`,
     '<button class="btn prim" onclick="fecharModal()">Fechar</button>');
 }
 async function verVersao(n) {
@@ -1184,8 +1541,8 @@ function calcularTroca() {
     const dele = r.nAlvo ? `${r.nAlvo} aula(s) de ${esc(entra)} mudam de horário.` : 'Nenhuma aula muda de horário.';
     $('sRes').innerHTML = !r.outros.length ? `<div class="aviso ok">✔ Os outros professores não mudam. ${dele}</div>`
       : `<div class="aviso alerta">Com a disponibilidade de ${esc(entra)} não dá para manter tudo igual. Mudam <b>${r.outros.length}</b> aula(s) de outros professores (o mínimo possível). ${dele}</div>
-         <div class="rolar"><table class="tab"><tr><th>Professor</th><th>Turma</th><th>Matéria</th><th>De</th><th>Para</th></tr>${r.outros.map(o => `<tr><td>${esc(o.professor)}</td><td>${esc(o.turma)}</td><td>${esc(sigla(o.disciplina))}</td>
-           <td>${esc(o.de)}</td><td><b>${esc(o.para)}</b></td></tr>`).join('')}</table></div>`;
+         <table class="tab cartao"><tr><th>Professor</th><th>Turma</th><th>Matéria</th><th>De</th><th>Para</th></tr>${r.outros.map(o => `<tr><td><b>${esc(o.professor)}</b></td><td data-r="Turma">${esc(o.turma)}</td><td data-r="Matéria">${esc(sigla(o.disciplina))}</td>
+           <td data-r="De">${esc(o.de)}</td><td data-r="Para"><b>${esc(o.para)}</b></td></tr>`).join('')}</table>`;
     $('sAplicar').disabled = false;
   });
 }
@@ -1209,10 +1566,10 @@ function linkWhats(nome, texto) {
 function resumoTroca() {
   const l = AF.lista, aulas = x => x.map(a => `${esc(a.quando)} · ${esc(a.turma)} · ${esc(sigla(a.disciplina))}`).join('<br>');
   abrirModal('Troca aplicada', `<div class="aviso ok">A nova grade vale a partir de <b>${esc(AF.vigencia)}</b>. Avise os professores abaixo.</div>
-    <div class="rolar"><table class="tab"><tr><th>Professor</th><th>Saem do horário</th><th>Entram no horário</th><th></th></tr>
-    ${l.map(a => `<tr><td><b>${esc(a.professor)}</b><div><span class="tag ${a.papel === 'mudou' ? 'alerta' : 'neutra'}">${PAPEL[a.papel]}</span></div></td>
-      <td class="peq">${aulas(a.saem) || '<span class="suave">—</span>'}</td><td class="peq">${aulas(a.entram) || '<span class="suave">—</span>'}</td>
-      <td><a class="btn mini" target="_blank" href="${esc(linkWhats(a.professor, Gerador.mensagem(a, AF.vigencia, CFG.escola)))}">WhatsApp</a></td></tr>`).join('')}</table></div>
+    <table class="tab cartao"><tr><th>Professor</th><th>Saem do horário</th><th>Entram no horário</th><th></th></tr>
+    ${l.map(a => `<tr><td><div><b>${esc(a.professor)}</b><div><span class="tag ${a.papel === 'mudou' ? 'alerta' : 'neutra'}">${PAPEL[a.papel]}</span></div></div></td>
+      <td data-r="Saem" class="peq"><div>${aulas(a.saem) || '<span class="suave">—</span>'}</div></td><td data-r="Entram" class="peq"><div>${aulas(a.entram) || '<span class="suave">—</span>'}</div></td>
+      <td><a class="btn mini" target="_blank" href="${esc(linkWhats(a.professor, Gerador.mensagem(a, AF.vigencia, CFG.escola)))}">WhatsApp</a></td></tr>`).join('')}</table>
     <p class="peq suave" style="margin:0">O botão WhatsApp abre a conversa com a mensagem pronta, listando as mudanças daquele professor.</p>`,
     '<button class="btn" onclick="imprimirAfetados()">Imprimir só os afetados</button><button class="btn prim" onclick="fecharModal()">Fechar</button>');
 }

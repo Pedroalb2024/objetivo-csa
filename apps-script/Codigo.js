@@ -1,8 +1,11 @@
 // ================= GRADE HORÁRIA · OBJETIVO CSA — servidor (Apps Script) =================
+// ENDEREÇO DO SITE: o único lugar para trocar quando houver domínio próprio (ex.: 'https://horarios.objetivocsa.com.br/').
+// Dali vêm os arquivos (logo.png, logo-branco.png, icone.png da pasta docs/) e o link do sistema e do formulário (?form=1).
+const SITE = 'https://pedroalb2024.github.io/objetivo-csa/';
 const CONFIG = {
   ESCOLA: 'Objetivo CSA',
-  ASSETS: 'https://pedroalb2024.github.io/objetivo-csa/',       // GitHub Pages (pasta docs/): logo.png, logo-branco.png, icone.png
-  URL_PUBLICA: 'https://pedroalb2024.github.io/objetivo-csa/',  // link do sistema e do formulário (?form=1)
+  ASSETS: SITE,
+  URL_PUBLICA: SITE,
   CREDITO: 'ALBIX',
   SESSAO_HORAS: 6,
 };
@@ -115,6 +118,8 @@ const ACOES = {
   salvarMatriz:     { p: EDITA, f: salvarMatriz_ },
   previaMatriz:     { p: EDITA, f: previaMatriz_, leitura: true },
   aplicarMatriz:    { p: EDITA, f: aplicarMatriz_ },
+  conferirEstrutura:{ p: EDITA, f: conferirEstrutura_ },
+  comecarAno:       { p: ['admin'], f: comecarAno_ },
   salvarUsuario:    { p: ['admin'], f: salvarUsuario_ },
   excluirUsuario:   { p: ['admin'], f: excluirUsuario_ },
 };
@@ -150,6 +155,8 @@ function dados_(s) {
     versoes: lerVersoes_().slice(0, 50),
   };
   D.vigencia = D.versoes.length ? D.versoes[0].vigencia : '';
+  const pr = PropertiesService.getScriptProperties();
+  D.ano = { ano: pr.getProperty('ANO_LETIVO') || '', conferido: pr.getProperty('ESTRUTURA_CONFERIDA') === '1' };
   valores_(ABA.grade).forEach(r => {
     const d = DIAS.indexOf(txt_(r[1])), a = num_(r[2]) - 1;
     if (d >= 0 && a >= 0) D.grade[txt_(r[0]) + '|' + d + '|' + a] = { disciplina: txt_(r[4]), professor: txt_(r[5]) };
@@ -170,16 +177,16 @@ function salvarGrades_(d) {
     itens: (g.itens || []).map(i => ({ tipo: i.tipo === 'intervalo' ? 'intervalo' : 'aula', ini: normHora_(i.ini), fim: normHora_(i.fim) })) }));
   if (!grades.length) throw new Error('Cadastre pelo menos um período com horários de aula.');
   const nomes = grades.map(g => g.nome);
-  if (nomes.some(n => !n) || new Set(nomes.map(n => n.toLowerCase())).size !== nomes.length) throw new Error('Cada grade precisa de um nome diferente.');
+  if (nomes.some(n => !n) || new Set(nomes.map(n => n.toLowerCase())).size !== nomes.length) throw new Error('Cada período precisa de um nome diferente.');
   grades.forEach(g => { const e = problemaGrade_(g.itens); if (e) throw new Error(g.nome + ': ' + e); });
   const renomeia = {}; grades.forEach(g => { if (g.nomeAntigo && g.nomeAntigo !== g.nome) renomeia[g.nomeAntigo] = g.nome; });
   const semGrade = lerTurmas_().filter(t => nomes.indexOf(renomeia[t.grade] || t.grade) < 0).map(t => t.nome);
-  if (semGrade.length) throw new Error('Estas turmas usam uma grade que seria removida: ' + semGrade.join(', '));
+  if (semGrade.length) throw new Error('Estas turmas usam um período que seria removido: ' + semGrade.join(', '));
   Object.keys(renomeia).forEach(de => trocarValor_(ABA.turmas, 3, de, renomeia[de]));
   const linhas = [];
   grades.forEach(g => g.itens.forEach(i => linhas.push([g.nome, i.tipo === 'intervalo' ? 'Intervalo' : 'Aula', i.ini, i.fim])));
   gravar_(ABA.config, linhas);
-  return 'Alterou as grades de horário';
+  return 'Alterou os horários das aulas';
 }
 
 // Confere uma lista de itens {tipo, ini, fim}: devolve o problema ou ''
@@ -198,14 +205,17 @@ function problemaGrade_(itens) {
 }
 
 // ---------------- Cadastros ----------------
+// Cadastro do professor. Se vier "carga" (aba Turmas e matérias), grava também as atribuições, com a mesma proteção
+// da Conferência das turmas: "cargaAntes" = como estavam quando a tela abriu.
 function salvarProfessor_(d) {
   const nome = String(d.nome || '').trim(), antigo = String(d.nomeAntigo || '').trim();
   if (!nome) throw new Error('Informe o nome curto do professor.');
+  if (d.carga) conferirAntes_(d.cargaAntes);
   const v = valores_(ABA.prof);
   const i = antigo ? v.findIndex(r => txt_(r[0]) === antigo) : -1;
   if (v.some((r, j) => j !== i && txt_(r[0]).toLowerCase() === nome.toLowerCase())) throw new Error('Já existe um professor com esse nome.');
   const blocos = (d.blocos || []).map((b, k) => {
-    const lin = `Bloco ${k + 1}`, ini = normHora_(b.ini), fim = normHora_(b.fim);
+    const lin = `Horário reservado ${k + 1}`, ini = normHora_(b.ini), fim = normHora_(b.fim);
     if (TIPOS_BLOCO.indexOf(b.tipo) < 0) throw new Error(`${lin}: escolha o tipo.`);
     if (DIAS.indexOf(b.dia) < 0) throw new Error(`${lin}: escolha o dia.`);
     if (!ini || !fim || minutos_(fim) <= minutos_(ini)) throw new Error(`${lin}: informe início e fim (hh:mm).`);
@@ -220,12 +230,13 @@ function salvarProfessor_(d) {
   gravar_(ABA.prof, v);
   gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => txt_(r[0]) !== (antigo || nome)).concat(blocos));
   if (i >= 0 && antigo !== nome) { trocarValor_(ABA.carga, 2, antigo, nome); trocarValor_(ABA.grade, 5, antigo, nome); }
-  return (i >= 0 ? 'Editou professor ' : 'Cadastrou professor ') + nome;
+  if (d.carga) gravarCarga_(d.carga);
+  return (i >= 0 ? 'Editou professor ' : 'Cadastrou professor ') + nome + (d.carga ? ' (com turmas e matérias)' : '');
 }
 
 function excluirProfessor_(d) {
   const usos = lerCarga_().filter(c => c.professor === d.nome).map(c => c.turmas.join(' + ') + ' (' + c.disciplina + ')');
-  if (usos.length) throw new Error('Este professor ainda tem aulas em: ' + usos.join(', ') + '. Passe as aulas para outro professor antes (Atribuições ou “Trocar professor” na grade).');
+  if (usos.length) throw new Error('Este professor ainda tem aulas em: ' + usos.join(', ') + '. Tire as turmas dele antes (no cadastro do professor, em “Turmas e matérias”) ou use “Trocar professor” na grade.');
   gravar_(ABA.prof, valores_(ABA.prof).filter(r => txt_(r[0]) !== d.nome));
   gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => txt_(r[0]) !== d.nome));
   return 'Excluiu professor ' + d.nome;
@@ -276,16 +287,23 @@ function salvarCarga_(d) {
   conferirDuplicadas_(final);
   gravar_(ABA.carga, final);
   limparFixas_(final);
-  return 'Alterou disciplinas da turma ' + turma;
+  return 'Alterou as matérias da turma ' + turma;
 }
 
-// Tela Atribuições: grava a carga inteira (quem dá cada matéria em cada turma). "antes" = carga quando a tela abriu;
+// Conferência das turmas: grava a carga inteira (quem dá cada matéria em cada turma). "antes" = carga quando a tela abriu;
 // se outra pessoa mudou nesse meio-tempo, recusa para não apagar o trabalho dela.
 function salvarAtribuicoes_(d) {
-  if (d.antes && JSON.stringify(normCarga_(lerCarga_())) !== JSON.stringify(normCarga_(d.antes))) throw new Error('Outra pessoa alterou as atribuições enquanto você editava. Descarte e abra de novo.');
+  conferirAntes_(d.antes);
+  const n = gravarCarga_(d.carga || []);
+  return 'Alterou as atribuições (' + n + ' linhas)';
+}
+function conferirAntes_(antes) {
+  if (antes && JSON.stringify(normCarga_(lerCarga_())) !== JSON.stringify(normCarga_(antes))) throw new Error('Outra pessoa mudou as turmas e professores enquanto você editava. Feche sem salvar e abra de novo.');
+}
+function gravarCarga_(lista) {
   const turmas = {}, profs = valores_(ABA.prof).map(r => txt_(r[0]));
   lerTurmas_().forEach(t => turmas[t.nome] = t);
-  const linhas = (d.carga || []).map(c => {
+  const linhas = lista.map(c => {
     const ts = [...new Set(listaTurmas_(c.turmas))], disc = String(c.disciplina || '').trim(), prof = String(c.professor || '').trim(), rot = ts.join(' + ');
     if (!ts.length || !disc) throw new Error('Há uma atribuição sem turma ou sem matéria.');
     ts.forEach(t => { if (!turmas[t]) throw new Error(`${disc}: turma ${t} não encontrada.`); });
@@ -298,7 +316,7 @@ function salvarAtribuicoes_(d) {
   conferirDuplicadas_(linhas);
   gravar_(ABA.carga, linhas);
   limparFixas_(linhas);
-  return 'Alterou as atribuições (' + linhas.length + ' linhas)';
+  return linhas.length;
 }
 function normCarga_(c) { return (c || []).map(x => [listaTurmas_(x.turmas).join(' + '), txt_(x.disciplina), txt_(x.professor), +x.aulas || 0, +x.duplas || 0, +x.maxDia || 0].join('|')).sort(); }
 
@@ -395,6 +413,34 @@ function restaurarVersao_(d, s) {
   gravarGrade_(gradeDaVersao_(v));
   guardarVersao_(s, `Voltou para a versão de ${info.data.slice(0, 10)} (${info.descricao})`, info.vigencia);
   return `Restaurou a versão ${n} da grade (${info.data})`;
+}
+
+// ---------------- Começar ano letivo ----------------
+// Guarda a grade atual no histórico; apaga a grade oficial, quem dá cada matéria (as matérias de cada turma ficam, sem professor),
+// as aulas fixas e os horários reservados. Professores: mantém (e volta a "não respondeu o formulário") ou apaga.
+// Mantém horários das aulas, turmas, matriz e usuários. Depois acerta as matérias das turmas pela matriz.
+function comecarAno_(d, s) {
+  const ano = String(d.ano || '').trim();
+  if (!/^20\d\d$/.test(ano)) throw new Error('Informe o ano (ex.: 2027).');
+  if (d.professores !== 'manter' && d.professores !== 'apagar') throw new Error('Escolha o que fazer com os professores.');
+  if (valores_(ABA.grade).length) guardarVersao_(s, `Grade do fim do ano (antes de começar ${ano})`, '');
+  gravar_(ABA.grade, []); gravar_(ABA.fixas, []); gravar_(ABA.blocos, []);
+  const carga = valores_(ABA.carga).map(r => { r[2] = ''; return r; });
+  const series = [].concat(SERIES.EFAI, SERIES.EFAF, SERIES.EM);
+  const r = calcMatriz_(lerTurmas_(), carga, lerMatriz_(), lerComponentes_(), series, false);
+  conferirDuplicadas_(r.carga);
+  gravar_(ABA.carga, r.carga);
+  if (d.professores === 'apagar') gravar_(ABA.prof, []);
+  else gravar_(ABA.prof, valores_(ABA.prof).map(p => { p[6] = ''; return p; }));
+  const pr = PropertiesService.getScriptProperties();
+  pr.setProperty('ANO_LETIVO', ano); pr.deleteProperty('ESTRUTURA_CONFERIDA');
+  return `Começou o ano letivo ${ano} (professores ${d.professores === 'apagar' ? 'apagados' : 'mantidos'})`;
+}
+function conferirEstrutura_(d) {
+  const pr = PropertiesService.getScriptProperties();
+  if (d.ok === false) { pr.deleteProperty('ESTRUTURA_CONFERIDA'); return 'Desmarcou: horários, turmas e matriz conferidos'; }
+  pr.setProperty('ESTRUTURA_CONFERIDA', '1');
+  return 'Marcou: horários, turmas e matriz conferidos';
 }
 
 function substituir_(d, s) {
@@ -871,7 +917,7 @@ function dadosExemplo_() {
     ['Elias', 'Elias Bittencourt Faria'], ['Flávia', 'Flávia Rezende Prates'], ['Gilberto', 'Gilberto Sampaio Matos', 'Sex 13h; Sex 14h; Sex 15h; Sex 16h; Sex 17h; Sex 18h'],
     ['Heitor', 'Heitor Damasceno Luz'], ['Isabela', 'Isabela Guimarães Cunha'], ['Jussara', 'Jussara Medeiros Rolim'], ['Natália', 'Natália Esteves Pinho'],
     ['Mônica', 'Mônica Arruda Vilela'],
-  ].map(p => [p[0], p[1], '', '', '', p[2] || '', '', '', '']);
+  ].map((p, i) => [p[0], p[1], '', '', '', p[2] || '', i % 4 === 3 ? '' : '03/02/2026 ' + (8 + i % 9) + ':' + String(10 + i).slice(-2), '', '']);   // 3 em cada 4 já responderam o formulário
 
   // Quem dá cada componente em cada turma regular
   const POLI = { '1A': 'Bianca', '1B': 'Bianca', '2A': 'Cecília', '2B': 'Cecília', '3A': 'Débora', '3B': 'Débora', '4A': 'Elaine', '4B': 'Elaine', '5A': 'Fernanda', '5C': 'Fernanda', '5B': 'Gabriela' };
