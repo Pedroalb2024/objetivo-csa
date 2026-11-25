@@ -195,7 +195,7 @@ function mini(extra) {
     ok(p.indisp.join(',') === 'Seg|7,Ter|10','disponibilidade migrada para faixas (' + p.indisp.join(',') + ')');
     ok(d.carga[0].turmas[0] === '6º A', 'carga mantida');
     ok(d.componentes.length > 30 && d.matriz.length > 50, 'componentes e matriz padrão criados');
-    ok(v.props.ESQUEMA === '7', 'versão gravada');
+    ok(v.props.ESQUEMA === '8', 'versão gravada');
     ok(p.segmentos.join(',') === 'EFAF' && p.materias.join(',') === 'Física', 'segmentos e matérias completados pela carga');
   });
 
@@ -337,7 +337,7 @@ function mini(extra) {
     w.ss.deleteSheet(w.ss.getSheetByName('Histórico da grade')); w.props.ESQUEMA = '5';
     w.ctx.garantirEsquema_();
     const d = w.dados();
-    ok(w.props.ESQUEMA === '7' && d.versoes.length === 1 && d.versoes[0].descricao === 'Grade oficial que já estava salva', 'migração v5 → v6 guarda a grade que já existia');
+    ok(w.props.ESQUEMA === '8' && d.versoes.length === 1 && d.versoes[0].descricao === 'Grade oficial que já estava salva', 'migração v5 → v6 guarda a grade que já existia');
   });
 
   await caso('Vigência: “válida a partir de” na grade oficial e na troca', () => {
@@ -568,14 +568,28 @@ function mini(extra) {
     const prof = v.ss.getSheetByName('Professores');
     prof.d[0] = prof.d[0].slice(0, 9); prof.d.slice(1).forEach(l => l.splice(9));   // planilha v6 (sem código e situação)
     const antes = prof.d.length - 1;
-    v.props.ESQUEMA = '6'; v.ctx.garantirEsquema_();
+    delete v.props.PROFS_TESTE; v.props.ESQUEMA = '6'; v.ctx.garantirEsquema_();
     const D1 = v.dados(), teste = D1.professores.filter(p => p.teste);
-    ok(v.props.ESQUEMA === '7' && prof.d[0][9] === 'Código do formulário (não editar)' && prof.d[0][10] === 'Situação (Aprovado / Aguardando aprovação)', 'cabeçalho novo');
+    ok(v.props.ESQUEMA === '8' && prof.d[0][9] === 'Código do formulário (não editar)' && prof.d[0][10] === 'Situação (Aprovado / Aguardando aprovação)', 'cabeçalho novo');
     ok(D1.professores.length === antes + 3 && teste.length === 3 && teste.every(p => /\(teste\)/.test(p.nome) && p.temCodigo), '3 professores “(teste)” com código');
     ok(D1.professores.filter(p => !p.teste).every(p => !p.temCodigo) && !D1.pendentes.length, 'os que já existiam continuam aprovados, sem código');
     ok(teste.every(p => v.ctx.formDados(p.nome, '1234').nome === p.nome), 'os 3 entram com 1234');
     v.props.ESQUEMA = '6'; v.ctx.garantirEsquema_();
     ok(v.dados().professores.filter(p => p.teste).length === 3, 'rodar de novo não duplica');
+    // migração que parou no meio: cabeçalho já novo, sem os professores de teste (o que aconteceu na planilha real)
+    const w = criarAmbiente(); w.ctx.gravarExemplo_();
+    delete w.props.PROFS_TESTE; w.props.ESQUEMA = '7'; w.ctx.garantirEsquema_();
+    ok(w.dados().professores.filter(p => p.teste).length === 3 && w.props.PROFS_TESTE === '1', 'cabeçalho já novo e sem professores de teste: a migração cria');
+    w.ctx.apagarTeste_({}, { u: 'x' }); w.props.ESQUEMA = '7'; w.ctx.garantirEsquema_();
+    ok(!w.dados().professores.some(p => p.teste), 'depois de apagados, não voltam sozinhos');
+    // se criar falhar, o formulário continua abrindo e o erro fica no Registro
+    const z = criarAmbiente(); z.ctx.gravarExemplo_();
+    delete z.props.PROFS_TESTE; z.props.ESQUEMA = '7';
+    const orig = z.ctx.Utilities.computeDigest; z.ctx.Utilities.computeDigest = () => { throw new Error('falha simulada'); };
+    let ef = ''; try { z.ctx.formLista(); } catch (x) { ef = x.message; }
+    z.ctx.Utilities.computeDigest = orig;
+    ok(!ef && z.props.ESQUEMA === '8' && z.props.PROFS_TESTE !== '1', 'falha ao criar os de teste não derruba o formulário (' + (ef || 'ok') + ')');
+    ok(z.ss.getSheetByName('Registro').d.some(r => /Não criou os professores de teste: falha simulada/.test(r[2])), '…e fica anotada no Registro');
     const s = { u: 'teste', perfil: 'admin' }, carga = JSON.parse(JSON.stringify(D1.carga));
     carga.find(c => c.disciplina === 'Arte').professor = 'Ana (teste)';
     v.ctx.salvarAtribuicoes_({ carga, antes: D1.carga }, s);
