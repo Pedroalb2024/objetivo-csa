@@ -51,15 +51,22 @@
   .barrinha { height:6px; background:#e7eaf0; border-radius:3px; overflow:hidden; min-width:70px; }
   .barrinha i { display:block; height:100%; background:var(--azul); }
 
-  /* disponibilidade (coordenação e professor): um dia por linha, uma faixa de 1h por botão */
-  .disp-turno { margin-bottom:16px; }
-  .disp-tit { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
-  .disp-grade { display:grid; grid-template-columns:64px repeat(var(--n, 6), minmax(0, 1fr)); gap:5px; user-select:none; }
-  .disp-grade .hh { font-size:12px; color:var(--suave); font-weight:600; text-align:center; align-self:end; }
-  .disp-dia { border:1px solid var(--borda); background:#fff; border-radius:8px; font:700 13px 'Open Sans', Arial, sans-serif; color:var(--marinho); cursor:pointer; padding:0 4px; min-height:46px; line-height:1.1; }
-  .disp-dia small { display:block; font-weight:400; font-size:10px; color:var(--suave); }
-  .slot { min-height:46px; border-radius:8px; text-align:center; cursor:pointer; font-size:17px; font-weight:700; display:flex; align-items:center; justify-content:center;
-    background:var(--ok-bg); color:var(--ok); border:1px solid #cfe8d8; transition:background .1s; touch-action:manipulation; }
+  /* disponibilidade (coordenação e professor): agenda com dias nas colunas e horários de 1h nas linhas.
+     Cabe em 360px: coluna do horário estreita + 5 colunas iguais (minmax(0, 1fr) nunca estoura) e toque de 46px de altura */
+  .disp-quadro { width:100%; max-width:560px; }
+  .disp-turno { margin-bottom:18px; }
+  .disp-tit { display:flex; align-items:baseline; justify-content:space-between; gap:4px 8px; flex-wrap:wrap; margin-bottom:6px; }
+  .disp-tit h3 { font-size:16px; color:var(--marinho); }
+  .disp-grade { display:grid; grid-template-columns:54px repeat(var(--n, 5), minmax(0, 1fr)); gap:5px; user-select:none; -webkit-user-select:none; }
+  .disp-dia, .disp-hora { border:1px solid var(--borda); background:#fff; border-radius:8px; font:700 13px 'Open Sans', Arial, sans-serif; color:var(--marinho); cursor:pointer; padding:0 2px;
+    min-height:44px; line-height:1.1; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  .disp-dia { background:var(--azul-claro); border-color:#d3def3; }
+  .disp-hora { font-size:12.5px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .disp-hora small { font-weight:400; font-size:10.5px; color:var(--suave); }
+  .disp-dia:active, .disp-hora:active { background:#dfe7f7; }
+  .legenda i.lg-ok { background:var(--ok-bg); border:1px solid #cfe8d8; } .legenda i.lg-nao { background:var(--erro-bg); border:1px solid #f3c7c3; }
+  .slot { min-height:46px; border-radius:8px; text-align:center; cursor:pointer; font-size:17px; font-weight:700; display:flex; align-items:center; justify-content:center; min-width:0;
+    background:var(--ok-bg); color:var(--ok); border:1px solid #cfe8d8; transition:background .1s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .slot::after { content:'✓'; }
   .slot.nao { background:var(--erro-bg); color:var(--erro); border-color:#f3c7c3; }
   .slot.nao::after { content:'✕'; }
@@ -113,6 +120,6 @@
     table.cartao tr.grupo-linha { border:none; background:none; padding:8px 2px 0; margin:0; }
     table.cartao tr.grupo-linha td { background:none; padding:0; }
     table.cartao td select { max-width:62%; }
-    .disp-grade { grid-template-columns:52px repeat(var(--n, 6), minmax(0, 1fr)); gap:4px; }
+    .disp-grade { grid-template-columns:50px repeat(var(--n, 5), minmax(0, 1fr)); gap:4px; }
   }
 </style>

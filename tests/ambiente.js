@@ -51,7 +51,9 @@ function criarAmbiente() {
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] === undefined ? null : props[k], setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: k => { delete props[k]; } }) },
     LockService: { getScriptLock: () => ({ waitLock() { }, releaseLock() { } }) },
     CacheService: { getScriptCache: () => ({ get: k => cache.has(k) ? cache.get(k) : null, put: (k, v) => cache.set(k, v), remove: k => cache.delete(k) }) },
-    Utilities: { getUuid: () => crypto.randomUUID(), formatDate: (d, tz, f) => { const p = n => String(n).padStart(2, '0'); return f === 'HH:mm' ? p(d.getHours()) + ':' + p(d.getMinutes()) : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; } },
+    Utilities: { getUuid: () => crypto.randomUUID(), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
+      computeDigest: (alg, txt) => Array.from(crypto.createHash(alg).update(String(txt), 'utf8').digest()).map(b => b > 127 ? b - 256 : b),   // bytes com sinal, como no Apps Script
+      formatDate: (d, tz, f) => { const p = n => String(n).padStart(2, '0'); return f === 'HH:mm' ? p(d.getHours()) + ':' + p(d.getMinutes()) : `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; } },
     ScriptApp: { getService: () => ({ getUrl: () => 'http:\/\/local' }) },
   };
   vm.createContext(ctx);

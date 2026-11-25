@@ -85,6 +85,16 @@
   .pergunta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--alerta-bg); color:var(--alerta); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:13.5px; }
   .pergunta span { flex:1; min-width:180px; font-weight:600; }
   .total-prof { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  /* código do formulário (cadastro do professor) e novos professores aguardando aprovação */
+  .cod-box { border:1px solid var(--borda); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+  .cod-box .linha { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .cod-box .linha > b { margin-right:4px; }
+  .cod-box input.cod { max-width:130px; font:700 20px 'Ubuntu', Arial, sans-serif; letter-spacing:.3em; text-align:center; }
+  .cod-gerado { font:700 30px 'Ubuntu', Arial, sans-serif; letter-spacing:.3em; color:var(--marinho); background:var(--azul-claro); border-radius:10px; padding:10px; text-align:center; }
+  .novos { border-color:#efd58a; box-shadow:0 0 0 2px var(--alerta-bg), var(--sombra); margin-bottom:14px; }
+  .novo-item { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:10px 0; border-top:1px solid var(--borda); }
+  .novo-item > div:first-child { flex:1; min-width:200px; }
+  tr.pendente td { background:var(--alerta-bg); }
   /* atribuições */
   .at-turmas { display:flex; flex-direction:column; gap:8px; }
   .at-seg { display:flex; gap:10px; align-items:flex-start; }
@@ -354,7 +364,13 @@ function cabecalho(tit, acoes) {   // título + frase curta explicando para que 
 // ================= Configuração (cartões grandes) =================
 function telaConfig() {
   $('tela').innerHTML = cabecalho('Configuração') + `<div class="cartoes">${TELAS.filter(t => t.pai === 'config' && t.p.includes(D.usuario.perfil)).map(t =>
-    `<button class="cartao-cfg ${t.id === 'ano' ? 'alerta' : ''}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span><div><b>${t.nome}</b><span>${t.frase}</span></div></button>`).join('')}</div>`;
+    `<button class="cartao-cfg ${t.id === 'ano' ? 'alerta' : ''}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span><div><b>${t.nome}</b><span>${t.frase}</span></div></button>`).join('')}
+    ${profsTeste().length ? `<button class="cartao-cfg alerta" onclick="apagarTeste()"><span class="ic">🧪</span><div><b>Apagar professores de teste</b><span>Apaga só os ${profsTeste().length} professores marcados “(teste)”, usados para testar o formulário.</span></div></button>` : ''}</div>`;
+}
+const profsTeste = () => D.professores.concat(D.pendentes).filter(p => p.teste);
+function apagarTeste() {
+  const l = profsTeste().map(p => p.nome);
+  if (confirm(`Apagar os professores de teste (${l.join(', ')})? Os outros professores não são afetados.`)) acao('apagarTeste', {}, 'Professores de teste apagados.');
 }
 function abrirModal(titulo, corpo, rodape) {
   $('modalCaixa').innerHTML = `<div class="cab"><h2>${titulo}</h2><button class="link" onclick="fecharModal()" style="font-size:22px;color:var(--suave)">×</button></div><div class="corpo">${corpo}</div><div class="rod">${rodape}</div>`;
@@ -376,12 +392,21 @@ const cargaDe = turma => D.carga.filter(c => c.turmas.includes(turma));
 const linhaDe = (turma, disc) => D.carga.find(c => c.turmas.includes(turma) && c.disciplina === disc);
 const somaCarga = turma => cargaDe(turma).reduce((s, c) => s + c.aulas, 0);
 const aulasProf = nome => D.carga.filter(c => c.professor === nome).reduce((s, c) => s + c.aulas, 0);
-const totalFaixas = () => D.dias.length * Object.values(D.faixas).reduce((s, h) => s + h.length, 0);
+const totalFaixas = () => totalHorasDisp(D.dias, D.faixas);
 const sigla = disc => { const c = D.componentes.find(x => x.nome === disc); return (c && c.sigla) || disc; };
 const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 const horasTxt = m => m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : '') : m + ' min';
-const msgForm = () => `Olá! Aqui é a coordenação do ${CFG.escola}. Marque neste link os horários em que você não pode dar aula: ${D.linkForm}`;
+// Mensagens do WhatsApp com o link do formulário (SITE + 'professor/') e como entrar
+const ENTRAR_CPF = 'Para entrar, escolha seu nome e digite os 4 primeiros números do seu CPF.';
+const msgForm = () => `Olá! Aqui é a coordenação do ${CFG.escola}. Marque neste link os horários em que você NÃO pode dar aula: ${D.linkForm}\n\n${ENTRAR_CPF} Se seu nome não estiver na lista, toque em “Não estou na lista (sou novo)”.`;
 const whatsForm = () => 'https:\/\/wa.me/?text=' + encodeURIComponent(msgForm());
+const msgProf = (p, codigo) => `Olá, ${(p.completo || p.nome).split(' ')[0]}! Aqui é a coordenação do ${CFG.escola}. Marque neste link os horários em que você NÃO pode dar aula: ${D.linkForm}\n\n`
+  + (codigo ? `Para entrar, escolha seu nome e digite o código ${codigo}.` : ENTRAR_CPF);
+function whatsProf(p, codigo) {   // abre a conversa com o professor quando o WhatsApp dele está cadastrado
+  let n = String(p.tel || '').replace(/\D/g, '');
+  if (n.length === 10 || n.length === 11) n = '55' + n; else if (!/^55\d{10,11}$/.test(n)) n = '';
+  return 'https:\/\/wa.me/' + n + '?text=' + encodeURIComponent(msgProf(p, codigo));
+}
 const ordenarNomes = l => l.slice().sort((a, b) => a.localeCompare(b, 'pt'));
 // Diferenças entre a carga da turma e a matriz da série dela
 function difMatriz(t) {
@@ -400,7 +425,7 @@ function telaInicio() {
   const resp = D.professores.filter(p => p.respondeuEm).length, regulares = D.turmas.filter(t => t.segmento !== 'Extra');
   const completas = regulares.filter(t => statusTurma(t.nome).ok).length;
   const nGrade = Object.keys(D.grade).length;
-  let h = cabecalho(`Olá, ${esc(D.usuario.nome.split(' ')[0])}`) + `<div class="stats">
+  let h = cabecalho(`Olá, ${esc(D.usuario.nome.split(' ')[0])}`) + (podeEditar() ? cardNovos() : '') + `<div class="stats">
     <div class="card stat" onclick="ir('grade')"><b>${nGrade ? 'Salva' : 'Não salva'}</b><span>grade horária oficial${D.vigencia ? ' · desde ' + esc(D.vigencia) : ''}</span></div>`;
   if (podeEditar()) {
     h += `<div class="card stat" onclick="ir('professores')"><b>${resp}/${D.professores.length}</b><span>professores responderam o formulário</span></div>
@@ -417,7 +442,7 @@ function listaPendencias() {
 }
 // Guia: cada passo tem situação (feito / falta) e botões que levam direto para resolver
 function passosGuia() {
-  const nP = D.professores.length, resp = D.professores.filter(p => p.respondeuEm), naoResp = D.professores.filter(p => !p.respondeuEm);
+  const nP = D.professores.length, resp = D.professores.filter(p => p.respondeuEm), naoResp = D.professores.filter(p => !p.respondeuEm), semCod = D.professores.filter(p => !p.temCodigo).length;
   const comProf = D.carga.filter(c => c.professor).length, regs = D.turmas.filter(t => t.segmento !== 'Extra');
   const completas = regs.filter(t => statusTurma(t.nome).ok).length;
   const M = D.professores.length && D.carga.length ? Gerador.modelo(D) : null, nSob = M ? Object.keys(M.sobrecarga).length : 0;
@@ -428,10 +453,10 @@ function passosGuia() {
       botoes: `<button class="btn" onclick="ir('horarios')">Horários das aulas</button><button class="btn" onclick="ir('turmas')">Turmas</button><button class="btn" onclick="ir('matriz')">Matriz curricular</button>
         ${D.ano.conferido ? '<button class="btn" onclick="acao(\'conferirEstrutura\',{ok:false})">Desmarcar</button>' : '<button class="btn prim" onclick="acao(\'conferirEstrutura\',{ok:true},\'Marcado como conferido.\')">Está tudo certo ✓</button>'}` },
     { tit: 'Enviar o formulário aos professores', ok: nP > 0 && !naoResp.length,
-      txt: 'Cada professor marca, pelo celular, os horários em que não pode dar aula. Professor novo se cadastra pelo próprio formulário.',
-      sit: !nP ? 'Ninguém respondeu ainda.' : `${resp.length} de ${nP} professores responderam.`,
+      txt: 'Cada professor escolhe o nome, digita os 4 primeiros números do CPF (cadastrados aqui no sistema) e marca, pelo celular, os horários em que não pode dar aula. Professor novo se cadastra pelo próprio formulário e espera sua aprovação.',
+      sit: !nP ? 'Ninguém respondeu ainda.' : `${resp.length} de ${nP} professores responderam.${semCod ? ` ${semCod} ainda sem código para entrar.` : ''}`,
       extra: naoResp.length && nP ? `<div class="faltam"><span class="suave">Faltam responder:</span> ${naoResp.slice(0, 15).map(p => `<span class="tag neutra">${esc(p.nome)}</span>`).join('')}${naoResp.length > 15 ? ` e mais ${naoResp.length - 15}` : ''}</div>` : '',
-      botoes: `<button class="btn" onclick="copiar(D.linkForm)">Copiar o link</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>${nP ? `<button class="btn" onclick="FILTRO='naoresp';ir('professores')">Ver quem falta</button>` : ''}` },
+      botoes: `<button class="btn" onclick="copiar(D.linkForm)">Copiar o link</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>${nP ? `<button class="btn" onclick="FILTRO='naoresp';ir('professores')">Ver quem falta</button>` : ''}${semCod ? `<button class="btn" onclick="FILTRO='semcodigo';ir('professores')">Ver quem está sem código</button>` : ''}` },
     { tit: 'Atribuir turmas aos professores', ok: D.carga.length > 0 && comProf === D.carga.length,
       txt: 'Abra cada professor e, em “Turmas e matérias”, toque nas turmas de cada matéria que ele dá.',
       sit: D.carga.length ? `${comProf} de ${D.carga.length} matérias das turmas já têm professor.` : 'As turmas ainda não têm matérias: confira a matriz curricular.',
@@ -449,7 +474,7 @@ function passosGuia() {
 function telaGuia() {
   PASSOS = passosGuia(); PEND = pendencias();
   const atual = PASSOS.findIndex(p => !p.ok), feitos = PASSOS.filter(p => p.ok).length;
-  $('tela').innerHTML = cabecalho(D.ano.ano ? `Ano letivo ${esc(D.ano.ano)}: passo a passo` : 'Passo a passo para montar a grade')
+  $('tela').innerHTML = cabecalho(D.ano.ano ? `Ano letivo ${esc(D.ano.ano)}: passo a passo` : 'Passo a passo para montar a grade') + cardNovos()
     + `<p class="suave" style="margin:-6px 0 14px">${feitos} de ${PASSOS.length} passos feitos. Siga na ordem; cada botão leva direto ao lugar certo.</p>
     <div class="passos">${PASSOS.map((p, i) => `<div class="card passo-g ${p.ok ? 'ok' : i === atual ? 'atual' : ''}"><span class="num">${p.ok ? '✓' : i + 1}</span><div>
       <h2>${p.tit} ${p.ok ? '<span class="tag ok">feito</span>' : '<span class="tag alerta">pendente</span>'}</h2>
@@ -480,6 +505,9 @@ function pendencias() {
     else add(e, 'Ver a turma', () => irConf((e.match(/^([^·:]+?)(?: \+ | · |:)/) || [])[1]));
   });
   D.professores.filter(p => !aulasProf(p.nome) && p.respondeuEm).forEach(p => add(`${p.nome} respondeu o formulário, mas ainda não tem turmas.`, 'Marcar as turmas', () => { ir('professores'); editarProfessor(p.nome, 'turmas'); }));
+  const semCod = D.professores.filter(p => !p.temCodigo).length;
+  if (semCod) add(`${semCod} ${semCod === 1 ? 'professor ainda não tem' : 'professores ainda não têm'} código para entrar no formulário.`, 'Cadastrar os códigos', () => { FILTRO = 'semcodigo'; ir('professores'); });
+  D.pendentes.forEach(p => add(`${p.completo || p.nome} se cadastrou pelo formulário e aguarda sua aprovação.`, 'Aprovar ou recusar', () => ir('professores')));
   const nao = D.professores.filter(p => !p.respondeuEm).length;
   if (nao) add(`${nao} ${nao === 1 ? 'professor ainda não respondeu' : 'professores ainda não responderam'} o formulário dos horários em que não podem.`, 'Ver quem falta', () => { FILTRO = 'naoresp'; ir('professores'); });
   if (!Object.keys(D.grade).length) add('A grade oficial ainda não foi salva.', 'Montar a grade', () => ir('grade'));
@@ -492,12 +520,29 @@ function irConf(turma) { ir('conferencia'); if (TELA === 'conferencia' && AT && 
 // O cadastro do professor é o lugar principal para atribuir: em "Turmas e matérias", cada matéria dele mostra as turmas
 // dos segmentos dele; tocar na turma dá ou tira. Edita uma cópia das atribuições (PED.carga) e salva tudo junto.
 let BUSCA = '', FILTRO = '', PED = null;
-const FILTROS = { '': 'Todos', naoresp: 'Não responderam o formulário', semturma: 'Sem turmas' };
+const FILTROS = { '': 'Todos', naoresp: 'Não responderam o formulário', semcodigo: 'Sem código', semturma: 'Sem turmas' };
+// Professores que se cadastraram pelo formulário: ficam aqui até a coordenação aprovar (o gerador só usa os aprovados)
+function cardNovos() {
+  if (!D.pendentes.length) return '';
+  return `<div class="card novos"><h2 style="margin-bottom:4px">Novos professores aguardando aprovação <span class="tag alerta">${D.pendentes.length}</span></h2>
+    <p class="peq suave" style="margin:0 0 6px">Eles se cadastraram pelo formulário. Só entram na grade depois de aprovados.</p>
+    ${D.pendentes.map(p => `<div class="novo-item"><div><b>${esc(p.completo || p.nome)}</b>
+      <div class="peq suave">${esc(p.materias.join(', ') || 'sem matérias')}${p.tel ? ' · WhatsApp ' + esc(p.tel) : ''}${p.respondeuEm ? ' · cadastrou em ' + esc(p.respondeuEm) : ''}</div>
+      ${p.obs ? `<div class="peq">“${esc(p.obs)}”</div>` : ''}</div>
+      <div class="acoes"><button class="btn perigo" data-n="${esc(p.nome)}" onclick="recusarProfessor(this.dataset.n)">Recusar</button><button class="btn prim" data-n="${esc(p.nome)}" onclick="aprovarProfessor(this.dataset.n)">Aprovar</button></div></div>`).join('')}</div>`;
+}
+async function aprovarProfessor(nome) {
+  if (await acao('aprovarProfessor', { nome }, `${nome} aprovado.`) && TELA === 'professores') editarProfessor(nome, 'turmas');
+}
+function recusarProfessor(nome) {
+  if (confirm(`Recusar o cadastro de ${nome}? O cadastro e as respostas dele serão apagados.`)) acao('recusarProfessor', { nome }, 'Cadastro recusado.');
+}
+const quandoTxt = q => { const m = /^(\d{2}\/\d{2})\/\d{4} (\d{1,2}:\d{2})/.exec(q || ''); return m ? `${m[1]} às ${m[2]}` : q; };
 function telaProfessores() {
   $('tela').innerHTML = cabecalho('Professores',
     `<button class="btn" onclick="copiar(D.linkForm)">Copiar link do formulário</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>
      <button class="btn prim" onclick="editarProfessor()">+ Professor</button>`)
-    + `<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+    + cardNovos() + `<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <input placeholder="Buscar professor ou matéria…" value="${esc(BUSCA)}" oninput="BUSCA=this.value;listaProfessores()" style="max-width:300px">
         <div class="chips">${Object.entries(FILTROS).map(([k, v]) => `<span class="chip ${FILTRO === k ? 'on' : ''}" onclick="FILTRO='${k}';telaProfessores()">${v}</span>`).join('')}</div></div>
       <div id="listaProf"></div></div>`;
@@ -506,24 +551,26 @@ function telaProfessores() {
 function listaProfessores() {
   const total = totalFaixas(), b = BUSCA.toLowerCase();
   const l = D.professores.filter(p => (p.nome + ' ' + p.completo + ' ' + p.materias.join(' ')).toLowerCase().indexOf(b) >= 0
-    && (FILTRO !== 'naoresp' || !p.respondeuEm) && (FILTRO !== 'semturma' || !aulasProf(p.nome)));
+    && (FILTRO !== 'naoresp' || !p.respondeuEm) && (FILTRO !== 'semturma' || !aulasProf(p.nome)) && (FILTRO !== 'semcodigo' || !p.temCodigo));
   $('listaProf').innerHTML = !D.professores.length ? '<p class="suave">Nenhum professor ainda. Envie o link do formulário (cada professor se cadastra por ele) ou toque em “+ Professor”.</p>'
     : !l.length ? '<p class="suave">Nenhum professor com esse filtro.</p>'
-    : `<table class="tab cartao"><tr><th>Professor</th><th>Matérias</th><th>Aulas por semana</th><th title="Horas na semana em que pode dar aula (de ${total})">Horas livres</th><th>Formulário</th></tr>${l.map(p => {
+    : `<table class="tab cartao"><tr><th>Professor</th><th>Matérias</th><th>Aulas por semana</th><th title="Horas na semana em que pode dar aula (de ${total})">Horas livres</th><th>Código</th><th>Formulário</th></tr>${l.map(p => {
       const aulas = aulasProf(p.nome);
       return `<tr class="clic" data-n="${esc(p.nome)}" onclick="editarProfessor(this.dataset.n)">
-        <td><div><b>${esc(p.nome)}</b>${p.completo ? `<div class="peq suave">${esc(p.completo)}</div>` : ''}</div></td>
+        <td><div><b>${esc(p.nome)}</b>${p.teste ? ' <span class="tag neutra">teste</span>' : ''}${p.completo ? `<div class="peq suave">${esc(p.completo)}</div>` : ''}</div></td>
         <td data-r="Matérias" class="suave">${p.materias.length ? esc(p.materias.map(sigla).join(', ')) : '<span class="tag alerta">escolher</span>'}</td>
         <td data-r="Aulas por semana">${aulas || '<span class="tag alerta">sem turmas</span>'}</td>
         <td data-r="Horas livres">${total - p.indisp.length} de ${total}</td>
-        <td data-r="Formulário">${p.respondeuEm ? `<span class="tag ok">respondeu ${esc(p.respondeuEm.slice(0, 5))}</span>` : '<span class="tag alerta">não respondeu</span>'}</td></tr>`;
+        <td data-r="Código">${p.temCodigo ? '<span class="tag ok">cadastrado ✓</span>' : '<span class="tag alerta">falta código</span>'}</td>
+        <td data-r="Formulário">${p.respondeuEm ? `<span class="tag ok" title="Respondeu em ${esc(p.respondeuEm)}">respondeu ${esc(quandoTxt(p.respondeuEm))}</span>` : '<span class="tag alerta">não respondeu</span>'}</td></tr>`;
     }).join('')}</table>`;
 }
 function editarProfessor(nome, aba) {
-  const p = nome ? profPorNome(nome) : { nome: '', completo: '', materias: [], segmentos: [], tel: '', maxDia: '', indisp: [], respondeuEm: '', obs: '' };
+  const p = nome ? profPorNome(nome) : { nome: '', completo: '', materias: [], segmentos: [], tel: '', maxDia: '', indisp: [], respondeuEm: '', obs: '', temCodigo: false };
   if (!p) return;
   PED = { antigo: nome || '', chave: nome || '\u0001novo', aba: aba || 'turmas', blocos: D.blocos.filter(b => b.professor === nome).map(b => ({ ...b })),
-    materias: p.materias.slice(), segmentos: p.segmentos.slice(), verMats: !p.materias.length, carga: clone(D.carga), cargaAntes: D.carga, mudouCarga: false, pergunta: null };
+    materias: p.materias.slice(), segmentos: p.segmentos.slice(), verMats: !p.materias.length, carga: clone(D.carga), cargaAntes: D.carga, mudouCarga: false, pergunta: null,
+    prof: p, codModo: p.temCodigo ? 'ver' : 'editar', codigo: '', gerado: false };
   DISP = new Set(p.indisp);
   const temGrade = nome && Object.keys(D.grade).length && aulasProf(nome);
   abrirModal(nome ? esc(nome) : 'Novo professor', `
@@ -532,6 +579,7 @@ function editarProfessor(nome, aba) {
       <label class="campo">Nome completo<input id="pCompleto" value="${esc(p.completo)}"></label>
     </div>
     ${p.respondeuEm ? `<div class="aviso ok">Respondeu o formulário em ${esc(p.respondeuEm)}${p.obs ? ` · “${esc(p.obs)}”` : ''}</div>` : nome ? '<div class="aviso alerta">Ainda não respondeu o formulário dos horários.</div>' : ''}
+    <div class="cod-box" id="pCod"></div>
     <div class="abas-prof">${[['turmas', 'Turmas e matérias'], ['disp', 'Horários em que não pode'], ['dados', 'Mais dados']].map(([k, v]) => `<button data-a="${k}" onclick="abaProf('${k}')">${v}</button>`).join('')}</div>
     <div data-pane="turmas" style="display:flex;flex-direction:column;gap:14px">
       <div class="total-prof" id="pTotal"></div>
@@ -541,7 +589,7 @@ function editarProfessor(nome, aba) {
       ${temGrade ? `<div class="aviso">Mudar as turmas aqui não muda a grade oficial. Para trocar quem dá as aulas no meio do ano, sem mexer no horário dos outros professores, use
         <button class="link" data-n="${esc(nome)}" onclick="substituirProfessor(this.dataset.n)">Substituir este professor na grade</button>.</div>` : ''}
     </div>
-    <div data-pane="disp" hidden><p class="peq" id="pResumo" style="margin:0 0 10px"></p>${htmlDisp(D.dias, D.faixas)}</div>
+    <div data-pane="disp" hidden style="flex-direction:column"><p class="peq" id="pResumo" style="margin:0 0 10px"></p>${htmlDisp(D.dias, D.faixas)}</div>
     <div data-pane="dados" hidden style="flex-direction:column;gap:14px">
       <div class="linha-campos">
         <label class="campo">WhatsApp<input id="pTel" value="${esc(p.tel)}" inputmode="tel"></label>
@@ -553,8 +601,39 @@ function editarProfessor(nome, aba) {
     </div>`,
     `${nome ? '<button class="btn perigo esq" onclick="excluirProfessor()">Excluir</button>' : ''}<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="salvarProfessor()">Salvar</button>`);
   window.aoMudarDisp = () => { $('pResumo').innerHTML = `<b>${totalFaixas() - DISP.size} de ${totalFaixas()} horas livres na semana.</b>`; totalProf(); };
-  desenharBlocos(); desenharChips(); abaProf(PED.aba); window.aoMudarDisp();
+  desenharBlocos(); desenharChips(); desenharCodigo(); abaProf(PED.aba); window.aoMudarDisp();
 }
+// Código do formulário: 4 primeiros números do CPF (ou um código sorteado). O servidor guarda só o hash, então
+// depois de salvo ninguém consegue ver o código de novo; dá para redefinir.
+function desenharCodigo() {
+  const p = PED.prof, tit = '<b>Código do formulário</b>';
+  if (PED.codModo === 'ver') {
+    $('pCod').innerHTML = `<div class="linha">${tit}${p.temCodigo ? '<span class="tag ok">código cadastrado ✓</span>' : '<span class="tag alerta">falta código</span>'}</div>
+      <div class="linha">${p.temCodigo ? `<a class="btn mini" target="_blank" href="${esc(whatsProf(p))}">Enviar link no WhatsApp</a>` : ''}
+        <button class="btn mini" onclick="PED.codModo='editar';desenharCodigo()">${p.temCodigo ? 'Redefinir código' : 'Cadastrar código'}</button></div>`;
+    return;
+  }
+  $('pCod').innerHTML = `<div class="linha">${tit}${p.temCodigo ? '<span class="tag neutra">o código atual será trocado ao salvar</span>' : '<span class="tag alerta">falta código</span>'}</div>
+    <label class="campo">4 primeiros números do CPF do professor
+      <div class="linha"><input id="pCodigo" class="cod" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(PED.codigo)}"
+        oninput="this.value=this.value.replace(/\D/g,'');PED.codigo=this.value;PED.gerado=false;$('pGerado').hidden=true">
+        <span class="peq suave">ou</span><button class="btn mini" onclick="gerarCodigo()">Gerar código de 4 números</button>
+        ${p.temCodigo ? `<button class="link" onclick="PED.codModo='ver';PED.codigo='';desenharCodigo()">Manter o atual</button>` : ''}</div></label>
+    <div id="pGerado" class="aviso alerta" ${PED.gerado ? '' : 'hidden'}>Código sorteado para quem não quer usar o CPF. Ao salvar, ele aparece de novo para você enviar ao professor; depois disso não dá para ver.</div>
+    <p class="peq suave" style="margin:0">O sistema guarda só uma versão embaralhada do código, nunca os números do CPF.</p>`;
+}
+function gerarCodigo() {
+  const n = new Uint16Array(1); (window.crypto || window.msCrypto).getRandomValues(n);
+  PED.codigo = String(n[0] % 10000).padStart(4, '0'); PED.gerado = true; desenharCodigo();
+}
+// Depois de salvar um código sorteado: mostra o código uma vez, com a mensagem pronta para o professor
+function mostrarCodigoGerado(p, codigo) {
+  abrirModal(`Código de ${esc(p.nome)}`, `<p style="margin:0">Envie este código ao professor. Depois de fechar esta janela, ele não aparece mais (dá para redefinir).</p>
+    <div class="cod-gerado">${esc(codigo)}</div>`,
+    `<button class="btn" onclick="copiar(msgProf(PROF_COD, '${codigo}'))">Copiar mensagem</button><a class="btn prim" target="_blank" href="${esc(whatsProf(p, codigo))}">Enviar no WhatsApp</a><button class="btn" onclick="PROF_COD=null;fecharModal()">Fechar</button>`);
+  PROF_COD = p;
+}
+let PROF_COD = null;
 function abaProf(a) {
   PED.aba = a;
   document.querySelectorAll('.abas-prof button').forEach(b => b.classList.toggle('on', b.dataset.a === a));
@@ -676,13 +755,21 @@ async function salvarProfessor() {
   const nome = $('pNome').value.trim();
   const dados = { nomeAntigo: PED.antigo, nome, completo: $('pCompleto').value, materias: PED.materias, segmentos: PED.segmentos,
     maxDia: +$('pMax').value || '', tel: $('pTel').value, indisp: [...DISP], blocos: PED.blocos };
+  if (PED.codModo === 'editar' && PED.codigo) {
+    if (!/^\d{4}$/.test(PED.codigo)) return toast('O código precisa ter exatamente 4 números.', 'erro');
+    dados.codigo = PED.codigo;
+  }
+  const gerado = PED.gerado && dados.codigo;
   if (PED.mudouCarga) {
     if (!nome) return toast('Informe o nome curto do professor.', 'erro');
     dados.carga = PED.carga.map(l => Object.assign({}, l, { professor: l.professor === PED.chave ? nome : l.professor }));
     dados.cargaAntes = PED.cargaAntes;
   }
   const ped = PED; ped.mudouCarga = false;
-  if (await acao('salvarProfessor', dados, dados.carga ? 'Professor e turmas salvos.' : 'Professor salvo.')) { PED = null; fecharModal(); }
+  if (await acao('salvarProfessor', dados, dados.carga ? 'Professor e turmas salvos.' : 'Professor salvo.')) {
+    PED = null; fecharModal();
+    if (gerado) mostrarCodigoGerado(profPorNome(nome) || { nome, tel: dados.tel, completo: dados.completo }, gerado);
+  }
   else if (PED === ped) ped.mudouCarga = !!dados.carga;
 }
 async function excluirProfessor() {

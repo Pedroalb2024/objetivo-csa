@@ -1,6 +1,6 @@
 // ================= GRADE HORÁRIA · OBJETIVO CSA — servidor (Apps Script) =================
 // ENDEREÇO DO SITE: o único lugar para trocar quando houver domínio próprio (ex.: 'https://horarios.objetivocsa.com.br/').
-// Dali vêm os arquivos (logo.png, logo-branco.png, icone.png da pasta docs/) e o link do sistema e do formulário (?form=1).
+// Dali vêm os arquivos (logo.png, logo-branco.png, icone.png da pasta docs/) e o link do sistema e do formulário (SITE + 'professor/').
 const SITE = 'https://pedroalb2024.github.io/objetivo-csa/';
 const CONFIG = {
   ESCOLA: 'Objetivo CSA',
@@ -9,7 +9,7 @@ const CONFIG = {
   CREDITO: 'ALBIX',
   SESSAO_HORAS: 6,
 };
-const ESQUEMA = '6';   // versão das colunas da planilha; mudou → migrar_() roda sozinho uma vez
+const ESQUEMA = '7';   // versão das colunas da planilha; mudou → migrar_() roda sozinho uma vez
 const DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
 const SERIES = {
   EFAI: ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano'],
@@ -17,13 +17,24 @@ const SERIES = {
   EM: ['1ª série', '2ª série', '3ª série'],
   Extra: [],
 };
-const FAIXAS = { 'Manhã': [7, 8, 9, 10, 11, 12], 'Tarde': [13, 14, 15, 16, 17, 18] };   // faixas de 1h da disponibilidade
+// Faixas de 1h da disponibilidade, em ordem (lista, para a tela não depender da ordem das chaves de um objeto)
+const FAIXAS = [{ periodo: 'Manhã', horas: [7, 8, 9, 10, 11, 12] }, { periodo: 'Tarde', horas: [13, 14, 15, 16, 17, 18] }];
+const HORAS = [].concat(...FAIXAS.map(f => f.horas));
+// Professor: situação (vazio = aprovado). Quem se cadastra pelo formulário entra "Aguardando aprovação" e o gerador não usa.
+const APROVADO = 'Aprovado', PENDENTE = 'Aguardando aprovação';
+const MAX_ERROS_CODIGO = 5, BLOQUEIO_CODIGO_S = 15 * 60;   // 5 erros seguidos no código → 15 min bloqueado
+const PROFS_TESTE = [   // professores fictícios para testar o formulário (código 1234); "Apagar professores de teste" tira só eles
+  ['Ana (teste)', 'Ana Modelo (teste)', 'Matemática', 'EFAF'],
+  ['Bruno (teste)', 'Bruno Modelo (teste)', 'Língua Portuguesa', 'EFAF'],
+  ['Célia (teste)', 'Célia Modelo (teste)', 'Ciências', 'EFAI, EFAF'],
+];
 const TIPOS_BLOCO = ['Complementação de Carga Horária', 'Plantão de Dúvidas'];
 const ABA = { config: 'Config', prof: 'Professores', turmas: 'Turmas', carga: 'Carga', fixas: 'Fixas', grade: 'Grade',
   matriz: 'Matriz', comp: 'Componentes', blocos: 'Blocos', usuarios: 'Usuários', registro: 'Registro', hist: 'Histórico da grade' };
 const CAB = {
   'Config': ['Grade de horário', 'Tipo (Aula/Intervalo)', 'Início', 'Fim'],
-  'Professores': ['Professor (nome curto)', 'Nome completo', 'Disciplinas', 'WhatsApp', 'Máx. aulas por dia', 'Indisponível (dia faixa)', 'Respondeu em', 'Observação', 'Segmentos'],
+  'Professores': ['Professor (nome curto)', 'Nome completo', 'Disciplinas', 'WhatsApp', 'Máx. aulas por dia', 'Indisponível (dia faixa)', 'Respondeu em', 'Observação', 'Segmentos',
+    'Código do formulário (não editar)', 'Situação (Aprovado / Aguardando aprovação)'],
   'Turmas': ['Turma', 'Segmento (EFAI/EFAF/EM/Extra)', 'Série', 'Grade de horário'],
   'Carga': ['Turma(s)', 'Disciplina', 'Professor', 'Aulas/semana', 'Aulas duplas', 'Máx. por dia'],
   'Fixas': ['Turma', 'Dia', 'Aula nº', 'Disciplina'],
@@ -106,6 +117,9 @@ const ACOES = {
   salvarGrades:     { p: EDITA, f: salvarGrades_ },
   salvarProfessor:  { p: EDITA, f: salvarProfessor_ },
   excluirProfessor: { p: EDITA, f: excluirProfessor_ },
+  aprovarProfessor: { p: EDITA, f: aprovarProfessor_ },
+  recusarProfessor: { p: EDITA, f: recusarProfessor_ },
+  apagarTeste:      { p: EDITA, f: apagarTeste_ },
   salvarTurma:      { p: EDITA, f: salvarTurma_ },
   excluirTurma:     { p: EDITA, f: excluirTurma_ },
   salvarCarga:      { p: EDITA, f: salvarCarga_ },
@@ -141,10 +155,10 @@ function api(token, acao, dados) {
 
 function dados_(s) {
   const D = {
-    dias: DIAS, escola: CONFIG.ESCOLA, usuario: s, linkBase: linkBase_(), linkForm: linkBase_() + '?form=1',
+    dias: DIAS, escola: CONFIG.ESCOLA, usuario: s, linkBase: linkBase_(), linkForm: linkForm_(),
     series: SERIES, faixas: FAIXAS, tiposBloco: TIPOS_BLOCO,
     grades: lerGrades_(),
-    professores: lerProfessores_(),
+    professores: [], pendentes: [],
     turmas: lerTurmas_(),
     carga: lerCarga_(),
     fixas: valores_(ABA.fixas).map(r => ({ turma: txt_(r[0]), dia: txt_(r[1]), aula: num_(r[2]), disciplina: txt_(r[3]) })),
@@ -154,6 +168,7 @@ function dados_(s) {
     grade: {},
     versoes: lerVersoes_().slice(0, 50),
   };
+  lerProfessores_().forEach(p => (p.pendente ? D.pendentes : D.professores).push(p));   // o gerador e as telas só usam os aprovados
   D.vigencia = D.versoes.length ? D.versoes[0].vigencia : '';
   const pr = PropertiesService.getScriptProperties();
   D.ano = { ano: pr.getProperty('ANO_LETIVO') || '', conferido: pr.getProperty('ESTRUTURA_CONFERIDA') === '1' };
@@ -224,14 +239,17 @@ function salvarProfessor_(d) {
   });
   const materias = Array.isArray(d.materias) ? d.materias : lista_(d.disciplinas);
   const segmentos = (d.segmentos || []).filter(x => SERIES[x]);
+  const codigo = txt_(d.codigo);
+  if (codigo && !/^\d{4}$/.test(codigo)) throw new Error('O código precisa ter exatamente 4 números.');
   const linha = [nome, String(d.completo || '').trim(), [...new Set(materias.map(m => String(m).trim()).filter(String))].join(', '), String(d.tel || '').trim(), +d.maxDia || '',
-    gravarIndisp_(filtrarIndisp_(d.indisp)), i >= 0 ? txt_(v[i][6]) : '', i >= 0 ? txt_(v[i][7]) : '', Object.keys(SERIES).filter(x => segmentos.indexOf(x) >= 0).join(', ')];
+    gravarIndisp_(filtrarIndisp_(d.indisp)), i >= 0 ? txt_(v[i][6]) : '', i >= 0 ? txt_(v[i][7]) : '', Object.keys(SERIES).filter(x => segmentos.indexOf(x) >= 0).join(', '),
+    codigo ? hashCodigo_(codigo) : i >= 0 ? txt_(v[i][9]) : '', i >= 0 ? txt_(v[i][10]) || APROVADO : APROVADO];
   if (i >= 0) v[i] = linha; else v.push(linha);
   gravar_(ABA.prof, v);
   gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => txt_(r[0]) !== (antigo || nome)).concat(blocos));
   if (i >= 0 && antigo !== nome) { trocarValor_(ABA.carga, 2, antigo, nome); trocarValor_(ABA.grade, 5, antigo, nome); }
   if (d.carga) gravarCarga_(d.carga);
-  return (i >= 0 ? 'Editou professor ' : 'Cadastrou professor ') + nome + (d.carga ? ' (com turmas e matérias)' : '');
+  return (i >= 0 ? 'Editou professor ' : 'Cadastrou professor ') + nome + (d.carga ? ' (com turmas e matérias)' : '') + (codigo ? ' (código novo)' : '');
 }
 
 function excluirProfessor_(d) {
@@ -240,6 +258,44 @@ function excluirProfessor_(d) {
   gravar_(ABA.prof, valores_(ABA.prof).filter(r => txt_(r[0]) !== d.nome));
   gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => txt_(r[0]) !== d.nome));
   return 'Excluiu professor ' + d.nome;
+}
+
+// Professor que se cadastrou pelo formulário: aprovar (passa a valer para a grade) ou recusar (apaga o cadastro)
+function aprovarProfessor_(d) {
+  const v = valores_(ABA.prof), i = v.findIndex(r => txt_(r[0]) === d.nome);
+  if (i < 0) throw new Error('Professor não encontrado.');
+  v[i][10] = APROVADO;
+  gravar_(ABA.prof, v);
+  return 'Aprovou o professor ' + d.nome;
+}
+function recusarProfessor_(d) {
+  const v = valores_(ABA.prof), i = v.findIndex(r => txt_(r[0]) === d.nome);
+  if (i < 0) throw new Error('Professor não encontrado.');
+  if (txt_(v[i][10]) !== PENDENTE) throw new Error('Só dá para recusar quem está aguardando aprovação.');
+  v.splice(i, 1);
+  gravar_(ABA.prof, v);
+  return 'Recusou o cadastro de ' + d.nome;
+}
+
+// Professores de teste: nome com "(teste)". Criar (menu da planilha e migração v7) e apagar (Configuração).
+const ehTeste_ = r => /\(teste\)/i.test(txt_(r[0]) + ' ' + txt_(r[1]));
+function criarProfessoresTeste_() {
+  const v = valores_(ABA.prof), h = hashCodigo_('1234');
+  let n = 0;
+  PROFS_TESTE.forEach(t => {
+    if (v.some(r => txt_(r[0]).toLowerCase() === t[0].toLowerCase())) return;
+    v.push([t[0], t[1], t[2], '', '', '', '', '', t[3], h, APROVADO]); n++;
+  });
+  if (n) gravar_(ABA.prof, v);
+  return n;
+}
+function apagarTeste_() {
+  const v = valores_(ABA.prof), nomes = v.filter(ehTeste_).map(r => txt_(r[0]));
+  if (!nomes.length) throw new Error('Não há professores de teste.');
+  gravar_(ABA.prof, v.filter(r => !ehTeste_(r)));
+  gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => nomes.indexOf(txt_(r[0])) < 0));
+  gravar_(ABA.carga, valores_(ABA.carga).map(r => { if (nomes.indexOf(txt_(r[2])) >= 0) r[2] = ''; return r; }));
+  return 'Apagou os professores de teste (' + nomes.join(', ') + ')';
 }
 
 function salvarTurma_(d) {
@@ -269,7 +325,7 @@ function excluirTurma_(d) {
 
 // Disciplinas de uma turma. Linha com "juntas" vale para várias turmas ao mesmo tempo (ex.: "5A + 5B").
 function salvarCarga_(d) {
-  const turma = d.turma, turmas = {}, profs = valores_(ABA.prof).map(r => txt_(r[0]));
+  const turma = d.turma, turmas = {}, profs = nomesAprovados_();
   lerTurmas_().forEach(t => turmas[t.nome] = t);
   if (!turmas[turma]) throw new Error('Turma não encontrada.');
   const novas = (d.linhas || []).filter(l => String(l.disciplina || '').trim()).map(l => {
@@ -301,7 +357,7 @@ function conferirAntes_(antes) {
   if (antes && JSON.stringify(normCarga_(lerCarga_())) !== JSON.stringify(normCarga_(antes))) throw new Error('Outra pessoa mudou as turmas e professores enquanto você editava. Feche sem salvar e abra de novo.');
 }
 function gravarCarga_(lista) {
-  const turmas = {}, profs = valores_(ABA.prof).map(r => txt_(r[0]));
+  const turmas = {}, profs = nomesAprovados_();
   lerTurmas_().forEach(t => turmas[t.nome] = t);
   const linhas = lista.map(c => {
     const ts = [...new Set(listaTurmas_(c.turmas))], disc = String(c.disciplina || '').trim(), prof = String(c.professor || '').trim(), rot = ts.join(' + ');
@@ -444,7 +500,7 @@ function conferirEstrutura_(d) {
 }
 
 function substituir_(d, s) {
-  const profs = valores_(ABA.prof).map(r => txt_(r[0]));
+  const profs = nomesAprovados_();
   if (profs.indexOf(d.entra) < 0) throw new Error('Professor que entra não encontrado.');
   const linhas = {}; (d.linhas || []).forEach(l => linhas[listaTurmas_(l.turmas).join(' + ') + '|' + l.disciplina] = 1);
   let n = 0;
@@ -556,46 +612,97 @@ function excluirUsuario_(d, s) {
 }
 
 // ---------------- Formulário dos professores (link único, sem login) ----------------
+// O professor escolhe o nome e digita um código de 4 números (os 4 primeiros do CPF ou um código dado pela coordenação).
+// O SERVIDOR confere o código em formDados e de novo em formEnviar: a tela nunca é a única barreira.
+// Na planilha fica só o hash (SHA-256 com um "sal" guardado nas propriedades do script), nunca os números.
+// 5 erros seguidos para o mesmo nome → bloqueado por 15 minutos (CacheService).
 function formLista() {
   garantirEsquema_();
-  const disc = discPorProf_();
-  return { escola: CONFIG.ESCOLA, dias: DIAS, faixas: FAIXAS,
-    profs: lerProfessores_().map(p => ({ nome: p.nome, completo: p.completo, disciplinas: p.disciplinas || disc[p.nome] || '' }))
-      .sort((a, b) => (a.completo || a.nome).localeCompare(b.completo || b.nome, 'pt')) };
+  const mats = [...new Set(lerMatriz_().map(m => m.componente))].sort((a, b) => a.localeCompare(b, 'pt'));
+  return { escola: CONFIG.ESCOLA, dias: DIAS, faixas: FAIXAS, materias: mats,
+    profs: lerProfessores_().map(p => ({ nome: p.nome, rotulo: p.completo || p.nome }))
+      .sort((a, b) => a.rotulo.localeCompare(b.rotulo, 'pt')) };
 }
 
-function formDados(nome) {
-  const p = lerProfessores_().find(x => x.nome === nome);
-  if (!p) throw new Error('Professor não encontrado.');
-  return { indisp: p.indisp, obs: p.obs, respondeuEm: p.respondeuEm };
+function formDados(nome, codigo) {
+  garantirEsquema_();
+  const p = conferirCodigo_(nome, codigo);
+  return { nome: p.nome, rotulo: p.completo || p.nome, indisp: p.indisp, obs: p.obs, respondeuEm: p.respondeuEm, pendente: p.pendente };
 }
 
 function formEnviar(d) {
   garantirEsquema_();
+  d = d || {};
+  const indisp = gravarIndisp_(filtrarIndisp_(d.indisp)), obs = String(d.obs || '').slice(0, 500);
+  if (!d.novo) conferirCodigo_(d.nome, d.codigo);   // antes do lock: errar o código não segura a planilha
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    const v = valores_(ABA.prof), nome = String(d.nome || '').trim().replace(/\s+/g, ' '), quando = agora_();
-    if (nome.length < 3) throw new Error('Informe seu nome completo.');
-    const indisp = gravarIndisp_(filtrarIndisp_(d.indisp));
-    const obs = String(d.obs || '').slice(0, 500), disc = String(d.disciplinas || '').trim().slice(0, 120), tel = String(d.tel || '').trim().slice(0, 30);
-    let i = v.findIndex(r => txt_(r[0]).toLowerCase() === nome.toLowerCase());
-    if (d.novo && i >= 0) throw new Error('Esse nome já está na lista. Volte e selecione-o.');
-    if (!d.novo && i < 0) throw new Error('Professor não encontrado.');
-    const comps = lerComponentes_(), discNorm = lista_(disc).map(x => acharComponente_(x, comps) || x).join(', ');
-    if (i < 0) { v.push([nome, nome, discNorm, tel, '', indisp, quando, obs, '']); i = v.length - 1; }
-    else { v[i][5] = indisp; v[i][6] = quando; v[i][7] = obs; if (disc) v[i][2] = discNorm; if (tel) v[i][3] = tel; }
-    gravar_(ABA.prof, v);
-    registrar_('formulário', (d.novo ? 'Novo professor: ' : 'Disponibilidade: ') + nome);
+    const v = valores_(ABA.prof), quando = agora_();
+    if (d.novo) {
+      const nome = String(d.completo || d.nome || '').trim().replace(/\s+/g, ' ').slice(0, 80), tel = String(d.tel || '').trim().slice(0, 30);
+      if (nome.length < 5 || nome.indexOf(' ') < 0) throw new Error('Escreva seu nome completo (nome e sobrenome).');
+      if (!/^\d{4}$/.test(txt_(d.codigo))) throw new Error('O código precisa ter exatamente 4 números.');
+      const k = normalizar_(nome);
+      if (v.some(r => normalizar_(r[0]) === k || normalizar_(r[1]) === k)) throw new Error('Esse nome já está na lista. Volte e escolha seu nome.');
+      const validas = lerMatriz_().map(m => m.componente);
+      const mats = [...new Set((Array.isArray(d.materias) ? d.materias : []).map(txt_).filter(m => validas.indexOf(m) >= 0))];
+      if (!mats.length) throw new Error('Escolha pelo menos uma matéria.');
+      if (tel.replace(/\D/g, '').length < 10) throw new Error('Informe seu WhatsApp com DDD.');
+      v.push([nome, nome, mats.join(', '), tel, '', indisp, quando, obs, '', hashCodigo_(d.codigo), PENDENTE]);
+      gravar_(ABA.prof, v);
+      registrar_('formulário', 'Novo professor (aguardando aprovação): ' + nome);
+    } else {
+      const i = v.findIndex(r => txt_(r[0]) === txt_(d.nome));
+      if (i < 0) throw new Error('Professor não encontrado.');
+      v[i][5] = indisp; v[i][6] = quando; v[i][7] = obs;
+      gravar_(ABA.prof, v);
+      registrar_('formulário', 'Disponibilidade: ' + txt_(d.nome));
+    }
     return { quando: quando };
   } finally { lock.releaseLock(); }
 }
 
-function discPorProf_() {
-  const m = {};
-  lerCarga_().forEach(c => { m[c.professor] = m[c.professor] || []; if (m[c.professor].indexOf(c.disciplina) < 0) m[c.professor].push(c.disciplina); });
-  Object.keys(m).forEach(p => m[p] = m[p].join(', '));
-  return m;
+// Confere nome + código. Devolve o professor ou lança o erro que a tela mostra (prefixo = tipo do erro).
+function conferirCodigo_(nome, codigo) {
+  nome = txt_(nome);
+  const cache = CacheService.getScriptCache(), kf = 'form_falha_' + normalizar_(nome).slice(0, 200);
+  const erros = +(cache.get(kf) || 0);
+  if (erros >= MAX_ERROS_CODIGO) throw new Error('BLOQUEADO: Você errou o código muitas vezes. Por segurança, o acesso ficou bloqueado por 15 minutos. Fale com a coordenação.');
+  const linha = valores_(ABA.prof).find(r => txt_(r[0]) === nome);
+  if (!linha) throw new Error('Professor não encontrado.');
+  if (!txt_(linha[9])) throw new Error('SEM_CODIGO: Seu cadastro ainda não está completo. Fale com a coordenação.');
+  if (!/^\d{4}$/.test(txt_(codigo)) || !codigoConfere_(txt_(codigo), txt_(linha[9]))) {
+    const n = erros + 1;
+    cache.put(kf, String(n), BLOQUEIO_CODIGO_S);
+    if (n >= MAX_ERROS_CODIGO) throw new Error('BLOQUEADO: Você errou o código ' + n + ' vezes. Por segurança, o acesso ficou bloqueado por 15 minutos. Fale com a coordenação.');
+    const resta = MAX_ERROS_CODIGO - n;
+    throw new Error('CODIGO_ERRADO: Código errado. Confira os 4 primeiros números do seu CPF. ' + (resta === 1 ? 'Resta 1 tentativa.' : 'Restam ' + resta + ' tentativas.'));
+  }
+  cache.remove(kf);
+  return lerProfessores_().find(p => p.nome === nome);
 }
+
+// Hash do código: "v1:<sorteio>:<sha256(sal + sorteio + código)>". O sal fica nas propriedades do script (não na planilha);
+// o sorteio por professor faz dois códigos iguais virarem hashes diferentes.
+function salCodigo_() {
+  const pr = PropertiesService.getScriptProperties();
+  let sal = pr.getProperty('SAL_CODIGO');
+  if (!sal) { sal = Utilities.getUuid() + Utilities.getUuid(); pr.setProperty('SAL_CODIGO', sal); }
+  return sal;
+}
+function sha256_(texto) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, texto, Utilities.Charset.UTF_8)
+    .map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+}
+function hashCodigo_(codigo) {
+  const sorteio = Utilities.getUuid().replace(/-/g, '').slice(0, 12);
+  return 'v1:' + sorteio + ':' + sha256_(salCodigo_() + sorteio + txt_(codigo));
+}
+function codigoConfere_(codigo, guardado) {
+  const p = String(guardado).split(':');
+  return p.length === 3 && p[0] === 'v1' && sha256_(salCodigo_() + p[1] + codigo) === p[2];
+}
+function nomesAprovados_() { return lerProfessores_().filter(p => !p.pendente).map(p => p.nome); }
 
 // ---------------- Leitura das abas ----------------
 function lerGrades_() {
@@ -610,7 +717,8 @@ function lerGrades_() {
 function aulasGrade_(g) { return g.itens.filter(i => i.tipo !== 'intervalo').map(i => ({ ini: minutos_(i.ini), fim: minutos_(i.fim) })); }
 function lerProfessores_() {
   return valores_(ABA.prof).map(r => ({ nome: txt_(r[0]), completo: txt_(r[1]), disciplinas: txt_(r[2]), tel: txt_(r[3]), maxDia: num_(r[4]),
-    indisp: lerIndisp_(r[5]), respondeuEm: txt_(r[6]), obs: txt_(r[7]), materias: lista_(r[2]), segmentos: lista_(r[8]).filter(x => SERIES[x]) }));
+    indisp: lerIndisp_(r[5]), respondeuEm: txt_(r[6]), obs: txt_(r[7]), materias: lista_(r[2]), segmentos: lista_(r[8]).filter(x => SERIES[x]),
+    temCodigo: !!txt_(r[9]), pendente: txt_(r[10]) === PENDENTE, teste: ehTeste_(r) }));   // o hash do código nunca sai do servidor
 }
 function lerTurmas_() { return valores_(ABA.turmas).map(r => ({ nome: txt_(r[0]), segmento: txt_(r[1]), serie: txt_(r[2]), grade: txt_(r[3]) })); }
 function lerCarga_() {
@@ -629,7 +737,7 @@ function lerIndisp_(v) {
   return String(v || '').split(';').map(x => x.trim()).map(x => /^(\S+)\s+(\d{1,2})h$/.exec(x)).filter(m => m).map(m => m[1] + '|' + (+m[2]));
 }
 function filtrarIndisp_(lista) {
-  const ok = {}; DIAS.forEach(d => Object.keys(FAIXAS).forEach(p => FAIXAS[p].forEach(h => ok[d + '|' + h] = 1)));
+  const ok = {}; DIAS.forEach(d => HORAS.forEach(h => ok[d + '|' + h] = 1));
   return [...new Set((lista || []).filter(k => ok[k]))];
 }
 function gravarIndisp_(lista) {
@@ -692,6 +800,7 @@ function hhmm_(m) { return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + m
 function normHora_(v) { const m = minutos_(v); return isNaN(m) ? '' : hhmm_(m); }
 function hora_(v) { return v instanceof Date ? Utilities.formatDate(v, tz_(), 'HH:mm') : (normHora_(txt_(v)) || txt_(v)); }
 function linkBase_() { return CONFIG.URL_PUBLICA || ScriptApp.getService().getUrl(); }
+function linkForm_() { return CONFIG.URL_PUBLICA ? CONFIG.URL_PUBLICA + 'professor/' : ScriptApp.getService().getUrl() + '?form=1'; }   // docs/professor/ = ?form=1
 
 // ---------------- Migração (colunas antigas -> atuais) ----------------
 function garantirEsquema_() {
@@ -732,6 +841,7 @@ function migrar_() {
     regravar(ABA.config, linhas);
   }
   const hp = cab(ABA.prof), semSegmentos = !!hp && hp.indexOf('Segmentos') < 0, semHistorico = !ss.getSheetByName(ABA.hist);
+  const semCodigo = !!hp && hp.indexOf(CAB[ABA.prof][9]) < 0;   // v7: código do formulário e situação
   if (hp && hp[1] === 'Disciplinas') {
     regravar(ABA.prof, brutas(ABA.prof).map(r => [r[0], '', r[1], r[2], r[3], converterIndisp_(txt_(r[4]), turnos), r[5], r[6]]));
   }
@@ -744,6 +854,7 @@ function migrar_() {
   if (!valores_(ABA.matriz).length) gravar_(ABA.matriz, matrizPadrao_());
   if (semSegmentos) completarProfessores_();
   if (semHistorico && valores_(ABA.grade).length) guardarVersao_(null, 'Grade oficial que já estava salva', '');   // v6: histórico de versões
+  if (semCodigo) criarProfessoresTeste_();   // v7: quem já existia fica aprovado e "sem código"; entram 3 professores de teste (código 1234)
 }
 
 // v5: professor ganha "Segmentos" e as matérias passam a ser componentes da Matriz (escolhidos por clique).
@@ -772,7 +883,7 @@ function converterIndisp_(v, turnos) {
     const p = x.split(/\s+/), t = turnos[p.slice(1, -1).join(' ')], a = +p[p.length - 1] - 1;
     if (!t || !t.horarios[a]) return;
     const [ini, fim] = t.horarios[a]; let melhor = -1, mh = 0;
-    [].concat(FAIXAS['Manhã'], FAIXAS['Tarde']).forEach(h => { const s = Math.min(fim, h * 60 + 60) - Math.max(ini, h * 60); if (s > melhor) { melhor = s; mh = h; } });
+    HORAS.forEach(h => { const s = Math.min(fim, h * 60 + 60) - Math.max(ini, h * 60); if (s > melhor) { melhor = s; mh = h; } });
     if (melhor > 0) novas.push(p[0] + '|' + mh);
   });
   return gravarIndisp_([...new Set(novas)]);
@@ -840,7 +951,8 @@ function matrizPadrao_() {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('⚙️ Grade Horária')
     .addItem('1. Preparar planilha', 'prepararPlanilha')
-    .addItem('Criar dados de exemplo', 'criarExemplo')
+    .addItem('Criar professores de teste (código 1234)', 'criarTeste')
+    .addItem('Criar dados de exemplo (NÃO usar na planilha real)', 'criarExemplo')
     .addItem('Limpar dados da escola', 'limparDados')
     .addToUi();
 }
@@ -868,10 +980,20 @@ function prepararAbas_() {
 
 function criarExemplo() {
   const ui = SpreadsheetApp.getUi();
-  if (ui.alert('Dados de exemplo', 'Apaga grades, professores, turmas, matriz, carga, fixas, blocos e grade e coloca uma escola fictícia com a estrutura do Objetivo CSA. Usuários são mantidos. Continuar?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  if (ui.alert('Dados de exemplo — NÃO use na planilha real', '⚠ ATENÇÃO: só para testes. Se esta for a planilha real da escola, responda NÃO.\n\nApaga horários, professores (com os códigos e as respostas do formulário), turmas, matriz, atribuições, aulas fixas, horários reservados, grade e histórico, e coloca uma escola fictícia. Usuários são mantidos.\n\nContinuar?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
   PropertiesService.getScriptProperties().setProperty('PLANILHA_ID', SpreadsheetApp.getActive().getId());
   gravarExemplo_();
   SpreadsheetApp.getActive().toast('Exemplo criado.');
+}
+// Chamadas pelo menu da planilha. Começam pelo getUi(), que não funciona pelo site: ninguém consegue usá-las de fora.
+function criarTeste() {
+  const ui = SpreadsheetApp.getUi();
+  if (ui.alert('Professores de teste', 'Acrescenta 3 professores fictícios marcados “(teste)”, com código 1234, para testar o formulário. Não apaga ninguém. Depois, apague em Configuração → Apagar professores de teste. Continuar?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  PropertiesService.getScriptProperties().setProperty('PLANILHA_ID', SpreadsheetApp.getActive().getId());
+  garantirEsquema_();
+  const n = criarProfessoresTeste_();
+  registrar_('planilha', 'Criou professores de teste (' + n + ')');
+  SpreadsheetApp.getActive().toast(n ? n + ' professores de teste criados.' : 'Os professores de teste já existiam.');
 }
 function gravarExemplo_() {
   prepararAbas_();
