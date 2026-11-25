@@ -1,7 +1,7 @@
 // ================= GRADE HORÁRIA · OBJETIVO CSA — servidor (Apps Script) =================
 // ENDEREÇO DO SITE: o único lugar para trocar quando houver domínio próprio (ex.: 'https://horarios.objetivocsa.com.br/').
 // Dali vêm os arquivos (logo.png, logo-branco.png, icone.png da pasta docs/) e o link do sistema e do formulário (SITE + 'professor/').
-const SITE = 'https://pedroalb2024.github.io/objetivo-csa/';
+const SITE = 'https://objetivocsa.github.io/';
 const CONFIG = {
   ESCOLA: 'Objetivo CSA',
   ASSETS: SITE,
