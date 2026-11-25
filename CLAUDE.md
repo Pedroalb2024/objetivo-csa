@@ -2,6 +2,7 @@
 
 Sistema da coordenação do Objetivo CSA para montar a grade de aulas (professor × horário), estilo MatrUSP.
 Google Sheets + Apps Script. O web app abre dentro de um iframe no GitHub Pages, para não aparecer o aviso do Google.
+Endereços: sistema em https://objetivocsa.github.io/ e formulário dos professores em https://objetivocsa.github.io/professor/. Repositório: `objetivocsa/objetivocsa.github.io` (organização objetivocsa; Pages: branch main, pasta /docs).
 Primeiro cliente: Objetivo CSA (o mesmo do Giz Pay). Feito pela ALBIX.
 
 ## Estrutura
@@ -26,7 +27,7 @@ Primeiro cliente: Objetivo CSA (o mesmo do Giz Pay). Feito pela ALBIX.
   - `appsscript.json` → manifesto (web app: executa como quem implantou, acesso: qualquer pessoa)
 - `docs/` → GitHub Pages: `index.html` (iframe para a URL /exec, repassa `?form=1`), `professor/index.html` (link curto do formulário: iframe para /exec?form=1; tem a mesma URL /exec do `index.html`, o teste confere), `logo.png` (azul: login e impressão), `logo-branco.png` (topo azul-marinho), `icone.png` (favicon). O endereço do site fica só na constante `SITE` no topo do `Codigo.js` (arquivos e link do formulário `SITE + 'professor/'` vêm dela).
 - **Trocar para o domínio horarios.objetivocsa.com.br** (ainda não feito; o DNS não existe):
-  1. No DNS de objetivocsa.com.br, criar um registro `CNAME` com nome `horarios` apontando para `pedroalb2024.github.io`.
+  1. No DNS de objetivocsa.com.br, criar um registro `CNAME` com nome `horarios` apontando para `objetivocsa.github.io`.
   2. Criar `docs/CNAME` contendo só a linha `horarios.objetivocsa.com.br` (PR + merge).
   3. No GitHub: Settings → Pages → Custom domain = `horarios.objetivocsa.com.br`; esperar o certificado e marcar "Enforce HTTPS".
   4. Em `Codigo.js`, trocar `const SITE = 'https://horarios.objetivocsa.com.br/';` (PR + merge). Logo, ícone e o link do formulário (`…/professor/`) passam a usar o domínio.
