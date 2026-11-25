@@ -1,6 +1,6 @@
 // Servidor local para ver o sistema sem publicar: planilha em memória com a escola de exemplo (nomes fictícios).
 // Uso: node tests/local.js  → http://localhost:8787  (usuário: admin / senha: teste)
-//   ?form=1               formulário dos professores
+//   ?form=1 ou /professor/   formulário dos professores (Ana, Bruno e Célia "(teste)" e um terço do exemplo têm código 1234)
 //   ?auto=1               entra direto como admin
 //   ?tela=grade           abre uma tela        &depois=<js>  roda um código depois de abrir (para prints)
 // Nada aqui vai para o Apps Script; o google.script.run é simulado chamando o Codigo.js no Node.
@@ -11,6 +11,9 @@ const DIR = path.join(__dirname, '..', 'apps-script'), DOCS = path.join(__dirnam
 const amb = criarAmbiente();
 amb.ctx.gravarExemplo_();
 amb.ctx.gravar_('Usuários', [['admin', 'teste', 'Coordenação (teste)', 'admin', 'Sim', '']]);
+amb.ctx.criarProfessoresTeste_();   // Ana, Bruno e Célia "(teste)", código 1234
+amb.ctx.gravar_('Professores', amb.ctx.valores_('Professores').map((r, i) => { if (!r[9] && i % 3 === 0) r[9] = amb.ctx.hashCodigo_('1234'); return r; }));   // alguns do exemplo com código
+amb.ctx.formEnviar({ novo: true, completo: 'Renata Exemplo Duarte', tel: '(11) 90000-0001', materias: ['Arte'], codigo: '4321', indisp: ['Qua|7'], obs: 'Posso também no contraturno.' });
 // Já deixa uma grade oficial salva, gerada pelo próprio gerador
 amb.gerador().gerar(amb.dados(), { tentativas: 8, semente: 11 }, null, r => {
   if (r.opcoes.length) amb.ctx.salvarGrade_({ grade: r.opcoes[0].grade, vigencia: '2026-02-02' }, { u: 'admin', nome: 'Coordenação (teste)' });
@@ -26,7 +29,7 @@ function pagina(arquivo, q) {
     function runner(ok, falha) { return new Proxy({}, { get(_, k) {
       if (k === 'withSuccessHandler') return f => runner(f, falha);
       if (k === 'withFailureHandler') return f => runner(ok, f);
-      return (...args) => fetch('rpc', { method: 'POST', body: JSON.stringify({ fn: k, args }) }).then(r => r.json())
+      return (...args) => fetch('/rpc', { method: 'POST', body: JSON.stringify({ fn: k, args }) }).then(r => r.json())
         .then(r => r.erro ? falha && falha(new Error(r.erro)) : ok && ok(r.ok));
     } }); }
     window.google = { script: { run: runner() } };`;
@@ -51,11 +54,11 @@ http.createServer((req, res) => {
     });
     return;
   }
-  if (u.pathname.startsWith('/docs/')) {
+  if (u.pathname.startsWith('/docs/') || /\.png$/.test(u.pathname)) {
     const f = path.join(DOCS, path.basename(u.pathname));
     if (fs.existsSync(f)) { res.writeHead(200, { 'Content-Type': 'image/png' }); return res.end(fs.readFileSync(f)); }
     res.writeHead(404); return res.end();
   }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(pagina(u.searchParams.has('form') ? 'Formulario.html' : 'App.html', u.searchParams));
+  res.end(pagina(u.searchParams.has('form') || u.pathname.startsWith('/professor') ? 'Formulario.html' : 'App.html', u.searchParams));
 }).listen(PORTA, () => console.log(`Grade Horária local: http:\/\/localhost:${PORTA}  (admin / teste)`));

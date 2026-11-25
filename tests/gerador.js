@@ -195,7 +195,7 @@ function mini(extra) {
     ok(p.indisp.join(',') === 'Seg|7,Ter|10','disponibilidade migrada para faixas (' + p.indisp.join(',') + ')');
     ok(d.carga[0].turmas[0] === '6º A', 'carga mantida');
     ok(d.componentes.length > 30 && d.matriz.length > 50, 'componentes e matriz padrão criados');
-    ok(v.props.ESQUEMA === '6', 'versão gravada');
+    ok(v.props.ESQUEMA === '7', 'versão gravada');
     ok(p.segmentos.join(',') === 'EFAF' && p.materias.join(',') === 'Física', 'segmentos e matérias completados pela carga');
   });
 
@@ -337,7 +337,7 @@ function mini(extra) {
     w.ss.deleteSheet(w.ss.getSheetByName('Histórico da grade')); w.props.ESQUEMA = '5';
     w.ctx.garantirEsquema_();
     const d = w.dados();
-    ok(w.props.ESQUEMA === '6' && d.versoes.length === 1 && d.versoes[0].descricao === 'Grade oficial que já estava salva', 'migração v5 → v6 guarda a grade que já existia');
+    ok(w.props.ESQUEMA === '7' && d.versoes.length === 1 && d.versoes[0].descricao === 'Grade oficial que já estava salva', 'migração v5 → v6 guarda a grade que já existia');
   });
 
   await caso('Vigência: “válida a partir de” na grade oficial e na troca', () => {
@@ -417,7 +417,8 @@ function mini(extra) {
       const v = criarAmbiente(); v.ctx.gravarExemplo_();
       const s = { u: 'admin', nome: 'Admin', perfil: 'admin' }, erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
       v.ctx.salvarGrade_({ grade: oficial, vigencia: '2026-02-02' }, s);
-      v.ctx.formEnviar({ nome: 'Bianca', indisp: ['Seg|7'], obs: '' });
+      v.ctx.salvarProfessor_(Object.assign({}, v.dados().professores.find(p => p.nome === 'Bianca'), { nomeAntigo: 'Bianca', codigo: '5678', blocos: [] }), s);
+      v.ctx.formEnviar({ nome: 'Bianca', codigo: '5678', indisp: ['Seg|7'], obs: '' });
       v.ctx.conferirEstrutura_({ ok: true });
       const d0 = v.dados();
       ok(d0.ano.conferido && d0.professores.find(p => p.nome === 'Bianca').respondeuEm, 'antes: conferido e Bianca respondeu');
@@ -458,9 +459,168 @@ function mini(extra) {
     ok(/abrirMenu/.test(app) && /btn-menu/.test(app) && /\.menu\.aberto/.test(app), 'menu ☰ com gaveta');
     ok(/function listaDiaTurma/.test(app) && /dias-abas/.test(app) && /só aparece no computador/.test(app), 'grade no celular: um dia por vez; todas as turmas só no computador');
     ok(/max-width:700px/.test(estilo) && /table\.cartao/.test(estilo) && /min-height:44px/.test(estilo) && /\.modal \.caixa \{ max-width:none; min-height:100%/.test(estilo), 'celular: cartões, toque de 44px e janelas em tela cheia');
-    ok(/\.enviar \{ position:fixed/.test(form) && /disp-grade/.test(comum) && /disp-dia/.test(comum), 'formulário: um dia por linha e Enviar fixo embaixo');
+    ok(/\.enviar \{ position:fixed/.test(form) && /disp-grade/.test(comum) && /disp-dia/.test(comum) && /disp-hora/.test(comum), 'formulário: agenda (dias nas colunas) e Enviar fixo embaixo');
     ok(/Passar \$\{l\.turmas\.join\(' \+ '\)\} de \$\{l\.professor\} para/.test(app) && /textoGrupo/.test(app) && /Não cabe:/.test(app), 'professor: passar turma, atalho por série e aviso de não caber');
     ok(/turmas completas/.test(app) && /conf-extra/.test(app) && /Sem professor \(/.test(app), 'conferência: resumo, contraturno recolhido e sem professor no topo');
+  });
+
+  await caso('Formulário: nome + código de 4 números, conferido pelo servidor', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_(); v.ctx.criarProfessoresTeste_();
+    const erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
+    const L = JSON.parse(JSON.stringify(v.ctx.formLista()));
+    ok(L.profs.every(p => Object.keys(p).join() === 'nome,rotulo'), 'lista só com o nome (sem matérias)');
+    ok(L.profs.map(p => p.rotulo).join('|') === L.profs.map(p => p.rotulo).sort((a, b) => a.localeCompare(b, 'pt')).join('|'), 'em ordem alfabética');
+    ok(Array.isArray(L.faixas) && L.faixas.map(f => f.periodo).join() === 'Manhã,Tarde' && L.faixas[0].horas[0] === 7 && L.faixas[1].horas[0] === 13, 'faixas em lista ordenada: Manhã e depois Tarde');
+    ok(L.materias.includes('Matemática') && L.materias.length === new Set(L.materias).size, 'matérias da Matriz para o professor novo');
+    ok(L.profs.filter(p => /\(teste\)/.test(p.rotulo)).length === 3, '3 professores de teste na lista');
+    const d = v.ctx.formDados('Ana (teste)', '1234');
+    ok(d && Array.isArray(d.indisp) && d.nome === 'Ana (teste)', 'código certo (1234) abre o quadro');
+    ok(/^CODIGO_ERRADO: .*Restam 4 tentativas/.test(erro(() => v.ctx.formDados('Ana (teste)', '1111'))), 'código errado: avisa e conta as tentativas');
+    v.ctx.formDados('Ana (teste)', '1234');
+    ok(/Restam 4/.test(erro(() => v.ctx.formDados('Ana (teste)', '9999'))), 'acertar zera a contagem de erros');
+    v.cache.clear();
+    for (let i = 0; i < 4; i++) erro(() => v.ctx.formDados('Bruno (teste)', '000' + i));
+    ok(/^BLOQUEADO: .*15 minutos.*Fale com a coordenação/.test(erro(() => v.ctx.formDados('Bruno (teste)', '4444'))), '5º erro seguido: bloqueia 15 min e manda falar com a coordenação');
+    ok(/^BLOQUEADO/.test(erro(() => v.ctx.formDados('Bruno (teste)', '1234'))), 'bloqueado: nem o código certo entra');
+    ok(/^BLOQUEADO/.test(erro(() => v.ctx.formEnviar({ nome: 'Bruno (teste)', codigo: '1234', indisp: [] }))), 'bloqueado: o envio também é recusado');
+    ok(v.ctx.formDados('Célia (teste)', '1234').nome === 'Célia (teste)', 'o bloqueio é só daquele nome');
+    const chave = [...v.cache.keys()].find(k => /^form_falha_/.test(k));
+    ok(chave && v.cache.get(chave) === '5', 'bloqueio guardado no CacheService');
+    v.cache.delete(chave);   // passaram os 15 minutos
+    ok(v.ctx.formDados('Bruno (teste)', '1234').nome === 'Bruno (teste)', 'depois dos 15 minutos, entra de novo');
+    // o servidor recusa envio sem código ou com código errado, e não grava nada
+    const resp = () => v.dados().professores.find(p => p.nome === 'Ana (teste)').respondeuEm;
+    ok(/CODIGO_ERRADO/.test(erro(() => v.ctx.formEnviar({ nome: 'Ana (teste)', indisp: ['Seg|7'] }))), 'envio sem código é recusado');
+    ok(/CODIGO_ERRADO/.test(erro(() => v.ctx.formEnviar({ nome: 'Ana (teste)', codigo: '4321', indisp: ['Seg|7'] }))), 'envio com código errado é recusado');
+    ok(!resp(), '…e nada foi gravado');
+    v.ctx.formEnviar({ nome: 'Ana (teste)', codigo: '1234', indisp: ['Seg|7', 'Ter|13', 'Xyz|99'], obs: 'oi' });
+    const ana = v.dados().professores.find(p => p.nome === 'Ana (teste)');
+    ok(ana.respondeuEm && ana.indisp.join() === 'Seg|7,Ter|13' && ana.obs === 'oi', 'com o código certo grava (e ignora faixas inválidas)');
+    // professor sem código cadastrado
+    ok(/^SEM_CODIGO: Seu cadastro ainda não está completo\. Fale com a coordenação\./.test(erro(() => v.ctx.formDados('Bianca', '1234'))), 'sem código: “Seu cadastro ainda não está completo”');
+    ok(/SEM_CODIGO/.test(erro(() => v.ctx.formEnviar({ nome: 'Bianca', codigo: '1234', indisp: [] }))), 'sem código: envio recusado');
+    ok(/não encontrado/.test(erro(() => v.ctx.formDados('Fulano Inexistente', '1234'))), 'nome que não existe é recusado');
+    ok(!/v1:/.test(JSON.stringify(L)) && !/v1:/.test(JSON.stringify(v.dados())) && !/v1:/.test(JSON.stringify(d)), 'o hash nunca sai do servidor (lista, formulário e sistema)');
+    ok(v.dados().linkForm.endsWith('/professor/'), 'link do formulário: SITE + professor/ (' + v.dados().linkForm + ')');
+  });
+
+  await caso('Código: guarda só o hash (com sal), nunca os números do CPF', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const s = { u: 'teste', perfil: 'admin' }, crypto = require('crypto'), sha = t => crypto.createHash('sha256').update(t).digest('hex');
+    const base = n => Object.assign({}, v.dados().professores.find(p => p.nome === n), { nomeAntigo: n, blocos: [] });
+    v.ctx.salvarProfessor_(Object.assign(base('Bianca'), { codigo: '4821' }), s);
+    v.ctx.salvarProfessor_(Object.assign(base('Cecília'), { codigo: '4821' }), s);
+    const linhas = v.ss.getSheetByName('Professores').d, cab = linhas[0], col = cab.indexOf('Código do formulário (não editar)');
+    const hb = linhas.find(r => r[0] === 'Bianca')[col], hc = linhas.find(r => r[0] === 'Cecília')[col];
+    ok(col === 9 && /^v1:[0-9a-f]{12}:[0-9a-f]{64}$/.test(hb), 'coluna nova com o hash (' + String(hb).slice(0, 20) + '…)');
+    ok(!linhas.some(r => r.some(c => String(c) === '4821')), 'os números não aparecem na planilha');
+    ok(hb.split(':')[2] !== sha('4821') && hb !== hc, 'hash com sal e sorteio: dois códigos iguais viram hashes diferentes');
+    const sal = v.props.SAL_CODIGO;
+    ok(sal && sal.length >= 32 && !JSON.stringify(v.ss.abas).includes(sal), 'o sal fica nas propriedades do script, não na planilha');
+    ok(v.ctx.formDados('Bianca', '4821').nome === 'Bianca' && v.ctx.formDados('Cecília', '4821').nome === 'Cecília', 'os dois entram com o próprio código');
+    v.ctx.salvarProfessor_(base('Bianca'), s);
+    ok(v.ss.getSheetByName('Professores').d.find(r => r[0] === 'Bianca')[col] === hb, 'salvar sem código novo mantém o código');
+    v.ctx.salvarProfessor_(Object.assign(base('Bianca'), { nome: 'Bianca M.' }), s);
+    ok(v.ctx.formDados('Bianca M.', '4821').nome === 'Bianca M.', 'renomear o professor não perde o código');
+    v.ctx.salvarProfessor_(Object.assign(base('Bianca M.'), { codigo: '0007' }), s);
+    let e = ''; try { v.ctx.formDados('Bianca M.', '4821'); } catch (x) { e = x.message; }
+    ok(/CODIGO_ERRADO/.test(e) && v.ctx.formDados('Bianca M.', '0007'), 'redefinir: o código antigo deixa de valer');
+    e = ''; try { v.ctx.salvarProfessor_(Object.assign(base('Cecília'), { codigo: '12a4' }), s); } catch (x) { e = x.message; }
+    ok(/4 números/.test(e), 'código que não tem 4 números é recusado');
+    const P = v.dados().professores;
+    ok(P.find(p => p.nome === 'Cecília').temCodigo && !P.find(p => p.nome === 'Débora').temCodigo, 'o sistema mostra só “tem código / falta código”');
+  });
+
+  await caso('Professor novo pelo formulário: aguarda aprovação e o gerador não usa', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const s = { u: 'teste', perfil: 'coordenacao' }, erro = fn => { try { fn(); return ''; } catch (e) { return e.message; } };
+    const novo = { novo: true, completo: 'Renata Exemplo Duarte', tel: '(11) 90000-0001', materias: ['Arte', 'Inventada'], codigo: '2468', indisp: ['Qua|7'], obs: 'oi' };
+    ok(/nome completo/.test(erro(() => v.ctx.formEnviar(Object.assign({}, novo, { completo: 'Renata' })))), 'pede nome e sobrenome');
+    ok(/4 números/.test(erro(() => v.ctx.formEnviar(Object.assign({}, novo, { codigo: '' })))), 'novo sem código é recusado');
+    ok(/matéria/.test(erro(() => v.ctx.formEnviar(Object.assign({}, novo, { materias: ['Inventada'] })))), 'matéria precisa ser da Matriz');
+    ok(/WhatsApp/.test(erro(() => v.ctx.formEnviar(Object.assign({}, novo, { tel: '123' })))), 'pede WhatsApp com DDD');
+    ok(/já está na lista/.test(erro(() => v.ctx.formEnviar(Object.assign({}, novo, { completo: 'Bianca Moreira Lins' })))), 'nome que já existe é recusado');
+    v.ctx.formEnviar(novo);
+    let D1 = v.dados();
+    const pend = D1.pendentes.find(p => p.nome === 'Renata Exemplo Duarte');
+    ok(pend && pend.materias.join() === 'Arte' && pend.temCodigo && pend.respondeuEm && pend.indisp.join() === 'Qua|7', 'entra como “Aguardando aprovação”, com matérias da Matriz e código');
+    ok(!D1.professores.some(p => p.nome === pend.nome), 'não aparece entre os professores (nem para o gerador)');
+    ok(v.ss.getSheetByName('Professores').d.find(r => r[0] === pend.nome)[10] === 'Aguardando aprovação', 'situação gravada na planilha');
+    ok(v.ctx.formLista().profs.some(p => p.nome === pend.nome) && v.ctx.formDados(pend.nome, '2468').pendente, 'pode voltar ao formulário com o código dele');
+    const carga = JSON.parse(JSON.stringify(D1.carga)); carga.find(c => c.disciplina === 'Arte').professor = pend.nome;
+    ok(/não encontrado/.test(erro(() => v.ctx.salvarAtribuicoes_({ carga, antes: D1.carga }, s))), 'não dá para dar turmas antes de aprovar');
+    ok(G.modelo(D1).pIdx && G.modelo(D1).pIdx[pend.nome] === undefined, 'gerador só com aprovados');
+    v.ctx.aprovarProfessor_({ nome: pend.nome }, s);
+    D1 = v.dados();
+    ok(D1.professores.some(p => p.nome === pend.nome) && !D1.pendentes.length, 'aprovado: vira professor normal');
+    v.ctx.salvarAtribuicoes_({ carga, antes: D1.carga }, s);
+    ok(v.dados().carga.some(c => c.professor === pend.nome), 'aprovado: pode receber turmas');
+    v.ctx.formEnviar(Object.assign({}, novo, { completo: 'Outro Nome Teste' }));
+    ok(/Só dá para recusar/.test(erro(() => v.ctx.recusarProfessor_({ nome: 'Bianca' }, s))), 'só recusa quem está aguardando');
+    v.ctx.recusarProfessor_({ nome: 'Outro Nome Teste' }, s);
+    ok(!v.dados().pendentes.length && !v.ss.getSheetByName('Professores').d.some(r => r[0] === 'Outro Nome Teste'), 'recusar apaga o cadastro');
+    const ACOES = vm.runInContext('ACOES', v.ctx);
+    ok(['aprovarProfessor', 'recusarProfessor', 'apagarTeste'].every(a => ACOES[a] && ACOES[a].p.indexOf('consulta') < 0), 'consulta não aprova, não recusa e não apaga');
+  });
+
+  await caso('Professores de teste: migração v7 cria 3 (código 1234) e o botão apaga só eles', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const prof = v.ss.getSheetByName('Professores');
+    prof.d[0] = prof.d[0].slice(0, 9); prof.d.slice(1).forEach(l => l.splice(9));   // planilha v6 (sem código e situação)
+    const antes = prof.d.length - 1;
+    v.props.ESQUEMA = '6'; v.ctx.garantirEsquema_();
+    const D1 = v.dados(), teste = D1.professores.filter(p => p.teste);
+    ok(v.props.ESQUEMA === '7' && prof.d[0][9] === 'Código do formulário (não editar)' && prof.d[0][10] === 'Situação (Aprovado / Aguardando aprovação)', 'cabeçalho novo');
+    ok(D1.professores.length === antes + 3 && teste.length === 3 && teste.every(p => /\(teste\)/.test(p.nome) && p.temCodigo), '3 professores “(teste)” com código');
+    ok(D1.professores.filter(p => !p.teste).every(p => !p.temCodigo) && !D1.pendentes.length, 'os que já existiam continuam aprovados, sem código');
+    ok(teste.every(p => v.ctx.formDados(p.nome, '1234').nome === p.nome), 'os 3 entram com 1234');
+    v.props.ESQUEMA = '6'; v.ctx.garantirEsquema_();
+    ok(v.dados().professores.filter(p => p.teste).length === 3, 'rodar de novo não duplica');
+    const s = { u: 'teste', perfil: 'admin' }, carga = JSON.parse(JSON.stringify(D1.carga));
+    carga.find(c => c.disciplina === 'Arte').professor = 'Ana (teste)';
+    v.ctx.salvarAtribuicoes_({ carga, antes: D1.carga }, s);
+    v.ctx.apagarTeste_({}, s);
+    const D2 = v.dados();
+    ok(!D2.professores.some(p => p.teste) && D2.professores.length === antes, 'apagou só os de teste');
+    ok(!D2.carga.some(c => c.professor === 'Ana (teste)') && D2.carga.some(c => c.disciplina === 'Arte' && !c.professor), 'as turmas deles ficam sem professor');
+    let e = ''; try { v.ctx.apagarTeste_({}, s); } catch (x) { e = x.message; }
+    ok(/Não há/.test(e), 'sem professores de teste: avisa');
+    const cod = require('fs').readFileSync(require('path').join(__dirname, '..', 'apps-script', 'Codigo.js'), 'utf8');
+    ok(/NÃO usar na planilha real/.test(cod) && /NÃO use na planilha real/.test(cod), '“Criar dados de exemplo” avisa para não usar na planilha real');
+  });
+
+  await caso('Quadro de disponibilidade: dias nas colunas, horários nas linhas, cabe em 360px', () => {
+    const fs = require('fs'), path = require('path'), dir = path.join(__dirname, '..', 'apps-script');
+    const comum = fs.readFileSync(path.join(dir, 'Comum.html'), 'utf8'), estilo = fs.readFileSync(path.join(dir, 'Estilo.html'), 'utf8'), form = fs.readFileSync(path.join(dir, 'Formulario.html'), 'utf8');
+    const c = { console, Math, JSON, document: { addEventListener() { }, querySelectorAll: () => [] }, window: {} };
+    vm.createContext(c);
+    vm.runInContext(comum.match(/<script>([\s\S]*?)<\/script>/)[1] + ';this.htmlDisp = htmlDisp; this.total = totalHorasDisp; DISP = new Set(["Ter|8"]);', c);
+    const F = criarAmbiente().dados().faixas, dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'], h = c.htmlDisp(dias, F);
+    ok(h.indexOf('<h3>Manhã</h3>') >= 0 && h.indexOf('<h3>Manhã</h3>') < h.indexOf('<h3>Tarde</h3>'), 'Manhã primeiro, Tarde logo abaixo');
+    const manha = h.slice(h.indexOf('<h3>Manhã</h3>'), h.indexOf('<h3>Tarde</h3>'));
+    const ordem = [...manha.matchAll(/class="(disp-dia|disp-hora|slot[^"]*)"[^>]*?(?:data-dia="(\w+)"|data-h="(\d+)"|data-k="([^"]+)")/g)].map(m => m[2] || (m[3] ? m[3] + 'h' : m[4]));
+    ok(ordem.slice(0, 5).join() === dias.join(), 'topo: Seg Ter Qua Qui Sex (' + ordem.slice(0, 5).join(' ') + ')');
+    ok(ordem.slice(5, 11).join() === '7h,Seg|7,Ter|7,Qua|7,Qui|7,Sex|7', 'cada linha: o horário e os 5 dias (' + ordem.slice(5, 11).join(' ') + ')');
+    ok(/7h<small>–8h<\/small>/.test(manha) && /12h<small>–13h<\/small>/.test(manha) && ordem.length === 5 + 6 * 6, 'linhas 7h–8h … 12h–13h');
+    ok(/class="slot nao"[^>]*data-k="Ter\|8"/.test(h) && (h.match(/slot nao/g) || []).length === 1, 'marcado aparece como “não pode”');
+    ok(/data-per="Manhã" data-dia="Seg" onclick="dispGrupo/.test(h) && /data-per="Tarde" data-h="13" onclick="dispGrupo/.test(h), 'tocar no dia marca o período do dia; tocar no horário marca a hora em todos os dias');
+    ok(/onpointerdown="slotDown/.test(h) && /onpointerenter="slotEnter/.test(h), 'arrastar com o mouse continua');
+    ok(/✓ Pode/.test(h) && /✕ Não pode/.test(h), 'legenda ✓ Pode / ✕ Não pode');
+    ok(c.total(dias, F) === 60, '60 horas na semana');
+    // 360px: página (12px de cada lado) + cartão no celular (12px de cada lado); coluna do horário + 5 colunas iguais com 4px de espaço
+    const cel = estilo.slice(estilo.indexOf('@media (max-width:700px)'));
+    const m = /\.disp-grade \{ grid-template-columns:(\d+)px repeat\(var\(--n, 5\), minmax\(0, 1fr\)\); gap:(\d+)px/.exec(cel);
+    const pagina = +/\.pagina-f \{[^}]*padding:0 (\d+)px/.exec(form)[1], cartao = +/@media \(max-width:700px\) \{ \.pagina-f \.card \{ padding:\d+px (\d+)px/.exec(form)[1];
+    ok(!!m, 'grade com minmax(0, 1fr): nunca estoura a largura');
+    if (m) {
+      const util = 360 - 2 * pagina - 2 * cartao, col = (util - +m[1] - 5 * +m[2]) / 5;
+      ok(+m[1] <= 56 && col >= 40, `em 360px: horário ${m[1]}px e cada dia com ${col.toFixed(1)}px (sem rolagem horizontal)`);
+    }
+    const alt = k => +(new RegExp('\\.' + k + ' \\{[^}]*min-height:(\\d+)px').exec(estilo) || [])[1];
+    ok(alt('slot') >= 44 && alt('disp-dia, \\.disp-hora') >= 44, 'toque com pelo menos 44px de altura');
+    const docs = f => fs.readFileSync(path.join(__dirname, '..', 'docs', f), 'utf8'), url = t => (/URL_APP = '([^']+)'/.exec(t) || [])[1];
+    ok(url(docs('professor/index.html')) === url(docs('index.html')) && /\?form=1/.test(docs('professor/index.html')), 'docs/professor/ abre o formulário (mesma URL /exec, ?form=1)');
+    ok(/form/.test(docs('index.html')), '?form=1 continua funcionando no endereço principal');
   });
 
   console.log(`\n${total - falhas}/${total} verificações ok.`);

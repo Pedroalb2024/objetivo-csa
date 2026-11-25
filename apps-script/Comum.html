@@ -30,19 +30,23 @@ const faixaTxt = (ini, fim) => hora(ini) + '–' + hora(fim);
 function aulasDe(g) { return g ? g.itens.filter(i => i.tipo !== 'intervalo').map(i => ({ ini: minutos(i.ini), fim: minutos(i.fim) })) : []; }
 
 // ===== Quadro de disponibilidade por faixas de 1h (toque, clique ou arraste para marcar "Não posso") =====
-// Um dia por linha; cada botão é uma faixa de 1h. Chave: "Seg|7" = segunda das 7h às 8h.
-// Uma aula é proibida se encostar em qualquer faixa marcada. Tocar no dia marca/desmarca o período inteiro.
+// Como uma agenda: dias nas colunas (Seg–Sex) e horários nas linhas ("7h–8h"…). Manhã primeiro, Tarde logo abaixo.
+// Chave: "Seg|7" = segunda das 7h às 8h. Uma aula é proibida se encostar em qualquer faixa marcada.
+// Tocar no dia (no topo) marca/desmarca o período inteiro daquele dia; tocar no horário (na lateral) marca/desmarca aquela hora em todos os dias.
+// faixas = lista em ordem, vinda do servidor: [{ periodo: 'Manhã', horas: [7, …] }, { periodo: 'Tarde', horas: [13, …] }]
 let DISP = new Set(), pintando = null, tipoPonteiro = 'mouse';
 function htmlDisp(dias, faixas) {
-  return `<div class="disp-ajuda"><b>Toque nos horários em que NÃO pode dar aula.</b>
-    <span class="legenda"><span><i style="background:var(--ok-bg);border:1px solid #cfe8d8"></i>✓ Pode</span><span><i style="background:var(--erro-bg);border:1px solid #f3c7c3"></i>✕ Não pode</span></span></div>`
-  + Object.keys(faixas).map(per => { const hs = faixas[per], todo = per === 'Manhã' ? 'manhã toda' : 'tarde toda'; return `<div class="disp-turno">
-    <div class="disp-tit"><h3>${esc(per)}</h3><span class="peq suave">tocar no dia = ${todo}</span></div>
-    <div class="disp-grade" style="--n:${hs.length}"><span></span>${hs.map(h => `<span class="hh">${h}h</span>`).join('')}
-    ${dias.map(d => `<button type="button" class="disp-dia" data-per="${esc(per)}" data-dia="${d}" onclick="dispGrupo(this)" title="Marca ou desmarca a ${todo} de ${d}">${d}<small>${per === 'Manhã' ? 'manhã' : 'tarde'}</small></button>`
-      + hs.map(h => { const k = d + '|' + h; return `<div class="slot ${DISP.has(k) ? 'nao' : ''}" role="button" title="${d} ${h}h–${h + 1}h" data-k="${k}" data-per="${esc(per)}" onpointerdown="slotDown(event,this)" onpointerenter="slotEnter(this)" onclick="slotClick(this)"></div>`; }).join('')).join('')}
-    </div></div>`; }).join('');
+  return `<div class="disp-quadro"><div class="disp-ajuda"><b>Toque nos horários em que NÃO pode dar aula.</b>
+    <span class="legenda"><span><i class="lg-ok"></i>✓ Pode</span><span><i class="lg-nao"></i>✕ Não pode</span></span></div>`
+  + faixas.map(f => { const per = f.periodo, hs = f.horas, todo = per === 'Manhã' ? 'a manhã toda' : 'a tarde toda'; return `<div class="disp-turno">
+    <div class="disp-tit"><h3>${esc(per)}</h3><span class="peq suave">toque no dia = ${todo} · no horário = todos os dias</span></div>
+    <div class="disp-grade" style="--n:${dias.length}"><span class="disp-canto"></span>
+    ${dias.map(d => `<button type="button" class="disp-dia" data-per="${esc(per)}" data-dia="${d}" onclick="dispGrupo(this)" title="Marca ou desmarca ${todo} de ${d}">${d}</button>`).join('')}
+    ${hs.map(h => `<button type="button" class="disp-hora" data-per="${esc(per)}" data-h="${h}" onclick="dispGrupo(this)" title="Marca ou desmarca ${h}h–${h + 1}h em todos os dias">${h}h<small>–${h + 1}h</small></button>`
+      + dias.map(d => { const k = d + '|' + h; return `<div class="slot ${DISP.has(k) ? 'nao' : ''}" role="button" aria-label="${d} ${h}h às ${h + 1}h" title="${d} ${h}h–${h + 1}h" data-k="${k}" data-per="${esc(per)}" onpointerdown="slotDown(event,this)" onpointerenter="slotEnter(this)" onclick="slotClick(this)"></div>`; }).join('')).join('')}
+    </div></div>`; }).join('') + '</div>';
 }
+const totalHorasDisp = (dias, faixas) => dias.length * faixas.reduce((s, f) => s + f.horas.length, 0);
 function aplicarSlot(td, nao) {
   td.classList.toggle('nao', nao);
   nao ? DISP.add(td.dataset.k) : DISP.delete(td.dataset.k);
