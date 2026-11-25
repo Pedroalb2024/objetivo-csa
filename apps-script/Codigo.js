@@ -9,7 +9,7 @@ const CONFIG = {
   CREDITO: 'ALBIX',
   SESSAO_HORAS: 6,
 };
-const ESQUEMA = '7';   // versão das colunas da planilha; mudou → migrar_() roda sozinho uma vez
+const ESQUEMA = '8';   // versão das colunas da planilha; mudou → migrar_() roda sozinho uma vez
 const DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
 const SERIES = {
   EFAI: ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano'],
@@ -841,7 +841,6 @@ function migrar_() {
     regravar(ABA.config, linhas);
   }
   const hp = cab(ABA.prof), semSegmentos = !!hp && hp.indexOf('Segmentos') < 0, semHistorico = !ss.getSheetByName(ABA.hist);
-  const semCodigo = !!hp && hp.indexOf(CAB[ABA.prof][9]) < 0;   // v7: código do formulário e situação
   if (hp && hp[1] === 'Disciplinas') {
     regravar(ABA.prof, brutas(ABA.prof).map(r => [r[0], '', r[1], r[2], r[3], converterIndisp_(txt_(r[4]), turnos), r[5], r[6]]));
   }
@@ -854,7 +853,13 @@ function migrar_() {
   if (!valores_(ABA.matriz).length) gravar_(ABA.matriz, matrizPadrao_());
   if (semSegmentos) completarProfessores_();
   if (semHistorico && valores_(ABA.grade).length) guardarVersao_(null, 'Grade oficial que já estava salva', '');   // v6: histórico de versões
-  if (semCodigo) criarProfessoresTeste_();   // v7: quem já existia fica aprovado e "sem código"; entram 3 professores de teste (código 1234)
+  // v7/v8: professores de teste (código 1234), uma vez só. Não depende do cabeçalho: se uma migração parar no meio
+  // (cabeçalho já novo), a próxima ainda cria. Se falhar, anota no Registro e o resto do sistema continua funcionando.
+  const pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty('PROFS_TESTE') !== '1') {
+    try { criarProfessoresTeste_(); pr.setProperty('PROFS_TESTE', '1'); }
+    catch (e) { registrar_('planilha', 'Não criou os professores de teste: ' + e.message); }
+  }
 }
 
 // v5: professor ganha "Segmentos" e as matérias passam a ser componentes da Matriz (escolhidos por clique).
