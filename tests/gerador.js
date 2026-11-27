@@ -505,7 +505,7 @@ function mini(extra) {
     const carga = v.ss.getSheetByName('Carga');
     carga.d.find(r => r[0] === '6A' && r[1] === 'Arte')[2] = 'Ana (teste)';
     v.ss.getSheetByName('Blocos').d.push(['Ana (teste)', 'Plantão de Dúvidas', 'Matemática', 'Seg', '14:00', '15:00']);
-    v.props.SAL_CODIGO = 'sal'; v.props.PROFS_TESTE = '1'; v.props.ESQUEMA = '8';
+    v.props.SAL_CODIGO = 'sal'; v.props.PROFS_TESTE = '1'; v.props.ESQUEMA = '8'; delete v.props.SEM_FORMULARIO;   // como na planilha real: primeira vez
     v.ctx.garantirEsquema_();
     const cab = prof.d[0], d = v.dados(), P = n => d.professores.find(p => p.nome === n);
     ok(v.props.ESQUEMA === '9' && cab.length === 9 && cab[5] === 'Não pode (dia início-fim)' && cab[6] === 'Disponibilidade conferida em', 'cabeçalho novo (9 colunas)');
@@ -520,6 +520,12 @@ function mini(extra) {
     ok(d.carga.filter(c => c.professor === 'Bianca').length > 0, 'atribuições dos outros professores mantidas');
     ok(!v.props.SAL_CODIGO && !v.props.PROFS_TESTE, 'propriedades do formulário apagadas');
     ok(v.ss.getSheetByName('Registro').d.some(r => /Apagou os professores de teste \(Ana \(teste\)\)/.test(r[2])), 'fica anotado no Registro');
+    // a versão antiga do site (ainda publicada) refaz o cabeçalho velho e volta o ESQUEMA para 8: a nova migra de novo sem perder "conferida"
+    v.ctx.salvarProfessor_(Object.assign({}, P('Carla'), { nomeAntigo: 'Carla', conferida: true, blocos: [] }), { u: 'x' });
+    const quando = v.dados().professores.find(p => p.nome === 'Carla').conferida;
+    prof.d[0] = ['Professor (nome curto)', 'Nome completo', 'Disciplinas', 'WhatsApp', 'Máx. aulas por dia', 'Indisponível (dia faixa)', 'Respondeu em', 'Observação', 'Segmentos', 'Código do formulário (não editar)', 'Situação (Aprovado / Aguardando aprovação)'];
+    v.props.ESQUEMA = '8'; v.ctx.garantirEsquema_();
+    ok(quando && v.dados().professores.find(p => p.nome === 'Carla').conferida === quando && JSON.stringify(v.dados().professores.find(p => p.nome === 'Bianca').indisp) === JSON.stringify(P('Bianca').indisp), 'vaivém com a versão antiga: “conferida” e disponibilidade continuam');
   });
 
   await caso('Disponibilidade conferida: a coordenação marca no cadastro', () => {

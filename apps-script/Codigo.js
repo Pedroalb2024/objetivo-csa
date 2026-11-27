@@ -841,10 +841,11 @@ function migrar_() {
     regravar(ABA.config, linhas);
   }
   const hp = cab(ABA.prof), semSegmentos = !!hp && hp.indexOf('Segmentos') < 0, semHistorico = !ss.getSheetByName(ABA.hist);
+  const pr = PropertiesService.getScriptProperties(), jaV9 = pr.getProperty('SEM_FORMULARIO') === '1';   // a versão antiga do site pode ter refeito o cabeçalho velho depois da v9
   if (hp && hp[1] === 'Disciplinas') {   // v3
     regravar(ABA.prof, brutas(ABA.prof).map(r => [r[0], '', r[1], r[2], r[3], converterIndisp_(txt_(r[4]), turnos), '', r[6]]));
   } else if (hp && hp[5] === 'Indisponível (dia faixa)') {   // v4–v8: faixas de 1h viram intervalos; saem código, situação e "respondeu"
-    regravar(ABA.prof, brutas(ABA.prof).map(r => [r[0], r[1], r[2], r[3], r[4], gravarIndisp_(lerIndisp_(r[5])), '', r[7], r[8]]));
+    regravar(ABA.prof, brutas(ABA.prof).map(r => [r[0], r[1], r[2], r[3], r[4], gravarIndisp_(lerIndisp_(r[5])), jaV9 ? r[6] : '', r[7], r[8]]));   // depois da v9, a coluna já é "conferida em"
   }
   const ht = cab(ABA.turmas);
   if (ht && ht[1] === 'Turno') {
@@ -856,8 +857,8 @@ function migrar_() {
   if (semSegmentos) completarProfessores_();
   if (semHistorico && valores_(ABA.grade).length) guardarVersao_(null, 'Grade oficial que já estava salva', '');   // v6: histórico de versões
   apagarProfessoresTeste_();
-  const pr = PropertiesService.getScriptProperties();
   ['PROFS_TESTE', 'SAL_CODIGO'].forEach(k => pr.deleteProperty(k));   // eram do formulário dos professores
+  pr.setProperty('SEM_FORMULARIO', '1');
   migrarExtra_();
 }
 
