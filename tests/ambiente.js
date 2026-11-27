@@ -32,11 +32,15 @@ class Aba {
   setFrozenRows() { }
   clearContents() { this.d = []; }
   appendRow(v) { const n = this.getLastRow(); if (n + 1 > this.getMaxRows()) this.max = n + 1; this.d[n] = v.slice(); }
+  copyTo(ss) { const c = ss.insertSheet('Cópia de ' + this.nome); c.d = this.d.map(l => (l || []).slice()); c.max = this.max; return c; }
+  setName(n) { delete this.ss.abas[this.nome]; this.nome = n; this.ss.abas[n] = this; return this; }
+  hideSheet() { this.oculta = true; return this; }
+  isSheetHidden() { return !!this.oculta; }
 }
 class Planilha {
   constructor() { this.abas = {}; }
   getSheetByName(n) { return this.abas[n] || null; }
-  insertSheet(n) { return this.abas[n] = new Aba(n); }
+  insertSheet(n) { const a = this.abas[n] = new Aba(n); a.ss = this; return a; }
   getSheets() { return Object.values(this.abas); }
   deleteSheet(s) { delete this.abas[s.nome]; }
   getId() { return 'planilha-teste'; }

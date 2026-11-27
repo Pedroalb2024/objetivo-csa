@@ -822,6 +822,7 @@ function migrar_() {
     return n < 2 ? [] : sh.getRange(2, 1, n - 1, nc).getValues().filter(r => txt_(r[0]));
   };
   const regravar = (nome, linhas) => { const sh = ss.getSheetByName(nome); sh.clearContents(); cabecalho_(sh, nome); gravar_(nome, linhas); };
+  backupAntesV9_(ss);   // antes de qualquer mudança
 
   let turnos = {};
   const hc = cab(ABA.config);
@@ -856,59 +857,83 @@ function migrar_() {
   if (!valores_(ABA.matriz).length) gravar_(ABA.matriz, matrizPadrao_());
   if (semSegmentos) completarProfessores_();
   if (semHistorico && valores_(ABA.grade).length) guardarVersao_(null, 'Grade oficial que já estava salva', '');   // v6: histórico de versões
-  apagarProfessoresTeste_();
+  migrarExtra_();
+  apagarProfessoresTeste_();   // depois do Extra: as atribuições dos grupos antigos já saíram
   ['PROFS_TESTE', 'SAL_CODIGO'].forEach(k => pr.deleteProperty(k));   // eram do formulário dos professores
   pr.setProperty('SEM_FORMULARIO', '1');
-  migrarExtra_();
 }
 
-// v9: os professores de teste do antigo formulário ("(teste)" no nome) saem; as turmas deles ficam sem professor.
+// v9: antes de qualquer mudança, uma vez só, copia Professores, Carga e Turmas para abas ocultas na mesma planilha
+// (copyTo + hideSheet: não pede novas permissões do Google).
+const BACKUP_V9 = 'Backup antes da v8 · ';
+function backupAntesV9_(ss) {
+  const pr = PropertiesService.getScriptProperties();
+  if (pr.getProperty('BACKUP_V9') === '1') return;
+  const feitas = [];
+  [ABA.prof, ABA.carga, ABA.turmas].forEach(nome => {
+    const sh = ss.getSheetByName(nome), alvo = BACKUP_V9 + nome;
+    if (!sh || sh.getLastRow() < 2 || ss.getSheetByName(alvo)) return;
+    const c = sh.copyTo(ss); c.setName(alvo); c.hideSheet(); feitas.push(alvo);
+  });
+  pr.setProperty('BACKUP_V9', '1');
+  if (feitas.length) registrar_('planilha', 'Cópia de segurança (abas ocultas): ' + feitas.join(', '));
+}
+
+// v9: os professores de teste do antigo formulário ("(teste)" no nome) saem, com os horários reservados deles.
+// Quem ainda tem alguma atribuição fica (a migração não mexe em atribuições); fica anotado no Registro.
 function apagarProfessoresTeste_() {
-  const v = valores_(ABA.prof), teste = r => /\(teste\)/i.test(txt_(r[0]) + ' ' + txt_(r[1])), nomes = v.filter(teste).map(r => txt_(r[0]));
-  if (!nomes.length) return;
-  gravar_(ABA.prof, v.filter(r => !teste(r)));
-  gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => nomes.indexOf(txt_(r[0])) < 0));
-  gravar_(ABA.carga, valores_(ABA.carga).map(r => { if (nomes.indexOf(txt_(r[2])) >= 0) r[2] = ''; return r; }));
-  registrar_('planilha', 'Apagou os professores de teste (' + nomes.join(', ') + ')');
+  const v = valores_(ABA.prof), teste = r => /\(teste\)/i.test(txt_(r[0]) + ' ' + txt_(r[1])), usados = new Set(valores_(ABA.carga).map(r => txt_(r[2])));
+  const nomes = v.filter(r => teste(r) && !usados.has(txt_(r[0]))).map(r => txt_(r[0])), ficam = v.filter(r => teste(r) && usados.has(txt_(r[0]))).map(r => txt_(r[0]));
+  if (nomes.length) {
+    gravar_(ABA.prof, v.filter(r => nomes.indexOf(txt_(r[0])) < 0));
+    gravar_(ABA.blocos, valores_(ABA.blocos).filter(r => nomes.indexOf(txt_(r[0])) < 0));
+    registrar_('planilha', 'Apagou os professores de teste (' + nomes.join(', ') + ')');
+  }
+  if (ficam.length) registrar_('planilha', 'Não apagou professores de teste com atribuições (' + ficam.join(', ') + '): tire as turmas e apague pela tela');
 }
 
-// v9: Extra da proposta 2027, uma vez só (propriedade EXTRA_2027). Apaga os grupos antigos do Extra (vindos do exemplo/aSc)
-// e as atribuições deles, troca os horários "Contraturno…", cria as matérias e a matriz do Extra e um Extra para cada turma da manhã.
+// v9: Extra da proposta 2027, uma vez só (propriedade EXTRA_2027). Não mexe em nada que já existe de professores,
+// turmas regulares, atribuições das turmas regulares, matriz, aulas fixas, grade oficial, usuários nem histórico:
+// - apaga as turmas do segmento Extra que já existiam (grupos antigos, vindos do exemplo/aSc) e as linhas de atribuição só delas
+//   (linha que mistura grupo antigo com outra turma fica como está e vai para o Registro);
+// - apaga os horários "Contraturno…" que nenhuma turma usa mais (se alguma usar, fica);
+// - na lista de matérias, Voleibol passa a se chamar Vôlei (o nome antigo fica como apelido; nada mais é renomeado) e entram as que faltam;
+// - acrescenta os horários e a matriz do Extra e um Extra para cada turma da manhã (linhas novas, "a definir").
 // Tudo o que fez fica no Registro.
 function migrarExtra_() {
   const pr = PropertiesService.getScriptProperties();
   if (pr.getProperty('EXTRA_2027') === '1') return;
   const reg = [];
   if (!valores_(ABA.config).length) gravar_(ABA.config, gradesPadrao_());
-  const antigos = lerTurmas_().filter(t => t.segmento === 'Extra' && !t.extraDe.length).map(t => t.nome);
+  const tv = valores_(ABA.turmas), antigos = tv.filter(r => txt_(r[1]) === 'Extra' && !txt_(r[4])).map(r => txt_(r[0]));
   if (antigos.length) {
-    const fora = t => antigos.indexOf(t) >= 0, nAtr = valores_(ABA.carga).filter(r => listaTurmas_(r[0]).some(fora)).length;
-    if (valores_(ABA.grade).some(r => fora(txt_(r[0])))) guardarVersao_(null, 'Grade antes do novo Extra (proposta 2027)', '');
-    removerTurmas_(antigos);
-    reg.push(`apagou ${antigos.length} grupo(s) do Extra antigo (${antigos.join(', ')}) e ${nAtr} atribuição(ões)`);
+    const ant = t => antigos.indexOf(t) >= 0, carga = valores_(ABA.carga);
+    const so = r => listaTurmas_(r[0]).length && listaTurmas_(r[0]).every(ant), mistas = carga.filter(r => !so(r) && listaTurmas_(r[0]).some(ant));
+    gravar_(ABA.carga, carga.filter(r => !so(r)));
+    gravar_(ABA.turmas, tv.filter(r => !ant(txt_(r[0]))));
+    reg.push(`apagou ${antigos.length} grupo(s) do Extra antigo (${antigos.join(', ')}) e ${carga.length - carga.filter(r => !so(r)).length} atribuição(ões) deles`);
+    if (mistas.length) reg.push(`não mexeu em ${mistas.length} atribuição(ões) que juntam grupo antigo com outra turma (${mistas.map(r => txt_(r[0]) + ' · ' + txt_(r[1])).join('; ')})`);
   }
   let cfg = valores_(ABA.config);
   const usadas = new Set(lerTurmas_().map(t => t.grade));
   [...new Set(cfg.map(r => txt_(r[0])).filter(n => /contraturno/i.test(n)))].forEach(n => {
-    if (!usadas.has(n)) { cfg = cfg.filter(r => txt_(r[0]) !== n); return reg.push(`apagou o horário “${n}”`); }
-    const novo = n.replace(/contraturno/ig, 'Extra');
-    cfg.forEach(r => { if (txt_(r[0]) === n) r[0] = novo; });
-    trocarValor_(ABA.turmas, 3, n, novo);
-    reg.push(`renomeou o horário “${n}” para “${novo}”`);
+    if (usadas.has(n)) return reg.push(`manteve o horário “${n}” (ainda usado por turmas)`);
+    cfg = cfg.filter(r => txt_(r[0]) !== n); reg.push(`apagou o horário “${n}”`);
   });
   GRADES_PADRAO.filter(g => SERIES.Extra.indexOf(g[0]) >= 0 && !cfg.some(r => txt_(r[0]) === g[0])).forEach(g => {
     gradesPadrao_([g]).forEach(l => cfg.push(l)); reg.push(`criou o horário “${g[0]}”`);
   });
   gravar_(ABA.config, cfg);
   const comps = valores_(ABA.comp), vol = comps.find(r => txt_(r[0]) === 'Voleibol');
-  if (vol && !comps.some(r => txt_(r[0]) === 'Vôlei')) {
+  if (vol && !comps.some(r => txt_(r[0]) === 'Vôlei')) {   // só na lista de matérias: professores, atribuições e matriz não mudam
     vol[0] = 'Vôlei'; vol[2] = txt_(vol[2]).split(';').map(x => x.trim()).filter(String).concat(['Voleibol']).join('; ');
-    gravar_(ABA.comp, comps); renomearMateria_('Voleibol', 'Vôlei'); reg.push('renomeou Voleibol para Vôlei');
+    reg.push('na lista de matérias, Voleibol passou a se chamar Vôlei (Voleibol fica como outro nome)');
   }
   const faltam = COMPONENTES_EXTRA.filter(n => !comps.some(r => normalizar_(r[0]) === normalizar_(n)));
-  if (faltam.length) { gravar_(ABA.comp, comps.concat(COMPONENTES_PADRAO.filter(c => faltam.indexOf(c[0]) >= 0).map(c => c.slice()))); reg.push('criou as matérias ' + faltam.join(', ')); }
+  gravar_(ABA.comp, comps.concat(COMPONENTES_PADRAO.filter(c => faltam.indexOf(c[0]) >= 0).map(c => c.slice())));
+  if (faltam.length) reg.push('criou as matérias ' + faltam.join(', '));
   const mz = valores_(ABA.matriz);
-  if (!mz.some(r => SERIES.Extra.indexOf(txt_(r[0])) >= 0)) { gravar_(ABA.matriz, mz.concat(matrizExtra_())); reg.push('criou a matriz do Extra'); }
+  if (!mz.some(r => SERIES.Extra.indexOf(txt_(r[0])) >= 0)) { gravar_(ABA.matriz, mz.concat(matrizExtra_())); reg.push('acrescentou a matriz do Extra (a das séries não mudou)'); }
   const x = sincronizarExtras_();
   if (x && x.novas.length) reg.push(`criou ${x.novas.length} Extra(s), um para cada turma da manhã: ${x.novas.join(', ')}`);
   if (reg.length) registrar_('planilha', 'Novo Extra (proposta 2027): ' + reg.join('; '));

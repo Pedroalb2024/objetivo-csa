@@ -501,10 +501,11 @@ function mini(extra) {
       ['Bianca', 'Bianca Moreira Lins', 'Língua Portuguesa, Matemática', '11 90000-0000', 5, 'Seg 7h; Seg 8h; Ter 13h', '03/02/2026 10:00', 'só de manhã', 'EFAI', 'v1:abc:def', 'Aprovado'],
       ['Carla', 'Carla Nogueira Pires', 'Língua Inglesa', '', '', '', '', '', 'EFAI, EFAF', '', ''],
       ['Renata Exemplo Duarte', 'Renata Exemplo Duarte', 'Arte', '(11) 90000-0001', '', 'Qua 7h', '04/02/2026 09:00', 'oi', '', 'v1:x:y', 'Aguardando aprovação'],
-      ['Ana (teste)', 'Ana Modelo (teste)', 'Matemática', '', '', '', '', '', 'EFAF', 'v1:a:b', 'Aprovado']];
+      ['Ana (teste)', 'Ana Modelo (teste)', 'Matemática', '', '', '', '', '', 'EFAF', 'v1:a:b', 'Aprovado'],
+      ['Bruno (teste)', 'Bruno Modelo (teste)', 'Matemática', '', '', '', '', '', 'EFAF', 'v1:a:b', 'Aprovado']];
     const carga = v.ss.getSheetByName('Carga');
     carga.d.find(r => r[0] === '6A' && r[1] === 'Arte')[2] = 'Ana (teste)';
-    v.ss.getSheetByName('Blocos').d.push(['Ana (teste)', 'Plantão de Dúvidas', 'Matemática', 'Seg', '14:00', '15:00']);
+    v.ss.getSheetByName('Blocos').d.push(['Bruno (teste)', 'Plantão de Dúvidas', 'Matemática', 'Seg', '14:00', '15:00']);
     v.props.SAL_CODIGO = 'sal'; v.props.PROFS_TESTE = '1'; v.props.ESQUEMA = '8'; delete v.props.SEM_FORMULARIO;   // como na planilha real: primeira vez
     v.ctx.garantirEsquema_();
     const cab = prof.d[0], d = v.dados(), P = n => d.professores.find(p => p.nome === n);
@@ -515,11 +516,11 @@ function mini(extra) {
     ok(prof.d.find(r => r[0] === 'Bianca')[5] === 'Seg 07:00-09:00; Ter 13:00-14:00', 'na planilha: “Seg 07:00-09:00; Ter 13:00-14:00”');
     ok(!P('Bianca').conferida && !d.professores.some(p => p.conferida), '“respondeu” não vira “conferida”: a coordenação confere cada um');
     ok(P('Renata Exemplo Duarte') && P('Renata Exemplo Duarte').indisp.length === 1, 'quem aguardava aprovação continua, como professor comum');
-    ok(!d.professores.some(p => /teste/.test(p.nome)), 'professores “(teste)” apagados');
-    ok(d.carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor === '' && !d.blocos.some(b => /teste/.test(b.professor)), '…as turmas deles ficam sem professor e os horários reservados saem');
+    ok(!P('Bruno (teste)') && !d.blocos.some(b => /Bruno/.test(b.professor)), 'professor “(teste)” sem turmas: apagado, com os horários reservados');
+    ok(P('Ana (teste)') && d.carga.find(c => c.turmas[0] === '6A' && c.disciplina === 'Arte').professor === 'Ana (teste)', 'professor “(teste)” com turma fica: a migração não mexe em atribuições');
     ok(d.carga.filter(c => c.professor === 'Bianca').length > 0, 'atribuições dos outros professores mantidas');
     ok(!v.props.SAL_CODIGO && !v.props.PROFS_TESTE, 'propriedades do formulário apagadas');
-    ok(v.ss.getSheetByName('Registro').d.some(r => /Apagou os professores de teste \(Ana \(teste\)\)/.test(r[2])), 'fica anotado no Registro');
+    ok(v.ss.getSheetByName('Registro').d.some(r => /Apagou os professores de teste \(Bruno \(teste\)\)/.test(r[2])) && v.ss.getSheetByName('Registro').d.some(r => /Não apagou professores de teste com atribuições \(Ana \(teste\)\)/.test(r[2])), 'fica anotado no Registro');
     // a versão antiga do site (ainda publicada) refaz o cabeçalho velho e volta o ESQUEMA para 8: a nova migra de novo sem perder "conferida"
     v.ctx.salvarProfessor_(Object.assign({}, P('Carla'), { nomeAntigo: 'Carla', conferida: true, blocos: [] }), { u: 'x' });
     const quando = v.dados().professores.find(p => p.nome === 'Carla').conferida;
@@ -665,11 +666,59 @@ function mini(extra) {
     const ex = d.turmas.filter(t => t.segmento === 'Extra');
     ok(ex.length === 21 && ex.every(t => t.extraDe.length === 1), '21 Extras, um para cada turma da manhã');
     ok(d.carga.filter(c => c.turmas.some(t => /^Extra /.test(t))).every(c => !c.professor) && d.carga.some(c => c.turmas.join() === 'Extra 1A' && c.disciplina === 'Lição de Casa' && c.posicao === 1), 'Extras com as matérias da matriz, “a definir”');
-    ok(Object.keys(d.grade).length === 1 && d.versoes.some(x => /antes do novo Extra/.test(x.descricao)), 'grade oficial: o Extra antigo sai e a versão anterior fica guardada');
+    ok(Object.keys(d.grade).length === 2 && !d.versoes.length, 'grade oficial e histórico não mudam (aula do grupo antigo fica, sem turma, e é ignorada)');
     const reg = v.ss.getSheetByName('Registro').d.map(r => r[2]).join('\n');
     ok(/Novo Extra \(proposta 2027\): apagou 3 grupo\(s\) do Extra antigo \(EXTRA 1º ano A, 6º\/7º, EXTRA EFAI tarde\) e 3 atribuição/.test(reg) && /criou 21 Extra/.test(reg), 'o que foi apagado e criado fica no Registro');
     v.props.ESQUEMA = '8'; ctx.garantirEsquema_();
     ok(v.dados().turmas.filter(t => t.segmento === 'Extra').length === 21, 'rodar de novo não duplica');
+  });
+
+  await caso('Publicação: a migração não altera o que já existe (professores, turmas regulares, atribuições, matriz, fixas, usuários, histórico) e faz backup', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const ctx = v.ctx, s0 = { u: 'x', nome: 'X' };
+    // planilha como está hoje (v8): Extra antigo, horários "Contraturno", Voleibol, sem matriz do Extra, professores com faixas de 1h, histórico e grade
+    ctx.removerTurmas_(v.dados().turmas.filter(t => t.segmento === 'Extra').map(t => t.nome));
+    ctx.gravar_('Config', ctx.valores_('Config').filter(r => !/^Extra/.test(r[0])).concat(ctx.gradesPadrao_([['Contraturno', '13:00-14:00 14:00-15:00'], ['Contraturno manhã', '11:00-12:00']])));
+    ctx.gravar_('Turmas', ctx.valores_('Turmas').map(r => r.slice(0, 4)).concat([['EXTRA 1º ano A', 'Extra', '', 'Contraturno'], ['EXTRA EFAI tarde', 'Extra', '', 'Contraturno manhã']]));
+    ctx.gravar_('Componentes', ctx.valores_('Componentes').filter(r => !['Defesa Pessoal', 'Futebol'].includes(r[0])).map(r => r[0] === 'Vôlei' ? ['Voleibol', 'Vôlei', ''] : r));
+    ctx.gravar_('Matriz', ctx.valores_('Matriz').filter(r => !/^Extra/.test(r[0])).map(r => r.slice(0, 3)));
+    ctx.gravar_('Carga', ctx.valores_('Carga').map(r => r.slice(0, 6)).concat([['EXTRA 1º ano A', 'Lição de Casa', 'Jussara', 4, 0, 2], ['EXTRA EFAI tarde', 'Voleibol', 'Mônica', 2, 0, 2]]));
+    ctx.gravar_('Fixas', [['3 EM A', 'Sex', 1, 'Matemática'], ['EXTRA 1º ano A', 'Seg', 1, 'Lição de Casa']]);
+    ctx.salvarGrade_({ grade: { '1A|0|0': { disciplina: 'Matemática', professor: 'Bianca' }, 'EXTRA 1º ano A|0|0': { disciplina: 'Lição de Casa', professor: 'Jussara' } }, vigencia: '2026-02-02' }, s0);
+    const prof = v.ss.getSheetByName('Professores');
+    prof.d = [['Professor (nome curto)', 'Nome completo', 'Disciplinas', 'WhatsApp', 'Máx. aulas por dia', 'Indisponível (dia faixa)', 'Respondeu em', 'Observação', 'Segmentos', 'Código do formulário (não editar)', 'Situação (Aprovado / Aguardando aprovação)']]
+      .concat(prof.d.slice(1).map((r, i) => [r[0], r[1], r[2] + (r[0] === 'Mônica' ? ', Voleibol' : ''), r[3], r[4], i % 5 === 0 ? 'Seg 7h; Seg 8h; Qua 13h' : '', '03/02/2026 10:00', '', r[8], 'v1:a:b', 'Aprovado']));
+    const copia = n => JSON.parse(JSON.stringify(v.ss.getSheetByName(n).d));
+    const antes = { prof: copia('Professores'), carga: copia('Carga'), turmas: copia('Turmas'), matriz: ctx.valores_('Matriz').map(r => r.slice(0, 3)), fixas: copia('Fixas'), usuarios: copia('Usuários'), hist: copia('Histórico da grade'), grade: copia('Grade'), blocos: copia('Blocos') };
+    ['EXTRA_2027', 'SEM_FORMULARIO', 'BACKUP_V9'].forEach(k => delete v.props[k]); v.props.ESQUEMA = '8';
+    ctx.garantirEsquema_();
+    const d = v.dados(), mesmo = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+    const cheias = l => l.slice(1).filter(r => r[0] !== '' && r[0] !== undefined);   // a planilha simulada guarda linhas vazias depois de limpar
+    // professores: mesmos nomes, matérias, segmentos e demais dados; disponibilidade igual (só muda o formato)
+    ok(mesmo(d.professores.map(p => p.nome), cheias(antes.prof).map(r => r[0])), 'nenhum professor apagado ou renomeado');
+    ok(d.professores.every((p, i) => { const r = antes.prof[i + 1]; return p.materias.join(', ') === r[2] && p.segmentos.join(', ') === r[8] && p.completo === r[1] && p.tel === String(r[3]) && p.maxDia === (+r[4] || 0); }), 'matérias (inclusive Voleibol), segmentos e dados de cada professor iguais');
+    const faixas = l => l.flatMap(x => { const o = []; for (let m = x.ini; m < x.fim; m += 60) o.push(x.dia + ' ' + m / 60 + 'h'); return o; }).join('; ');
+    ok(d.professores.every((p, i) => faixas(p.indisp) === antes.prof[i + 1][5]), 'disponibilidade convertida sem perder nada (volta exatamente às faixas antigas)');
+    // atribuições das turmas regulares, turmas regulares, matriz, fixas, usuários, histórico, grade oficial e horários reservados
+    const reg = r => !/^EXTRA /.test(String(r[0])) && !/^Extra /.test(String(r[0]));
+    const a1 = ctx.valores_('Carga').filter(reg).map(r => r.slice(0, 6)), b1 = cheias(antes.carga).filter(reg).map(r => r.slice(0, 6));
+    ok(mesmo(a1, b1), 'atribuições das turmas regulares iguais (linha por linha)');
+    ok(mesmo(ctx.valores_('Turmas').filter(reg).map(r => r.slice(0, 4)), cheias(antes.turmas).filter(reg).map(r => r.slice(0, 4))), 'turmas regulares iguais');
+    ok(mesmo(ctx.valores_('Matriz').filter(r => !/^Extra/.test(r[0])).map(r => r.slice(0, 3)), antes.matriz), 'matriz das séries igual (a do Extra só é acrescentada)');
+    ok(mesmo(copia('Fixas'), antes.fixas) && mesmo(copia('Usuários'), antes.usuarios) && mesmo(copia('Histórico da grade'), antes.hist) && mesmo(copia('Grade'), antes.grade), 'aulas fixas, usuários, histórico e grade oficial intactos');
+    ok(mesmo(copia('Blocos'), antes.blocos), 'horários reservados intactos');
+    // o que pode mudar
+    ok(!d.turmas.some(t => /^EXTRA /.test(t.nome)) && !d.carga.some(c => c.turmas.some(t => /^EXTRA /.test(t))), 'grupos antigos do Extra e as atribuições deles apagados');
+    ok(d.turmas.filter(t => t.segmento === 'Extra').length === 21 && d.componentes.some(c => c.nome === 'Vôlei' && c.apelidos.includes('Voleibol')), 'Extras novos e Vôlei na lista de matérias');
+    // backup
+    const bk = n => v.ss.getSheetByName('Backup antes da v8 · ' + n);
+    ok(['Professores', 'Carga', 'Turmas'].every(n => bk(n) && bk(n).isSheetHidden()), 'abas ocultas “Backup antes da v8 · Professores / Carga / Turmas”');
+    ok(mesmo(bk('Professores').d, antes.prof) && mesmo(bk('Carga').d, antes.carga) && mesmo(bk('Turmas').d, antes.turmas), 'o backup é a cópia de antes de qualquer mudança');
+    v.props.ESQUEMA = '8'; ctx.garantirEsquema_();
+    ok(Object.keys(v.ss.abas).filter(n => /^Backup|^Cópia/.test(n)).length === 3 && mesmo(bk('Professores').d, antes.prof), 'backup uma vez só (rodar de novo não refaz nem sobrescreve)');
+    ok(v.ss.getSheetByName('Registro').d.some(r => /Cópia de segurança \(abas ocultas\)/.test(r[2])), 'backup anotado no Registro');
+    const cod = require('fs').readFileSync(require('path').join(__dirname, '..', 'apps-script', 'Codigo.js'), 'utf8'), mig = cod.slice(cod.indexOf('function migrarExtra_'), cod.indexOf('// v5: professor ganha'));
+    ok(!/renomearMateria_|guardarVersao_|removerTurmas_|ABA\.fixas|ABA\.grade|ABA\.hist|ABA\.usuarios/.test(mig), 'migrarExtra_ não toca em fixas, grade, histórico, usuários nem renomeia matérias');
   });
 
   await caso('Matriz do Extra: aplicar preenche os Extras sem professor e leva a aula fixa do dia', () => {
