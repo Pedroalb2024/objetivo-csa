@@ -1,6 +1,5 @@
 // Servidor local para ver o sistema sem publicar: planilha em memória com a escola de exemplo (nomes fictícios).
 // Uso: node tests/local.js  → http://localhost:8787  (usuário: admin / senha: teste)
-//   ?form=1 ou /professor/   formulário dos professores (Ana, Bruno e Célia "(teste)" e um terço do exemplo têm código 1234)
 //   ?auto=1               entra direto como admin
 //   ?tela=grade           abre uma tela        &depois=<js>  roda um código depois de abrir (para prints)
 // Nada aqui vai para o Apps Script; o google.script.run é simulado chamando o Codigo.js no Node.
@@ -11,9 +10,6 @@ const DIR = path.join(__dirname, '..', 'apps-script'), DOCS = path.join(__dirnam
 const amb = criarAmbiente();
 amb.ctx.gravarExemplo_();
 amb.ctx.gravar_('Usuários', [['admin', 'teste', 'Coordenação (teste)', 'admin', 'Sim', '']]);
-amb.ctx.criarProfessoresTeste_();   // Ana, Bruno e Célia "(teste)", código 1234
-amb.ctx.gravar_('Professores', amb.ctx.valores_('Professores').map((r, i) => { if (!r[9] && i % 3 === 0) r[9] = amb.ctx.hashCodigo_('1234'); return r; }));   // alguns do exemplo com código
-amb.ctx.formEnviar({ novo: true, completo: 'Renata Exemplo Duarte', tel: '(11) 90000-0001', materias: ['Arte'], codigo: '4321', indisp: ['Qua|7'], obs: 'Posso também no contraturno.' });
 // Já deixa uma grade oficial salva, gerada pelo próprio gerador
 amb.gerador().gerar(amb.dados(), { tentativas: 8, semente: 11 }, null, r => {
   if (r.opcoes.length) amb.ctx.salvarGrade_({ grade: r.opcoes[0].grade, vigencia: '2026-02-02' }, { u: 'admin', nome: 'Coordenação (teste)' });
@@ -36,7 +32,7 @@ function pagina(arquivo, q) {
   if (q.get('auto')) antes += `sessionStorage.setItem('gh_token', ${JSON.stringify(amb.ctx.login('admin', 'teste').token)});`;
   antes += '</script>';
   let depois = '';
-  const pronto = arquivo === 'App.html' ? `typeof D !== 'undefined' && D && !document.getElementById('app').hidden` : `typeof INFO !== 'undefined' && INFO`;
+  const pronto = `typeof D !== 'undefined' && D && !document.getElementById('app').hidden`;
   if (q.get('tela') || q.get('depois')) depois = `<script>(function esperar() { if (!(${pronto})) return setTimeout(esperar, 50);
     ${q.get('tela') ? `ir(${JSON.stringify(q.get('tela'))}, true);` : ''} setTimeout(() => { ${q.get('depois') || ''} }, 50); })();</script>`;
   return html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + antes).replace('</body>', depois + '</body>');
@@ -60,5 +56,5 @@ http.createServer((req, res) => {
     res.writeHead(404); return res.end();
   }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(pagina(u.searchParams.has('form') || u.pathname.startsWith('/professor') ? 'Formulario.html' : 'App.html', u.searchParams));
+  res.end(pagina('App.html', u.searchParams));   // o antigo ?form=1 / professor/ também abre o sistema (login)
 }).listen(PORTA, () => console.log(`Grade Horária local: http:\/\/localhost:${PORTA}  (admin / teste)`));
