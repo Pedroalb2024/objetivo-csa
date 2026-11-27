@@ -16,8 +16,7 @@
 <iframe id="app" title="Objetivo CSA" allow="clipboard-write"></iframe>
 <script>
   const URL_APP = 'https://script.google.com/macros/s/AKfycbxdeC7lBVZq3oDSB7amYhJB4ZKDigX3ntj8oBnKqa5_fSlF03Ho9s8DekoDxX-3oKqO/exec';   // a URL que termina em /exec
-  if (location.search.indexOf('form') >= 0) document.title = 'Disponibilidade · Objetivo CSA';
-  document.getElementById('app').src = URL_APP + location.search;
+  document.getElementById('app').src = URL_APP;   // o antigo link do formulário dos professores também abre o login
 </script>
 </body>
 </html>

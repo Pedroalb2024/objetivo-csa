@@ -85,16 +85,19 @@
   .pergunta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--alerta-bg); color:var(--alerta); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:13.5px; }
   .pergunta span { flex:1; min-width:180px; font-weight:600; }
   .total-prof { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
-  /* código do formulário (cadastro do professor) e novos professores aguardando aprovação */
-  .cod-box { border:1px solid var(--borda); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
-  .cod-box .linha { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .cod-box .linha > b { margin-right:4px; }
-  .cod-box input.cod { max-width:130px; font:700 20px 'Ubuntu', Arial, sans-serif; letter-spacing:.3em; text-align:center; }
-  .cod-gerado { font:700 30px 'Ubuntu', Arial, sans-serif; letter-spacing:.3em; color:var(--marinho); background:var(--azul-claro); border-radius:10px; padding:10px; text-align:center; }
-  .novos { border-color:#efd58a; box-shadow:0 0 0 2px var(--alerta-bg), var(--sombra); margin-bottom:14px; }
-  .novo-item { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:10px 0; border-top:1px solid var(--borda); }
-  .novo-item > div:first-child { flex:1; min-width:200px; }
-  tr.pendente td { background:var(--alerta-bg); }
+  /* pendências: vermelho = não cabe / impossível; amarelo = atenção */
+  .pend-item.erro { box-shadow:inset 3px 0 0 var(--erro); padding-left:10px; } .pend-item.alerta { box-shadow:inset 3px 0 0 var(--amarelo); padding-left:10px; }
+  .tag.clic { cursor:pointer; border:none; font-family:inherit; }
+  /* disponibilidade no cadastro do professor */
+  .conferida { display:flex; gap:10px; align-items:center; flex-wrap:wrap; border:1px solid var(--borda); border-radius:10px; padding:10px 12px; font-weight:600; cursor:pointer; margin-bottom:12px; min-height:44px; }
+  .conferida:has(input:checked) { border-color:#b9dfc6; background:var(--ok-bg); color:var(--ok); }
+  .bloqueadas { font-size:12.5px; } .bloqueadas div { padding:4px 0; border-top:1px dashed var(--borda); }
+  /* Equipe do Extra */
+  table.equipe { border-collapse:collapse; width:100%; table-layout:fixed; }
+  .equipe-mat tr.sobre td { background:var(--erro-bg); } .equipe-mat tr.semprof td { background:var(--alerta-bg); }
+  table.equipe th, table.equipe td { border:1px solid var(--borda); padding:6px 3px; text-align:center; font-size:12.5px; }
+  table.equipe th { background:#f0f3f8; } table.equipe th.h { width:150px; font-size:12px; } @media (max-width:700px) { table.equipe th.h { width:96px; } table.equipe .so-pc { display:none; } table.equipe th, table.equipe td { padding:6px 2px; } } table.equipe th.h small { display:block; font-weight:400; color:var(--suave); }
+  table.equipe td.falta { background:var(--erro-bg); color:var(--erro); font-weight:700; } table.equipe td.ok { background:var(--ok-bg); color:var(--ok); }
   /* atribuições */
   .at-turmas { display:flex; flex-direction:column; gap:8px; }
   .at-seg { display:flex; gap:10px; align-items:flex-start; }
@@ -203,6 +206,7 @@
     .pt { min-height:44px; padding:6px 14px; font-size:14px; }
     .at-chip { min-height:44px; padding:6px 12px; font-size:14px; }
     .passo-g { gap:10px; } .passo-g .acoes .btn { flex:1 1 auto; justify-content:center; }
+    .passo-g .faltam .tag.clic { min-height:44px; padding:0 12px; display:inline-flex; align-items:center; font-size:13px; }
     .pend-item { flex-direction:column; align-items:stretch; } .pend-item .btn { justify-content:center; }
     .item { flex-wrap:wrap; }
     .abas select { flex:1 1 100%; min-width:0; }
@@ -269,7 +273,7 @@ const TELAS = [
   { id: 'inicio', nome: 'Início', ic: '🏠', p: TODOS, sub: 'O que falta fazer, com um botão para resolver cada item.' },
   { id: 'grade', nome: 'Grade horária', ic: '🗓️', p: TODOS, sub: 'Gere opções, escolha uma e salve a grade oficial. A troca de professor e as versões anteriores também ficam aqui.' },
   { id: 'professores', nome: 'Professores', ic: '👩‍🏫', p: EDITA, sub: 'Abra um professor para marcar as turmas de cada matéria dele e os horários em que não pode.' },
-  { id: 'conferencia', nome: 'Conferência das turmas', ic: '✅', p: EDITA, sub: 'Veja se toda turma tem professor em todas as matérias e resolva o que faltar.' },
+  { id: 'conferencia', nome: 'Conferência das turmas', ic: '✅', p: EDITA, sub: 'Veja se toda turma tem professor em todas as matérias, resolva o que faltar e confira a equipe do Extra.' },
   { id: 'config', nome: 'Configuração', ic: '⚙️', p: EDITA, sub: 'Coisas que se ajustam poucas vezes por ano.' },
   { id: 'ano', nome: 'Começar ano letivo', ic: '🎓', pai: 'config', p: ['admin'], frase: 'Guarda a grade deste ano e limpa o que muda de um ano para o outro.', sub: 'Use uma vez por ano, antes de montar a grade do ano seguinte.' },
   { id: 'horarios', nome: 'Horários das aulas', ic: '⏰', pai: 'config', p: EDITA, frase: 'Início e fim de cada aula e dos intervalos, em cada período.', sub: 'Início e fim de cada aula e dos intervalos, em cada período (EFAI Manhã, EFAF Manhã…).' },
@@ -364,13 +368,7 @@ function cabecalho(tit, acoes) {   // título + frase curta explicando para que 
 // ================= Configuração (cartões grandes) =================
 function telaConfig() {
   $('tela').innerHTML = cabecalho('Configuração') + `<div class="cartoes">${TELAS.filter(t => t.pai === 'config' && t.p.includes(D.usuario.perfil)).map(t =>
-    `<button class="cartao-cfg ${t.id === 'ano' ? 'alerta' : ''}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span><div><b>${t.nome}</b><span>${t.frase}</span></div></button>`).join('')}
-    ${profsTeste().length ? `<button class="cartao-cfg alerta" onclick="apagarTeste()"><span class="ic">🧪</span><div><b>Apagar professores de teste</b><span>Apaga só os ${profsTeste().length} professores marcados “(teste)”, usados para testar o formulário.</span></div></button>` : ''}</div>`;
-}
-const profsTeste = () => D.professores.concat(D.pendentes).filter(p => p.teste);
-function apagarTeste() {
-  const l = profsTeste().map(p => p.nome);
-  if (confirm(`Apagar os professores de teste (${l.join(', ')})? Os outros professores não são afetados.`)) acao('apagarTeste', {}, 'Professores de teste apagados.');
+    `<button class="cartao-cfg ${t.id === 'ano' ? 'alerta' : ''}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span><div><b>${t.nome}</b><span>${t.frase}</span></div></button>`).join('')}</div>`;
 }
 function abrirModal(titulo, corpo, rodape) {
   $('modalCaixa').innerHTML = `<div class="cab"><h2>${titulo}</h2><button class="link" onclick="fecharModal()" style="font-size:22px;color:var(--suave)">×</button></div><div class="corpo">${corpo}</div><div class="rod">${rodape}</div>`;
@@ -392,21 +390,20 @@ const cargaDe = turma => D.carga.filter(c => c.turmas.includes(turma));
 const linhaDe = (turma, disc) => D.carga.find(c => c.turmas.includes(turma) && c.disciplina === disc);
 const somaCarga = turma => cargaDe(turma).reduce((s, c) => s + c.aulas, 0);
 const aulasProf = nome => D.carga.filter(c => c.professor === nome).reduce((s, c) => s + c.aulas, 0);
-const totalFaixas = () => totalHorasDisp(D.dias, D.faixas);
 const sigla = disc => { const c = D.componentes.find(x => x.nome === disc); return (c && c.sigla) || disc; };
 const hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
 const horasTxt = m => m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : '') : m + ' min';
-// Mensagens do WhatsApp com o link do formulário (SITE + 'professor/') e como entrar
-const ENTRAR_CPF = 'Para entrar, escolha seu nome e digite os 4 primeiros números do seu CPF.';
-const msgForm = () => `Olá! Aqui é a coordenação do ${CFG.escola}. Marque neste link os horários em que você NÃO pode dar aula: ${D.linkForm}\n\n${ENTRAR_CPF} Se seu nome não estiver na lista, toque em “Não estou na lista (sou novo)”.`;
-const whatsForm = () => 'https:\/\/wa.me/?text=' + encodeURIComponent(msgForm());
-const msgProf = (p, codigo) => `Olá, ${(p.completo || p.nome).split(' ')[0]}! Aqui é a coordenação do ${CFG.escola}. Marque neste link os horários em que você NÃO pode dar aula: ${D.linkForm}\n\n`
-  + (codigo ? `Para entrar, escolha seu nome e digite o código ${codigo}.` : ENTRAR_CPF);
-function whatsProf(p, codigo) {   // abre a conversa com o professor quando o WhatsApp dele está cadastrado
-  let n = String(p.tel || '').replace(/\D/g, '');
-  if (n.length === 10 || n.length === 11) n = '55' + n; else if (!/^55\d{10,11}$/.test(n)) n = '';
-  return 'https:\/\/wa.me/' + n + '?text=' + encodeURIComponent(msgProf(p, codigo));
-}
+const horaH = m => m % 60 ? hora(m) : m / 60 + 'h', faixaH = (ini, fim) => horaH(ini) + '–' + horaH(fim);   // "14h–15h"
+// Horas livres na semana: das 7h às 19h (períodos), sem os horários em que não pode
+const JANELA = () => D.dias.length * D.periodos.reduce((s, x) => s + x.fim - x.ini, 0);
+const minNaoPode = l => (l || []).reduce((s, x) => s + D.periodos.reduce((t, P) => t + Math.max(0, Math.min(x.fim, P.fim) - Math.max(x.ini, P.ini)), 0), 0);
+// Extra: cada turma regular da manhã tem o seu ("Extra 1A"), ligado a ela
+const ehExtra = nome => (turmaDe(nome) || {}).segmento === 'Extra';
+const extraDaTurma = nome => D.turmas.find(t => t.segmento === 'Extra' && (t.extraDe || []).includes(nome));
+const gradeManha = nome => { const a = aulasDe(gradeDe(nome))[0]; return !!a && a.ini < 13 * 60; };
+const extrasJuntos = nome => [...new Set([].concat(...D.carga.filter(l => l.turmas.includes(nome)).map(l => l.turmas)))].filter(t => t !== nome);
+// Nome provisório: só minúsculas ou com número (ex.: "prof3", "jean")
+const nomeProvisorio = n => /\d/.test(n) || (n === n.toLowerCase() && /[a-zà-ú]/.test(n));
 const ordenarNomes = l => l.slice().sort((a, b) => a.localeCompare(b, 'pt'));
 // Diferenças entre a carga da turma e a matriz da série dela
 function difMatriz(t) {
@@ -422,13 +419,13 @@ function difMatriz(t) {
 let PEND = [], PASSOS = [];
 function telaInicio() {
   if (podeEditar() && !Object.keys(D.grade).length) return telaGuia();
-  const resp = D.professores.filter(p => p.respondeuEm).length, regulares = D.turmas.filter(t => t.segmento !== 'Extra');
+  const conf = D.professores.filter(p => p.conferida).length, regulares = D.turmas.filter(t => t.segmento !== 'Extra');
   const completas = regulares.filter(t => statusTurma(t.nome).ok).length;
   const nGrade = Object.keys(D.grade).length;
-  let h = cabecalho(`Olá, ${esc(D.usuario.nome.split(' ')[0])}`) + (podeEditar() ? cardNovos() : '') + `<div class="stats">
+  let h = cabecalho(`Olá, ${esc(D.usuario.nome.split(' ')[0])}`) + `<div class="stats">
     <div class="card stat" onclick="ir('grade')"><b>${nGrade ? 'Salva' : 'Não salva'}</b><span>grade horária oficial${D.vigencia ? ' · desde ' + esc(D.vigencia) : ''}</span></div>`;
   if (podeEditar()) {
-    h += `<div class="card stat" onclick="ir('professores')"><b>${resp}/${D.professores.length}</b><span>professores responderam o formulário</span></div>
+    h += `<div class="card stat" onclick="FILTRO='aconferir';ir('professores')"><b>${conf}/${D.professores.length}</b><span>professores com a disponibilidade conferida</span></div>
       <div class="card stat" onclick="ir('conferencia')"><b>${completas}/${regulares.length}</b><span>turmas completas</span></div>`;
     PEND = pendencias();
     h += '</div>' + listaPendencias();
@@ -437,33 +434,33 @@ function telaInicio() {
 }
 function listaPendencias() {
   return PEND.length ? `<div class="card"><h2 style="margin-bottom:10px">O que falta <span class="tag alerta">${PEND.length}</span></h2><div class="pend">${PEND.map((p, i) =>
-    `<div class="pend-item"><span>${esc(p.texto)}</span><button class="btn mini" onclick="PEND[${i}].ir()">${esc(p.botao)} →</button></div>`).join('')}</div></div>`
+    `<div class="pend-item ${p.tipo || ''}"><span>${p.tipo === 'erro' ? '⚠ ' : ''}${esc(p.texto)}</span><button class="btn mini" onclick="PEND[${i}].ir()">${esc(p.botao)} →</button></div>`).join('')}</div></div>`
     : '<div class="aviso ok">Tudo pronto: nenhuma pendência.</div>';
 }
 // Guia: cada passo tem situação (feito / falta) e botões que levam direto para resolver
 function passosGuia() {
-  const nP = D.professores.length, resp = D.professores.filter(p => p.respondeuEm), naoResp = D.professores.filter(p => !p.respondeuEm), semCod = D.professores.filter(p => !p.temCodigo).length;
+  const nP = D.professores.length, conf = D.professores.filter(p => p.conferida), falta = D.professores.filter(p => !p.conferida);
   const comProf = D.carga.filter(c => c.professor).length, regs = D.turmas.filter(t => t.segmento !== 'Extra');
   const completas = regs.filter(t => statusTurma(t.nome).ok).length;
   const M = D.professores.length && D.carga.length ? Gerador.modelo(D) : null, nSob = M ? Object.keys(M.sobrecarga).length : 0;
   return [
     { tit: 'Conferir horários, turmas e matriz', ok: !!D.ano.conferido,
-      txt: 'Veja se os horários das aulas, as turmas e a matriz curricular estão certos para este ano.',
+      txt: 'Veja se os horários das aulas, as turmas (cada turma da manhã tem o seu Extra) e a matriz curricular estão certos para este ano.',
       sit: D.ano.conferido ? 'Conferido.' : `${D.grades.length} períodos de aula · ${D.turmas.length} turmas · matriz de ${new Set(D.matriz.map(m => m.serie)).size} séries.`,
       botoes: `<button class="btn" onclick="ir('horarios')">Horários das aulas</button><button class="btn" onclick="ir('turmas')">Turmas</button><button class="btn" onclick="ir('matriz')">Matriz curricular</button>
         ${D.ano.conferido ? '<button class="btn" onclick="acao(\'conferirEstrutura\',{ok:false})">Desmarcar</button>' : '<button class="btn prim" onclick="acao(\'conferirEstrutura\',{ok:true},\'Marcado como conferido.\')">Está tudo certo ✓</button>'}` },
-    { tit: 'Enviar o formulário aos professores', ok: nP > 0 && !naoResp.length,
-      txt: 'Cada professor escolhe o nome, digita os 4 primeiros números do CPF (cadastrados aqui no sistema) e marca, pelo celular, os horários em que não pode dar aula. Professor novo se cadastra pelo próprio formulário e espera sua aprovação.',
-      sit: !nP ? 'Ninguém respondeu ainda.' : `${resp.length} de ${nP} professores responderam.${semCod ? ` ${semCod} ainda sem código para entrar.` : ''}`,
-      extra: naoResp.length && nP ? `<div class="faltam"><span class="suave">Faltam responder:</span> ${naoResp.slice(0, 15).map(p => `<span class="tag neutra">${esc(p.nome)}</span>`).join('')}${naoResp.length > 15 ? ` e mais ${naoResp.length - 15}` : ''}</div>` : '',
-      botoes: `<button class="btn" onclick="copiar(D.linkForm)">Copiar o link</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>${nP ? `<button class="btn" onclick="FILTRO='naoresp';ir('professores')">Ver quem falta</button>` : ''}${semCod ? `<button class="btn" onclick="FILTRO='semcodigo';ir('professores')">Ver quem está sem código</button>` : ''}` },
+    { tit: 'Marcar a disponibilidade de cada professor', ok: nP > 0 && !falta.length,
+      txt: 'Abra cada professor, toque em “Horários em que não pode”, marque os horários em que não pode dar aula e marque “Disponibilidade conferida ✓” quando terminar.',
+      sit: !nP ? 'Nenhum professor cadastrado ainda.' : `${conf.length} de ${nP} professores com a disponibilidade conferida.`,
+      extra: falta.length && nP ? `<div class="faltam"><span class="suave">Faltam conferir:</span> ${falta.slice(0, 15).map(p => `<button class="tag neutra clic" data-n="${esc(p.nome)}" onclick="ir('professores');editarProfessor(this.dataset.n,'disp')">${esc(p.nome)}</button>`).join('')}${falta.length > 15 ? ` e mais ${falta.length - 15}` : ''}</div>` : '',
+      botoes: nP ? `<button class="btn prim" onclick="FILTRO='aconferir';ir('professores')">Ver quem falta</button>` : `<button class="btn prim" onclick="ir('professores');editarProfessor()">+ Professor</button>` },
     { tit: 'Atribuir turmas aos professores', ok: D.carga.length > 0 && comProf === D.carga.length,
-      txt: 'Abra cada professor e, em “Turmas e matérias”, toque nas turmas de cada matéria que ele dá.',
+      txt: 'Abra cada professor e, em “Turmas e matérias”, toque nas turmas de cada matéria que ele dá (o Extra também).',
       sit: D.carga.length ? `${comProf} de ${D.carga.length} matérias das turmas já têm professor.` : 'As turmas ainda não têm matérias: confira a matriz curricular.',
       botoes: `<button class="btn prim" onclick="ir('professores')">Ir para Professores</button>` },
     { tit: 'Conferir as turmas', ok: regs.length > 0 && completas === regs.length && !nSob,
-      txt: 'Veja se toda turma tem professor em todas as matérias e se cada professor cabe nos horários em que pode.',
-      sit: `${completas} de ${regs.length} turmas completas${nSob ? ` · ${nSob} ${nSob === 1 ? 'professor não cabe' : 'professores não cabem'} nos horários livres` : ''}.`,
+      txt: 'Veja se toda turma tem professor em todas as matérias, se cada professor cabe nos horários de manhã e de tarde e se há gente para o Extra.',
+      sit: `${completas} de ${regs.length} turmas completas${nSob ? ` · ${nSob} ${nSob === 1 ? 'professor não cabe' : 'professores não cabem'} nos horários` : ''}.`,
       botoes: `<button class="btn prim" onclick="ir('conferencia')">Conferência das turmas</button>` },
     { tit: 'Gerar e salvar a grade oficial', ok: Object.keys(D.grade).length > 0,
       txt: 'O sistema monta opções de grade em cerca de 25 segundos. Escolha uma, ajuste se quiser e salve como oficial.',
@@ -474,7 +471,7 @@ function passosGuia() {
 function telaGuia() {
   PASSOS = passosGuia(); PEND = pendencias();
   const atual = PASSOS.findIndex(p => !p.ok), feitos = PASSOS.filter(p => p.ok).length;
-  $('tela').innerHTML = cabecalho(D.ano.ano ? `Ano letivo ${esc(D.ano.ano)}: passo a passo` : 'Passo a passo para montar a grade') + cardNovos()
+  $('tela').innerHTML = cabecalho(D.ano.ano ? `Ano letivo ${esc(D.ano.ano)}: passo a passo` : 'Passo a passo para montar a grade')
     + `<p class="suave" style="margin:-6px 0 14px">${feitos} de ${PASSOS.length} passos feitos. Siga na ordem; cada botão leva direto ao lugar certo.</p>
     <div class="passos">${PASSOS.map((p, i) => `<div class="card passo-g ${p.ok ? 'ok' : i === atual ? 'atual' : ''}"><span class="num">${p.ok ? '✓' : i + 1}</span><div>
       <h2>${p.tit} ${p.ok ? '<span class="tag ok">feito</span>' : '<span class="tag alerta">pendente</span>'}</h2>
@@ -482,104 +479,105 @@ function telaGuia() {
       <div class="acoes">${p.botoes}</div></div></div>`).join('')}</div>
     ${PEND.length ? `<details style="margin-top:14px"><summary>Ver a lista completa do que falta (${PEND.length})</summary><div style="margin-top:10px">${listaPendencias()}</div></details>` : ''}`;
 }
-// Pendências em linguagem simples, cada uma com o caminho para resolver
+// Pendências em linguagem simples, cada uma com o caminho para resolver. tipo: 'erro' (vermelho: não cabe, impossível) ou 'alerta' (amarelo)
 function pendencias() {
-  const P = [], add = (texto, botao, ir) => P.push({ texto, botao, ir });
+  const P = [], add = (texto, botao, ir, tipo) => P.push({ texto, botao, ir, tipo: tipo || '' });
   const regulares = D.turmas.filter(t => t.segmento !== 'Extra'), M = D.professores.length && D.carga.length ? Gerador.modelo(D) : null;
-  D.turmas.filter(t => !t.segmento || (t.segmento !== 'Extra' && !t.serie)).forEach(t =>
-    add(`A turma ${t.nome} está sem ${!t.segmento ? 'segmento' : 'série'}.`, 'Corrigir a turma', () => { ir('turmas'); editarTurma(t.nome); }));
+  const abrirProf = (p, aba) => () => { ir('professores'); editarProfessor(p, aba); };
+  D.turmas.filter(t => !t.segmento || !t.serie).forEach(t =>
+    add(`A turma ${t.nome} está sem ${!t.segmento ? 'segmento' : t.segmento === 'Extra' ? 'tipo do Extra' : 'série'}.`, 'Corrigir a turma', () => { ir('turmas'); editarTurma(t.nome); }));
   const semProf = {};
   D.carga.filter(c => !c.professor).forEach(c => { const s = (turmaDe(c.turmas[0]) || {}).segmento || '?'; semProf[s] = (semProf[s] || 0) + 1; });
   Object.entries(semProf).forEach(([s, n]) => { const c = D.carga.find(x => !x.professor && ((turmaDe(x.turmas[0]) || {}).segmento || '?') === s);
-    add(`${n} ${n === 1 ? 'matéria ainda está' : 'matérias ainda estão'} sem professor no ${s === 'Extra' ? 'contraturno' : s}.`, 'Escolher professores', () => irConf(c && c.turmas[0])); });
-  if (M) Object.entries(M.sobrecarga).forEach(([p, x]) => add(`${p} tem ${x.aulas} aulas, mas só ${x.livres} horários livres${x.grade ? ' (' + x.grade + ')' : ''}. Libere horários ou tire turmas dele.`, 'Abrir o professor', () => { ir('professores'); editarProfessor(p); }));
+    add(`${n} ${n === 1 ? 'matéria ainda está' : 'matérias ainda estão'} sem professor no ${s}.`, 'Escolher professores', () => irConf(c && c.turmas[0])); });
+  if (M) Object.entries(M.sobrecarga).forEach(([p, x]) => add(x.periodo ? `${p}: ${x.aulas} aulas de ${x.periodo}, mas só cabem ${x.livres} — passe algumas turmas para outro professor.`
+    : `${p} tem ${x.aulas} aulas, mas só ${x.livres} horários livres${x.grade ? ' (' + x.grade + ')' : ''}. Libere horários ou passe turmas para outro professor.`, 'Ver as turmas', abrirProf(p, 'turmas'), 'erro'));
+  if (M) Object.entries(M.apertado).forEach(([p, l]) => l.forEach(a => add(`${p}: ${a.aulas} aulas de ${a.periodo} para ${a.cabem} horários possíveis (apertado: qualquer horário a menos e deixa de caber).`, 'Ver as turmas', abrirProf(p, 'turmas'), 'alerta')));
   regulares.forEach(t => {
     const u = somaCarga(t.nome), cap = capacidade(t.nome);
     if (u < cap) add(`A turma ${t.nome} tem ${u} aulas por semana; faltam ${cap - u} para completar os ${cap} horários.`, 'Ver a turma', () => irConf(t.nome));
-    else if (u > cap) add(`A turma ${t.nome} tem ${u} aulas por semana, ${u - cap} a mais do que cabe (${cap}).`, 'Ver a turma', () => irConf(t.nome));
+    else if (u > cap) add(`A turma ${t.nome} tem ${u} aulas por semana, ${u - cap} a mais do que cabe (${cap}).`, 'Ver a turma', () => irConf(t.nome), 'erro');
   });
-  regulares.forEach(t => { const dif = difMatriz(t); if (dif.length) add(`A turma ${t.nome} não segue a matriz do ${t.serie} (${dif.slice(0, 2).join(', ')}${dif.length > 2 ? '…' : ''}).`, 'Aplicar a matriz', () => { ir('matriz'); abrirAplicar(); }); });
-  if (M) M.erros.filter(e => !/falta escolher o professor|horários livres|passam do limite/.test(e)).forEach(e => {
-    if (/Aula fixa/.test(e)) add(e, 'Ver aulas fixas', () => ir('fixas'));
-    else if (/horário das aulas/.test(e)) add(e, 'Ver turmas', () => ir('turmas'));
-    else add(e, 'Ver a turma', () => irConf((e.match(/^([^·:]+?)(?: \+ | · |:)/) || [])[1]));
+  D.turmas.forEach(t => { const dif = difMatriz(t); if (dif.length) add(`A turma ${t.nome} não segue a matriz do ${t.serie} (${dif.slice(0, 2).join(', ')}${dif.length > 2 ? '…' : ''}).`, 'Aplicar a matriz', () => { ir('matriz'); abrirAplicar(); }); });
+  if (M) M.erros.filter(e => !/falta escolher o professor|horários livres|passam do limite|só cabem/.test(e)).forEach(e => {
+    if (/Aula fixa/.test(e)) add(e, 'Ver aulas fixas', () => ir('fixas'), 'erro');
+    else if (/horário das aulas "/.test(e)) add(e, 'Ver turmas', () => ir('turmas'), 'erro');
+    else add(e, 'Ver a turma', () => irConf((e.match(/^(?:Turma )?([^·:]+?)(?: \+ | · |:)/) || [])[1]), 'erro');
   });
-  D.professores.filter(p => !aulasProf(p.nome) && p.respondeuEm).forEach(p => add(`${p.nome} respondeu o formulário, mas ainda não tem turmas.`, 'Marcar as turmas', () => { ir('professores'); editarProfessor(p.nome, 'turmas'); }));
-  const semCod = D.professores.filter(p => !p.temCodigo).length;
-  if (semCod) add(`${semCod} ${semCod === 1 ? 'professor ainda não tem' : 'professores ainda não têm'} código para entrar no formulário.`, 'Cadastrar os códigos', () => { FILTRO = 'semcodigo'; ir('professores'); });
-  D.pendentes.forEach(p => add(`${p.completo || p.nome} se cadastrou pelo formulário e aguarda sua aprovação.`, 'Aprovar ou recusar', () => ir('professores')));
-  const nao = D.professores.filter(p => !p.respondeuEm).length;
-  if (nao) add(`${nao} ${nao === 1 ? 'professor ainda não respondeu' : 'professores ainda não responderam'} o formulário dos horários em que não podem.`, 'Ver quem falta', () => { FILTRO = 'naoresp'; ir('professores'); });
+  D.professores.filter(p => nomeProvisorio(p.nome)).forEach(p => add(`“${p.nome}” parece um nome provisório (só minúsculas ou com número). Troque pelo nome do professor.`, 'Abrir o professor', abrirProf(p.nome, 'turmas'), 'alerta'));
+  D.professores.forEach(p => {
+    const fora = [...new Set(D.carga.filter(c => c.professor === p.nome && !p.materias.includes(c.disciplina)).map(c => c.disciplina))];
+    if (fora.length) add(`${p.nome} dá ${fora.join(', ')} nas turmas, mas ${fora.length === 1 ? 'essa matéria não está' : 'essas matérias não estão'} no cadastro do professor.`, 'Abrir o professor', abrirProf(p.nome, 'turmas'), 'alerta');
+  });
+  const E = equipeExtra(D.carga);
+  if (E) {
+    const faltas = [];
+    E.horarios.forEach(h => h.ha.forEach((n, d) => { if (n < h.precisa) faltas.push({ d, h, n }); }));
+    if (faltas.length) {
+      const f = faltas.sort((a, b) => (a.n - a.h.precisa) - (b.n - b.h.precisa))[0];
+      add(`Equipe do Extra: falta gente em ${faltas.length} ${faltas.length === 1 ? 'horário' : 'horários'} da semana. Ex.: ${D.dias[f.d]} ${faixaH(f.h.ini, f.h.fim)}: ${f.h.turmas} ${f.h.turmas === 1 ? 'turma' : 'turmas'} → precisa de ${f.h.precisa} ${f.h.precisa === 1 ? 'pessoa' : 'pessoas'}; há ${f.n}.`, 'Ver a equipe do Extra', irEquipe, 'erro');
+    }
+    E.materias.filter(x => !x.semProf && x.ha < x.precisa).forEach(x => add(`Extra · ${x.disciplina} (${x.grade}): precisa de pelo menos ${x.precisa} pessoas ao mesmo tempo${x.quando ? ', ' + x.quando : ''}; há ${x.ha}.`, 'Ver a equipe do Extra', irEquipe, 'erro'));
+    E.choques.forEach(c => add(`${c.professor} dá aula no Extra e tem aulas regulares à tarde no mesmo horário (${c.grades.join(', ')}).`, 'Ver a equipe do Extra', irEquipe, 'alerta'));
+  }
+  const semTurma = D.professores.filter(p => !aulasProf(p.nome)).length;
+  if (semTurma) add(`${semTurma} ${semTurma === 1 ? 'professor ainda não tem' : 'professores ainda não têm'} turmas.`, 'Ver quem', () => { FILTRO = 'semturma'; ir('professores'); });
+  const aConf = D.professores.filter(p => !p.conferida).length;
+  if (aConf) add(`${aConf} ${aConf === 1 ? 'professor está' : 'professores estão'} com a disponibilidade a conferir.`, 'Ver quem falta', () => { FILTRO = 'aconferir'; ir('professores'); });
   if (!Object.keys(D.grade).length) add('A grade oficial ainda não foi salva.', 'Montar a grade', () => ir('grade'));
-  else { const v = Gerador.validar(D, D.grade); if (v.problemas.length) add(`A grade oficial tem ${v.problemas.length} conflito(s): algum cadastro mudou depois que ela foi salva.`, 'Ver a grade', () => ir('grade')); }
-  return P;
+  else { const v = Gerador.validar(D, D.grade); if (v.problemas.length) add(`A grade oficial tem ${v.problemas.length} conflito(s): algum cadastro mudou depois que ela foi salva.`, 'Ver a grade', () => ir('grade'), 'erro'); }
+  const peso = { erro: 0, '': 1, alerta: 2 };
+  return P.map((p, i) => [p, i]).sort((x, y) => peso[x[0].tipo] - peso[y[0].tipo] || x[1] - y[1]).map(x => x[0]);
 }
+function irEquipe() { ir('conferencia'); if (TELA === 'conferencia' && AT) { AT.aba = 'equipe'; telaConferencia(); } }
 function irConf(turma) { ir('conferencia'); if (TELA === 'conferencia' && AT && turma && turmaDe(turma)) { AT.turma = turma; AT.aba = 'turma'; telaConferencia(); } }
 
 // ================= Professores =================
 // O cadastro do professor é o lugar principal para atribuir: em "Turmas e matérias", cada matéria dele mostra as turmas
 // dos segmentos dele; tocar na turma dá ou tira. Edita uma cópia das atribuições (PED.carga) e salva tudo junto.
+// A disponibilidade é marcada só aqui, pela coordenação ("Horários em que não pode"), com a marca "Disponibilidade conferida ✓".
 let BUSCA = '', FILTRO = '', PED = null;
-const FILTROS = { '': 'Todos', naoresp: 'Não responderam o formulário', semcodigo: 'Sem código', semturma: 'Sem turmas' };
-// Professores que se cadastraram pelo formulário: ficam aqui até a coordenação aprovar (o gerador só usa os aprovados)
-function cardNovos() {
-  if (!D.pendentes.length) return '';
-  return `<div class="card novos"><h2 style="margin-bottom:4px">Novos professores aguardando aprovação <span class="tag alerta">${D.pendentes.length}</span></h2>
-    <p class="peq suave" style="margin:0 0 6px">Eles se cadastraram pelo formulário. Só entram na grade depois de aprovados.</p>
-    ${D.pendentes.map(p => `<div class="novo-item"><div><b>${esc(p.completo || p.nome)}</b>
-      <div class="peq suave">${esc(p.materias.join(', ') || 'sem matérias')}${p.tel ? ' · WhatsApp ' + esc(p.tel) : ''}${p.respondeuEm ? ' · cadastrou em ' + esc(p.respondeuEm) : ''}</div>
-      ${p.obs ? `<div class="peq">“${esc(p.obs)}”</div>` : ''}</div>
-      <div class="acoes"><button class="btn perigo" data-n="${esc(p.nome)}" onclick="recusarProfessor(this.dataset.n)">Recusar</button><button class="btn prim" data-n="${esc(p.nome)}" onclick="aprovarProfessor(this.dataset.n)">Aprovar</button></div></div>`).join('')}</div>`;
-}
-async function aprovarProfessor(nome) {
-  if (await acao('aprovarProfessor', { nome }, `${nome} aprovado.`) && TELA === 'professores') editarProfessor(nome, 'turmas');
-}
-function recusarProfessor(nome) {
-  if (confirm(`Recusar o cadastro de ${nome}? O cadastro e as respostas dele serão apagados.`)) acao('recusarProfessor', { nome }, 'Cadastro recusado.');
-}
-const quandoTxt = q => { const m = /^(\d{2}\/\d{2})\/\d{4} (\d{1,2}:\d{2})/.exec(q || ''); return m ? `${m[1]} às ${m[2]}` : q; };
+const FILTROS = { '': 'Todos', aconferir: 'Disponibilidade a conferir', semturma: 'Sem turmas' };
+const quandoTxt = q => { const m = /^(\d{2}\/\d{2})\/\d{4}/.exec(q || ''); return m ? m[1] : q; };
 function telaProfessores() {
-  $('tela').innerHTML = cabecalho('Professores',
-    `<button class="btn" onclick="copiar(D.linkForm)">Copiar link do formulário</button><a class="btn" target="_blank" href="${esc(whatsForm())}">Enviar no WhatsApp</a>
-     <button class="btn prim" onclick="editarProfessor()">+ Professor</button>`)
-    + cardNovos() + `<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+  $('tela').innerHTML = cabecalho('Professores', `<button class="btn prim" onclick="editarProfessor()">+ Professor</button>`)
+    + `<div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
         <input placeholder="Buscar professor ou matéria…" value="${esc(BUSCA)}" oninput="BUSCA=this.value;listaProfessores()" style="max-width:300px">
         <div class="chips">${Object.entries(FILTROS).map(([k, v]) => `<span class="chip ${FILTRO === k ? 'on' : ''}" onclick="FILTRO='${k}';telaProfessores()">${v}</span>`).join('')}</div></div>
       <div id="listaProf"></div></div>`;
   listaProfessores();
 }
 function listaProfessores() {
-  const total = totalFaixas(), b = BUSCA.toLowerCase();
+  const total = JANELA(), b = BUSCA.toLowerCase();
   const l = D.professores.filter(p => (p.nome + ' ' + p.completo + ' ' + p.materias.join(' ')).toLowerCase().indexOf(b) >= 0
-    && (FILTRO !== 'naoresp' || !p.respondeuEm) && (FILTRO !== 'semturma' || !aulasProf(p.nome)) && (FILTRO !== 'semcodigo' || !p.temCodigo));
-  $('listaProf').innerHTML = !D.professores.length ? '<p class="suave">Nenhum professor ainda. Envie o link do formulário (cada professor se cadastra por ele) ou toque em “+ Professor”.</p>'
+    && (FILTRO !== 'aconferir' || !p.conferida) && (FILTRO !== 'semturma' || !aulasProf(p.nome)));
+  $('listaProf').innerHTML = !D.professores.length ? '<p class="suave">Nenhum professor ainda. Toque em “+ Professor”.</p>'
     : !l.length ? '<p class="suave">Nenhum professor com esse filtro.</p>'
-    : `<table class="tab cartao"><tr><th>Professor</th><th>Matérias</th><th>Aulas por semana</th><th title="Horas na semana em que pode dar aula (de ${total})">Horas livres</th><th>Código</th><th>Formulário</th></tr>${l.map(p => {
+    : `<table class="tab cartao"><tr><th>Professor</th><th>Matérias</th><th>Aulas por semana</th><th title="Horas na semana em que pode dar aula, das 7h às 19h">Horas livres</th><th>Disponibilidade</th></tr>${l.map(p => {
       const aulas = aulasProf(p.nome);
       return `<tr class="clic" data-n="${esc(p.nome)}" onclick="editarProfessor(this.dataset.n)">
-        <td><div><b>${esc(p.nome)}</b>${p.teste ? ' <span class="tag neutra">teste</span>' : ''}${p.completo ? `<div class="peq suave">${esc(p.completo)}</div>` : ''}</div></td>
+        <td><div><b>${esc(p.nome)}</b>${nomeProvisorio(p.nome) ? ' <span class="tag alerta">nome provisório</span>' : ''}${p.completo ? `<div class="peq suave">${esc(p.completo)}</div>` : ''}</div></td>
         <td data-r="Matérias" class="suave">${p.materias.length ? esc(p.materias.map(sigla).join(', ')) : '<span class="tag alerta">escolher</span>'}</td>
         <td data-r="Aulas por semana">${aulas || '<span class="tag alerta">sem turmas</span>'}</td>
-        <td data-r="Horas livres">${total - p.indisp.length} de ${total}</td>
-        <td data-r="Código">${p.temCodigo ? '<span class="tag ok">cadastrado ✓</span>' : '<span class="tag alerta">falta código</span>'}</td>
-        <td data-r="Formulário">${p.respondeuEm ? `<span class="tag ok" title="Respondeu em ${esc(p.respondeuEm)}">respondeu ${esc(quandoTxt(p.respondeuEm))}</span>` : '<span class="tag alerta">não respondeu</span>'}</td></tr>`;
+        <td data-r="Horas livres">${horasTxt(total - minNaoPode(p.indisp))} de ${horasTxt(total)}</td>
+        <td data-r="Disponibilidade">${p.conferida ? `<span class="tag ok" title="Conferida em ${esc(p.conferida)}">conferida ✓ ${esc(quandoTxt(p.conferida))}</span>` : '<span class="tag alerta">a conferir</span>'}</td></tr>`;
     }).join('')}</table>`;
 }
 function editarProfessor(nome, aba) {
-  const p = nome ? profPorNome(nome) : { nome: '', completo: '', materias: [], segmentos: [], tel: '', maxDia: '', indisp: [], respondeuEm: '', obs: '', temCodigo: false };
+  const p = nome ? profPorNome(nome) : { nome: '', completo: '', materias: [], segmentos: [], tel: '', maxDia: '', indisp: [], conferida: '', obs: '' };
   if (!p) return;
   PED = { antigo: nome || '', chave: nome || '\u0001novo', aba: aba || 'turmas', blocos: D.blocos.filter(b => b.professor === nome).map(b => ({ ...b })),
     materias: p.materias.slice(), segmentos: p.segmentos.slice(), verMats: !p.materias.length, carga: clone(D.carga), cargaAntes: D.carga, mudouCarga: false, pergunta: null,
-    prof: p, codModo: p.temCodigo ? 'ver' : 'editar', codigo: '', gerado: false };
-  DISP = new Set(p.indisp);
+    prof: p, conferida: !!p.conferida, turnos: [], gradesDisp: [] };
+  dispDe(p.indisp);
   const temGrade = nome && Object.keys(D.grade).length && aulasProf(nome);
+  const outros = ordenarNomes(D.professores.filter(x => x.nome !== nome && x.indisp.length).map(x => x.nome));
   abrirModal(nome ? esc(nome) : 'Novo professor', `
     <div class="linha-campos">
       <label class="campo">Nome curto *<input id="pNome" value="${esc(p.nome)}" placeholder="Como aparece na grade" oninput="totalProf()"></label>
       <label class="campo">Nome completo<input id="pCompleto" value="${esc(p.completo)}"></label>
     </div>
-    ${p.respondeuEm ? `<div class="aviso ok">Respondeu o formulário em ${esc(p.respondeuEm)}${p.obs ? ` · “${esc(p.obs)}”` : ''}</div>` : nome ? '<div class="aviso alerta">Ainda não respondeu o formulário dos horários.</div>' : ''}
-    <div class="cod-box" id="pCod"></div>
+    ${p.obs ? `<div class="aviso">“${esc(p.obs)}”</div>` : ''}
     <div class="abas-prof">${[['turmas', 'Turmas e matérias'], ['disp', 'Horários em que não pode'], ['dados', 'Mais dados']].map(([k, v]) => `<button data-a="${k}" onclick="abaProf('${k}')">${v}</button>`).join('')}</div>
     <div data-pane="turmas" style="display:flex;flex-direction:column;gap:14px">
       <div class="total-prof" id="pTotal"></div>
@@ -589,7 +587,14 @@ function editarProfessor(nome, aba) {
       ${temGrade ? `<div class="aviso">Mudar as turmas aqui não muda a grade oficial. Para trocar quem dá as aulas no meio do ano, sem mexer no horário dos outros professores, use
         <button class="link" data-n="${esc(nome)}" onclick="substituirProfessor(this.dataset.n)">Substituir este professor na grade</button>.</div>` : ''}
     </div>
-    <div data-pane="disp" hidden style="flex-direction:column"><p class="peq" id="pResumo" style="margin:0 0 10px"></p>${htmlDisp(D.dias, D.faixas)}</div>
+    <div data-pane="disp" hidden style="flex-direction:column">
+      <label class="conferida"><input type="checkbox" id="pConf" ${PED.conferida ? 'checked' : ''} onchange="PED.conferida=this.checked">Disponibilidade conferida ✓
+        <span class="peq" style="font-weight:400">marque quando terminar de marcar os horários deste professor</span></label>
+      <div style="display:flex;gap:8px 12px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><p class="peq" id="pResumo" style="margin:0;flex:1;min-width:180px"></p>
+        ${outros.length ? `<select id="pCopiar" style="width:auto;max-width:100%" onchange="copiarDisp(this.value)"><option value="">Copiar a disponibilidade de outro professor…</option>${outros.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select>` : ''}</div>
+      <div id="pDisp"></div><div id="pFora"></div>
+      <div style="margin-top:4px"><h3 style="margin-bottom:6px">Aulas bloqueadas por esta disponibilidade</h3><div id="pBloq" class="bloqueadas"></div></div>
+    </div>
     <div data-pane="dados" hidden style="flex-direction:column;gap:14px">
       <div class="linha-campos">
         <label class="campo">WhatsApp<input id="pTel" value="${esc(p.tel)}" inputmode="tel"></label>
@@ -600,44 +605,64 @@ function editarProfessor(nome, aba) {
       ${temGrade ? `<div><button class="btn" data-n="${esc(nome)}" onclick="substituirProfessor(this.dataset.n)">Substituir este professor na grade</button></div>` : ''}
     </div>`,
     `${nome ? '<button class="btn perigo esq" onclick="excluirProfessor()">Excluir</button>' : ''}<button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="salvarProfessor()">Salvar</button>`);
-  window.aoMudarDisp = () => { $('pResumo').innerHTML = `<b>${totalFaixas() - DISP.size} de ${totalFaixas()} horas livres na semana.</b>`; totalProf(); };
-  desenharBlocos(); desenharChips(); desenharCodigo(); abaProf(PED.aba); window.aoMudarDisp();
+  window.aoMudarDisp = () => { resumoDisp(); totalProf(); };
+  desenharBlocos(); desenharChips(); abaProf(PED.aba);
 }
-// Código do formulário: 4 primeiros números do CPF (ou um código sorteado). O servidor guarda só o hash, então
-// depois de salvo ninguém consegue ver o código de novo; dá para redefinir.
-function desenharCodigo() {
-  const p = PED.prof, tit = '<b>Código do formulário</b>';
-  if (PED.codModo === 'ver') {
-    $('pCod').innerHTML = `<div class="linha">${tit}${p.temCodigo ? '<span class="tag ok">código cadastrado ✓</span>' : '<span class="tag alerta">falta código</span>'}</div>
-      <div class="linha">${p.temCodigo ? `<a class="btn mini" target="_blank" href="${esc(whatsProf(p))}">Enviar link no WhatsApp</a>` : ''}
-        <button class="btn mini" onclick="PED.codModo='editar';desenharCodigo()">${p.temCodigo ? 'Redefinir código' : 'Cadastrar código'}</button></div>`;
-    return;
-  }
-  $('pCod').innerHTML = `<div class="linha">${tit}${p.temCodigo ? '<span class="tag neutra">o código atual será trocado ao salvar</span>' : '<span class="tag alerta">falta código</span>'}</div>
-    <label class="campo">4 primeiros números do CPF do professor
-      <div class="linha"><input id="pCodigo" class="cod" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(PED.codigo)}"
-        oninput="this.value=this.value.replace(/\D/g,'');PED.codigo=this.value;PED.gerado=false;$('pGerado').hidden=true">
-        <span class="peq suave">ou</span><button class="btn mini" onclick="gerarCodigo()">Gerar código de 4 números</button>
-        ${p.temCodigo ? `<button class="link" onclick="PED.codModo='ver';PED.codigo='';desenharCodigo()">Manter o atual</button>` : ''}</div></label>
-    <div id="pGerado" class="aviso alerta" ${PED.gerado ? '' : 'hidden'}>Código sorteado para quem não quer usar o CPF. Ao salvar, ele aparece de novo para você enviar ao professor; depois disso não dá para ver.</div>
-    <p class="peq suave" style="margin:0">O sistema guarda só uma versão embaralhada do código, nunca os números do CPF.</p>`;
+// Horários das aulas do professor: das turmas dos segmentos dele e das turmas que ele já dá (nenhum = todos)
+function gradesDoProf(segs, turmas) {
+  const nomes = new Set(D.turmas.filter(t => segs.includes(t.segmento) || turmas.includes(t.nome)).map(t => t.grade));
+  const gs = D.grades.filter(g => nomes.has(g.nome) && aulasDe(g).length);
+  return gs.length ? gs : D.grades.filter(g => aulasDe(g).length);
 }
-function gerarCodigo() {
-  const n = new Uint16Array(1); (window.crypto || window.msCrypto).getRandomValues(n);
-  PED.codigo = String(n[0] % 10000).padStart(4, '0'); PED.gerado = true; desenharCodigo();
+// Linhas do quadro: em cada período, as aulas reais quando o professor tem um horário das aulas só naquele período
+// (ex.: só EFAF Manhã); com mais de um (vários segmentos), faixas de 30 min.
+function turnosDisp(grades) {
+  return D.periodos.map(P => {
+    const doP = grades.filter(g => { const a = aulasDe(g)[0]; return a.ini >= P.ini && a.ini < P.fim; });
+    if (!doP.length) return null;
+    if (doP.length === 1) {
+      let n = 0;
+      const linhas = doP[0].itens.map(i => { const ini = minutos(i.ini), fim = minutos(i.fim); return i.tipo === 'intervalo' ? { tipo: 'intervalo', ini, fim, rot: 'intervalo · ' + faixaTxt(ini, fim) } : { tipo: 'aula', ini, fim, rot: ++n + 'ª' }; });
+      return { periodo: P.periodo, ini: Math.min(P.ini, linhas[0].ini), fim: Math.max(P.fim, linhas[linhas.length - 1].fim), nota: doP[0].nome, linhas };
+    }
+    const ini = Math.floor(Math.min(...doP.map(g => aulasDe(g)[0].ini)) / 30) * 30, fim = Math.ceil(Math.max(...doP.map(g => aulasDe(g).slice(-1)[0].fim)) / 30) * 30, linhas = [];
+    for (let m = ini; m < fim; m += 30) linhas.push({ tipo: 'faixa', ini: m, fim: m + 30 });
+    return { periodo: P.periodo, ini: Math.min(P.ini, ini), fim: Math.max(P.fim, fim), nota: 'faixas de 30 min (' + doP.map(g => g.nome).join(', ') + ')', linhas };
+  }).filter(Boolean);
 }
-// Depois de salvar um código sorteado: mostra o código uma vez, com a mensagem pronta para o professor
-function mostrarCodigoGerado(p, codigo) {
-  abrirModal(`Código de ${esc(p.nome)}`, `<p style="margin:0">Envie este código ao professor. Depois de fechar esta janela, ele não aparece mais (dá para redefinir).</p>
-    <div class="cod-gerado">${esc(codigo)}</div>`,
-    `<button class="btn" onclick="copiar(msgProf(PROF_COD, '${codigo}'))">Copiar mensagem</button><a class="btn prim" target="_blank" href="${esc(whatsProf(p, codigo))}">Enviar no WhatsApp</a><button class="btn" onclick="PROF_COD=null;fecharModal()">Fechar</button>`);
-  PROF_COD = p;
+const turmasDoPed = () => [...new Set([].concat(...PED.carga.filter(l => l.professor === PED.chave).map(l => l.turmas)))];
+function desenharDisp() {
+  if (!PED || !$('pDisp')) return;
+  PED.gradesDisp = gradesDoProf(PED.segmentos, turmasDoPed());
+  PED.turnos = turnosDisp(PED.gradesDisp);
+  $('pDisp').innerHTML = htmlDisp(D.dias, PED.turnos);
+  dispPintar();
 }
-let PROF_COD = null;
+// Resumo: horas livres, o que está marcado fora do quadro e as aulas que ficam bloqueadas em cada horário das aulas
+function resumoDisp() {
+  if (!PED || !$('pResumo')) return;
+  const tot = JANELA(), l = dispLista();
+  $('pResumo').innerHTML = `<b>${horasTxt(tot - minNaoPode(l))} livres de ${horasTxt(tot)} na semana.</b>`;
+  const fora = l.filter(x => !PED.turnos.some(t => x.ini < t.fim && t.ini < x.fim));
+  $('pFora').innerHTML = fora.length ? `<div class="aviso alerta" style="margin-bottom:10px">Também marcado, fora deste quadro: ${fora.map(x => esc(x.dia + ' ' + faixaTxt(x.ini, x.fim))).join(', ')}.
+    <button class="link" onclick="limparFora()">Limpar</button></div>` : '';
+  $('pBloq').innerHTML = PED.gradesDisp.map(g => {
+    const au = aulasDe(g); let n = 0;
+    const dias = D.dias.map(d => { const b = au.map((x, a) => dispCobre(d, x.ini, x.fim) ? a + 1 + 'ª' : '').filter(String); n += b.length; return b.length ? d + ' ' + (b.length === au.length ? '(todas)' : b.join(', ')) : ''; }).filter(String);
+    return `<div><b>${esc(g.nome)}</b>: ${n ? `${n} de ${au.length * D.dias.length} aulas · ${esc(dias.join(' · '))}` : '<span class="suave">nenhuma aula bloqueada</span>'}</div>`;
+  }).join('');
+}
+function limparFora() { dispLista().filter(x => !PED.turnos.some(t => x.ini < t.fim && t.ini < x.fim)).forEach(x => dispTirar(x.dia, x.ini, x.fim)); dispPintar(); }
+function copiarDisp(nome) {
+  const o = profPorNome(nome); if (!o) return;
+  if (confirm(`Copiar os horários em que ${nome} não pode? O que está marcado agora para ${nomeProfEd()} será trocado.`)) { dispDe(o.indisp); dispPintar(); toast(`Disponibilidade copiada de ${nome}.`); }
+  $('pCopiar').value = '';
+}
 function abaProf(a) {
   PED.aba = a;
   document.querySelectorAll('.abas-prof button').forEach(b => b.classList.toggle('on', b.dataset.a === a));
   document.querySelectorAll('[data-pane]').forEach(x => { x.hidden = x.dataset.pane !== a; if (!x.hidden) x.style.display = 'flex'; });
+  if (a === 'disp') desenharDisp();
   totalProf();
 }
 function substituirProfessor(nome) {   // abre a troca de professor já preenchida
@@ -646,7 +671,7 @@ function substituirProfessor(nome) {   // abre a troca de professor já preenchi
 }
 function desenharChips() {
   const chip = (txt, on, acao, v) => `<span class="chip ${on ? 'on' : ''}" data-v="${esc(v || txt)}" onclick="${acao}(this.dataset.v)">${esc(txt)}</span>`;
-  $('pSegs').innerHTML = Object.keys(D.series).map(s => chip(s === 'Extra' ? 'Contraturno' : s, PED.segmentos.includes(s), 'chipSeg', s)).join('');
+  $('pSegs').innerHTML = Object.keys(D.series).map(s => chip(s, PED.segmentos.includes(s), 'chipSeg', s)).join('');
   if (!PED.verMats) {
     $('pMats').innerHTML = `<div class="chips">${PED.materias.map(n => chip(n, true, 'chipMat')).join('')}<button class="btn mini" onclick="PED.verMats=true;desenharChips()">Mudar as matérias</button></div>`;
   } else {
@@ -655,7 +680,7 @@ function desenharChips() {
     const todasCurr = new Set(D.matriz.map(m => m.componente));
     const outras = nomes.filter(n => !curr.includes(n) && !todasCurr.has(n)), soltas = PED.materias.filter(m => !curr.includes(m) && !outras.includes(m));
     $('pMats').innerHTML = `<div class="peq suave" style="margin:2px 0 4px">Do currículo${series.length ? ' (segmentos marcados)' : ''}</div><div class="chips">${curr.map(n => chip(n, PED.materias.includes(n), 'chipMat')).join('')}</div>
-      <div class="peq suave" style="margin:10px 0 4px">Contraturno e outras</div><div class="chips">${outras.map(n => chip(n, PED.materias.includes(n), 'chipMat')).join('')}
+      <div class="peq suave" style="margin:10px 0 4px">Outras matérias</div><div class="chips">${outras.map(n => chip(n, PED.materias.includes(n), 'chipMat')).join('')}
       ${soltas.map(n => `<span class="chip on fora" title="Toque para tirar" data-v="${esc(n)}" onclick="chipMat(this.dataset.v)">${esc(n)}</span>`).join('')}</div>
       ${PED.materias.length ? '<div style="margin-top:10px"><button class="btn mini prim" onclick="PED.verMats=false;desenharChips()">Pronto</button></div>' : ''}`;
   }
@@ -668,15 +693,14 @@ function chipMat(v) { const l = PED.materias, i = l.indexOf(v); i >= 0 ? l.splic
 const ptLinha = (turma, m) => PED.carga.find(l => l.turmas.includes(turma) && l.disciplina === m);
 const naMatriz = m => D.matriz.some(x => x.componente === m);
 const nomeProfEd = () => ($('pNome') && $('pNome').value.trim()) || PED.antigo || 'este professor';
-const textoGrupo = g => g === 'Contraturno' ? 'em todos os grupos do contraturno' : /série/.test(g) ? 'em toda a ' + g : 'em todo o ' + g;
+const textoGrupo = g => /série/.test(g) ? 'em toda a ' + g : 'em todo o ' + g;
 function ptCandidatas(m) {   // turmas dos segmentos do professor que têm (ou podem ter) a matéria; as que já são dele aparecem sempre
   const eu = PED.chave;
   return turmasEmOrdem().filter(t => {
     const l = ptLinha(t.nome, m);
     if (l && l.professor === eu) return true;
     if (!PED.segmentos.includes(t.segmento)) return false;
-    if (t.segmento === 'Extra') return !naMatriz(m) || !!l;
-    return !!l || D.matriz.some(x => x.serie === t.serie && x.componente === m);
+    return !!l || D.matriz.some(x => x.serie === t.serie && x.componente === m) || (t.segmento === 'Extra' && !naMatriz(m));   // no Extra, também matérias fora de qualquer matriz
   });
 }
 function desenharTurmasProf() {
@@ -687,7 +711,7 @@ function desenharTurmasProf() {
   if (!PED.mats.length) { $('pTurmas').innerHTML = '<p class="peq suave" style="margin:0">Marque acima as matérias que o professor dá.</p>'; return totalProf(); }
   $('pTurmas').innerHTML = PED.mats.map((m, mi) => {
     const ts = ptCandidatas(m), aulas = minhas.filter(l => l.disciplina === m).reduce((x, l) => x + l.aulas, 0), grupos = PED.grupos[mi] = [];
-    ts.forEach(t => { const g = t.segmento === 'Extra' ? 'Contraturno' : t.serie || t.segmento; let x = grupos.find(y => y.g === g); if (!x) grupos.push(x = { g, ts: [] }); x.ts.push(t); });
+    ts.forEach(t => { const g = t.serie || t.segmento; let x = grupos.find(y => y.g === g); if (!x) grupos.push(x = { g, ts: [] }); x.ts.push(t); });
     const pq = PED.pergunta && PED.pergunta.mi === mi ? `<div class="pergunta"><span>${esc(PED.pergunta.texto)}</span><button class="btn mini prim" onclick="ptConfirmar()">Passar</button><button class="btn mini" onclick="PED.pergunta=null;desenharTurmasProf()">Cancelar</button></div>` : '';
     return `<div class="pt-mat"><div class="disp-tit"><h3>${esc(m)}</h3><span class="tag ${aulas ? 'neutra' : 'alerta'}">${aulas} ${aulas === 1 ? 'aula' : 'aulas'} por semana</span></div>
       ${!ts.length ? `<p class="peq suave" style="margin:0">Nenhuma turma dos segmentos marcados tem ${esc(m)} na matriz.</p>` : grupos.map((g, gi) => `<div class="pt-serie"><span class="pt-serie-nome">${esc(g.g)}</span>
@@ -714,7 +738,7 @@ function ptDar(m, turma) {
   let l = ptLinha(turma, m);
   if (!l) {
     const t = turmaDe(turma), mz = D.matriz.find(x => x.serie === t.serie && x.componente === m), n = mz ? mz.aulas : 1;
-    l = { turmas: [turma], disciplina: m, professor: '', aulas: n, duplas: 0, maxDia: Math.max(Math.ceil(n / 5), Math.min(n, 2)) };
+    l = { turmas: [turma], disciplina: m, professor: '', aulas: n, duplas: 0, maxDia: Math.max(Math.ceil(n / 5), Math.min(n, 2)), posicao: mz && mz.posicao || 0 };
     PED.carga.push(l);
     if (!mz) toast(`${m} entrou na ${turma} com 1 aula por semana. Para mudar, use a Conferência das turmas (botão ⋯).`);
   }
@@ -728,17 +752,24 @@ function ptGrupo(mi, gi) {   // "Dar Matemática em todo o 6º ano"
 }
 function ptConfirmar() { const q = PED.pergunta; q.linhas.forEach(l => l.professor = PED.chave); q.dar.forEach(([m, t]) => ptDar(m, t)); PED.pergunta = null; ptMudou(); }
 function ptMudou() { PED.mudouCarga = true; desenharTurmasProf(); }
-// Total do professor e se cabe nos horários em que ele pode (motivo em linguagem simples)
+// Total do professor e se cabe, de manhã e de tarde, nos horários em que ele pode (motivo em linguagem simples)
 function totalProf() {
   if (!PED || !$('pTotal')) return;
   const eu = PED.chave, minhas = PED.carga.filter(l => l.professor === eu), aulas = minhas.reduce((x, l) => x + l.aulas, 0);
   const maxDia = +($('pMax') && $('pMax').value) || 0, nome = nomeProfEd();
-  const D2 = Object.assign({}, D, { carga: minhas, professores: [{ nome: eu, maxDia, indisp: [...DISP] }], blocos: PED.blocos.map(b => Object.assign({}, b, { professor: eu })), fixas: [] });
-  const s = aulas ? Gerador.modelo(D2).sobrecarga[eu] : null, nT = new Set([].concat(...minhas.map(l => l.turmas))).size;
+  const D2 = Object.assign({}, D, { carga: minhas, professores: [{ nome: eu, maxDia, indisp: dispLista() }], blocos: PED.blocos.map(b => Object.assign({}, b, { professor: eu })), fixas: [] });
+  const M = aulas ? Gerador.modelo(D2) : null, s = M && M.sobrecarga[eu], caps = (M && M.capacidade[eu]) || [], ap = (M && M.apertado[eu]) || [];
+  const nT = new Set([].concat(...minhas.map(l => l.turmas))).size;
   $('pTotal').innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="tag ${aulas ? 'neutra' : 'alerta'}" style="font-size:14px;padding:5px 12px">${aulas} ${aulas === 1 ? 'aula' : 'aulas'} por semana</span>
-      <span class="peq suave">${nT ? `em ${nT} ${nT === 1 ? 'turma' : 'turmas'}` : 'nenhuma turma ainda'}</span>${PED.mudouCarga ? '<span class="tag alerta">não salvo</span>' : ''}</div>`
-    + (!s ? '' : `<div class="aviso erro">⚠ Não cabe: ${s.grade ? `são ${s.aulas} aulas no período ${esc(s.grade)}, mas, pelos horários em que ${esc(nome)} pode, só sobram ${s.livres} horários nesse período. Libere horários na aba “Horários em que não pode” ou tire turmas.`
-      : `são ${s.aulas} aulas na semana, mas o limite é de ${maxDia} por dia (${s.livres} na semana). Aumente o limite em “Mais dados” ou tire turmas.`}</div>`);
+      <span class="peq suave">${nT ? `em ${nT} ${nT === 1 ? 'turma' : 'turmas'}` : 'nenhuma turma ainda'}</span>${PED.mudouCarga ? '<span class="tag alerta">não salvo</span>' : ''}
+      ${caps.map(c => `<span class="tag ${c.aulas > c.cabem ? 'erro' : c.aulas > 0.9 * c.cabem ? 'alerta' : 'ok'}" title="Aulas de ${c.periodo} × horários possíveis de ${c.periodo}">${c.periodo[0].toUpperCase() + c.periodo.slice(1)}: ${c.aulas} de ${c.cabem}</span>`).join('')}</div>`
+    + (s ? `<div class="aviso erro">⚠ Não cabe: ${msgSobrecarga(nome, s, maxDia)}</div>`
+      : ap.length ? `<div class="aviso alerta">Apertado: ${ap.map(a => `${a.aulas} aulas de ${a.periodo} para ${a.cabem} horários possíveis`).join('; ')}. Qualquer horário a menos e deixa de caber.</div>` : '');
+}
+function msgSobrecarga(nome, s, maxDia) {
+  if (s.periodo) return `são ${s.aulas} aulas de ${s.periodo}, mas só cabem ${s.livres} nos horários de ${s.periodo} em que ${esc(nome)} pode (aulas de turmas com horários diferentes que se cruzam contam uma vez só). Passe algumas turmas para outro professor ou libere horários.`;
+  if (s.grade) return `são ${s.aulas} aulas no período ${esc(s.grade)}, mas, pelos horários em que ${esc(nome)} pode, só sobram ${s.livres} horários nesse período. Libere horários na aba “Horários em que não pode” ou tire turmas.`;
+  return `são ${s.aulas} aulas na semana, mas o limite é de ${maxDia} por dia (${s.livres} na semana). Aumente o limite em “Mais dados” ou tire turmas.`;
 }
 function desenharBlocos() {
   $('pBlocos').innerHTML = !PED.blocos.length ? '<p class="peq suave" style="margin:0">Complementação de carga horária, plantão de dúvidas… O professor fica ocupado nesse horário e o gerador não põe aula nele.</p>'
@@ -754,22 +785,14 @@ function desenharBlocos() {
 async function salvarProfessor() {
   const nome = $('pNome').value.trim();
   const dados = { nomeAntigo: PED.antigo, nome, completo: $('pCompleto').value, materias: PED.materias, segmentos: PED.segmentos,
-    maxDia: +$('pMax').value || '', tel: $('pTel').value, indisp: [...DISP], blocos: PED.blocos };
-  if (PED.codModo === 'editar' && PED.codigo) {
-    if (!/^\d{4}$/.test(PED.codigo)) return toast('O código precisa ter exatamente 4 números.', 'erro');
-    dados.codigo = PED.codigo;
-  }
-  const gerado = PED.gerado && dados.codigo;
+    maxDia: +$('pMax').value || '', tel: $('pTel').value, indisp: dispLista(), conferida: PED.conferida, blocos: PED.blocos };
   if (PED.mudouCarga) {
     if (!nome) return toast('Informe o nome curto do professor.', 'erro');
     dados.carga = PED.carga.map(l => Object.assign({}, l, { professor: l.professor === PED.chave ? nome : l.professor }));
     dados.cargaAntes = PED.cargaAntes;
   }
   const ped = PED; ped.mudouCarga = false;
-  if (await acao('salvarProfessor', dados, dados.carga ? 'Professor e turmas salvos.' : 'Professor salvo.')) {
-    PED = null; fecharModal();
-    if (gerado) mostrarCodigoGerado(profPorNome(nome) || { nome, tel: dados.tel, completo: dados.completo }, gerado);
-  }
+  if (await acao('salvarProfessor', dados, dados.carga ? 'Professor e turmas salvos.' : 'Professor salvo.')) { PED = null; fecharModal(); }
   else if (PED === ped) ped.mudouCarga = !!dados.carga;
 }
 async function excluirProfessor() {
@@ -784,40 +807,56 @@ function telaTurmas() {
     const ts = D.turmas.filter(t => seg ? t.segmento === seg : !D.series[t.segmento]); if (!ts.length) return '';
     return `<tr class="grupo-linha"><td colspan="5">${seg || 'Sem segmento'}</td></tr>` + ts.map(t => {
       const u = somaCarga(t.nome), cap = capacidade(t.nome), cls = t.segmento === 'Extra' ? (u > cap ? 'erro' : 'neutra') : u === cap ? 'ok' : u > cap ? 'erro' : 'alerta';
-      return `<tr class="clic" data-t="${esc(t.nome)}" onclick="editarTurma(this.dataset.t)"><td><b>${esc(t.nome)}</b></td><td data-r="Série">${esc(t.serie || '—')}</td><td data-r="Horário das aulas">${esc(t.grade || '—')}</td>
+      return `<tr class="clic" data-t="${esc(t.nome)}" onclick="editarTurma(this.dataset.t)"><td><div><b>${esc(t.nome)}</b>${t.semExtra ? ' <span class="tag neutra">sem Extra</span>' : ''}${(t.extraDe || []).length ? `<div class="peq suave">Extra da turma ${esc(t.extraDe.join(' + '))}</div>` : ''}</div></td><td data-r="${t.segmento === 'Extra' ? 'Tipo' : 'Série'}">${esc(t.serie || '—')}</td><td data-r="Horário das aulas">${esc(t.grade || '—')}</td>
         <td data-r="Aulas por semana"><span class="tag ${cls}">${u} de ${cap}</span></td><td data-r="Matérias" class="suave peq">${cargaDe(t.nome).length} matérias</td></tr>`;
     }).join('');
   }).join('');
   $('tela').innerHTML = cabecalho('Turmas', '<button class="btn prim" onclick="editarTurma()">+ Turma</button>')
     + `<div class="card">${linhas ? `<table class="tab cartao"><tr><th>Turma</th><th>Série</th><th>Horário das aulas</th><th title="Aulas atribuídas por semana / horários da semana">Aulas/semana</th><th></th></tr>${linhas}</table>` : '<p class="suave">Nenhuma turma. Clique em “+ Turma”.</p>'}
-      <p class="peq suave" style="margin:10px 0 0">Quem dá cada matéria se marca no cadastro de cada <button class="link" onclick="ir('professores')">professor</button>; para ver turma por turma, use a <button class="link" onclick="ir('conferencia')">Conferência das turmas</button>.</p></div>`;
+      <p class="peq suave" style="margin:10px 0 0">Cada turma da manhã ganha o seu Extra sozinha (com as matérias da matriz do Extra); se a turma for renomeada ou apagada, o Extra vai junto.
+        “Não tem Extra” e juntar o Extra de duas turmas ficam na Conferência das turmas, no “⋯ Mais” da turma.</p>
+      <p class="peq suave" style="margin:6px 0 0">Quem dá cada matéria se marca no cadastro de cada <button class="link" onclick="ir('professores')">professor</button>; para ver turma por turma, use a <button class="link" onclick="ir('conferencia')">Conferência das turmas</button>.</p></div>`;
 }
 function editarTurma(nome) {
   const t = nome ? turmaDe(nome) : { nome: '', segmento: 'EFAI', serie: '', grade: D.grades[0] ? D.grades[0].nome : '' };
   abrirModal(nome ? 'Editar turma' : 'Nova turma', `<div class="linha-campos">
       <label class="campo">Nome *<input id="tNome" value="${esc(t.nome)}" placeholder="Ex.: 6A"></label>
       <label class="campo">Segmento<select id="tSeg" onchange="seriesTurma()">${Object.keys(D.series).map(s => `<option ${s === t.segmento ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
-      <label class="campo">Série<select id="tSerie"></select></label>
+      <label class="campo"><span id="tSerieRot">Série</span><select id="tSerie" onchange="gradeDoTipo()"></select></label>
       <label class="campo">Horário das aulas<select id="tGrade">${D.grades.map(x => `<option ${x.nome === t.grade ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></label>
       ${nome ? '' : `<label class="campo">Copiar matérias e professores de<select id="tCopia"><option value="">—</option>${D.turmas.map(x => `<option>${esc(x.nome)}</option>`).join('')}</select></label>`}
-    </div>`, `${nome ? `<button class="btn perigo esq" data-t="${esc(nome)}" onclick="excluirTurma(this.dataset.t)">Excluir</button>` : ''}
+    </div>${nome ? infoExtra(t) : '<p class="peq suave" style="margin:0">Turma da manhã ganha o seu Extra automaticamente.</p>'}`, `${nome ? `<button class="btn perigo esq" data-t="${esc(nome)}" onclick="excluirTurma(this.dataset.t)">Excluir</button>` : ''}
       <button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" data-antigo="${esc(nome || '')}" onclick="salvarTurma(this.dataset.antigo)">Salvar</button>`);
   seriesTurma(t.serie);
 }
 function seriesTurma(atual) {
-  const l = D.series[$('tSeg').value] || [];
-  $('tSerie').innerHTML = l.length ? l.map(s => `<option ${s === atual ? 'selected' : ''}>${s}</option>`).join('') : '<option value="">— (contraturno)</option>';
-  $('tSerie').disabled = !l.length;
+  const seg = $('tSeg').value, l = D.series[seg] || [];
+  $('tSerieRot').textContent = seg === 'Extra' ? 'Tipo do Extra' : 'Série';
+  $('tSerie').innerHTML = l.map(s => `<option ${s === atual ? 'selected' : ''}>${s}</option>`).join('');
+  if (!atual) gradeDoTipo();
+}
+function gradeDoTipo() {   // Extra: o horário das aulas tem o nome do tipo ("Extra 1º ao 5º")
+  if ($('tSeg').value === 'Extra' && D.grades.some(g => g.nome === $('tSerie').value)) $('tGrade').value = $('tSerie').value;
+}
+function infoExtra(t) {
+  if (t.segmento === 'Extra') return (t.extraDe || []).length ? `<div class="aviso" style="background:var(--azul-claro);color:var(--marinho)">Extra da turma ${esc(t.extraDe.join(' + '))}, criado automaticamente. Se a turma for apagada, este Extra também sai.</div>` : '';
+  const x = extraDaTurma(t.nome);
+  if (t.semExtra) return '<p class="peq suave" style="margin:0">Marcada “não tem Extra” (mude na Conferência das turmas, em “⋯ Mais”).</p>';
+  return x ? `<p class="peq suave" style="margin:0">Extra desta turma: <b>${esc(x.nome)}</b>.</p>` : '';
 }
 async function salvarTurma(antigo) {
   if (AT && AT.sujo && !confirm('Há mudanças na Conferência das turmas que não foram salvas; elas serão descartadas. Continuar?')) return;
   const nome = $('tNome').value.trim(), copia = !antigo && $('tCopia').value;
-  if (!await acao('salvarTurma', { nomeAntigo: antigo, nome: nome, segmento: $('tSeg').value, serie: $('tSerie').value, grade: $('tGrade').value }, 'Turma salva.')) return;
+  const antes = new Set(D.turmas.map(t => t.nome));
+  if (!await acao('salvarTurma', { nomeAntigo: antigo, nome: nome, segmento: $('tSeg').value, serie: $('tSerie').value, grade: $('tGrade').value })) return;
+  const novos = D.turmas.filter(t => t.segmento === 'Extra' && !antes.has(t.nome) && t.nome !== nome).map(t => t.nome);
+  toast('Turma salva.' + (novos.length ? ' Criado: ' + novos.join(', ') + '.' : ''));
   fecharModal(); AT = null;
   if (copia) await acao('salvarCarga', { turma: nome, linhas: cargaDe(copia).map(c => ({ ...c, juntas: [] })) }, 'Matérias copiadas.');
 }
 async function excluirTurma(nome) {
-  if (!confirm(`Excluir a turma ${nome} e tudo dela (atribuições, aulas fixas e aulas na grade)? Em aulas de turmas juntas, só ${nome} sai.`)) return;
+  const x = extraDaTurma(nome);
+  if (!confirm(`Excluir a turma ${nome} e tudo dela (atribuições, aulas fixas e aulas na grade)? Em aulas de turmas juntas, só ${nome} sai.${x ? `\n\nO Extra dela (${x.nome}) também sai.` : ''}`)) return;
   if (await acao('excluirTurma', { nome }, 'Turma excluída.')) { fecharModal(); AT = null; }
 }
 
@@ -831,12 +870,12 @@ function iniciarAT(turma, aba) {
   const regs = turmasEmOrdem().filter(t => t.segmento !== 'Extra');
   AT.turma = turma && turmaDe(turma) ? turma : ((regs.find(t => !statusTurma(t.nome).ok) || regs[0] || D.turmas[0] || {}).nome || '');
 }
-function turmasEmOrdem() {
+function turmasEmOrdem() {   // por segmento e série; o Extra na ordem das turmas da manhã a que pertence
   const segs = Object.keys(D.series), r = [];
   segs.concat(['']).forEach(seg => {
-    const series = D.series[seg] || [];
+    const series = D.series[seg] || [], pos = t => (t.extraDe || []).length ? r.findIndex(x => x.nome === t.extraDe[0]) : 9999;
     D.turmas.filter(t => seg ? t.segmento === seg : !segs.includes(t.segmento))
-      .sort((a, b) => series.indexOf(a.serie) - series.indexOf(b.serie) || a.nome.localeCompare(b.nome, 'pt', { numeric: true })).forEach(t => r.push(t));
+      .sort((a, b) => series.indexOf(a.serie) - series.indexOf(b.serie) || (seg === 'Extra' ? pos(a) - pos(b) : 0) || a.nome.localeCompare(b.nome, 'pt', { numeric: true })).forEach(t => r.push(t));
   });
   return r;
 }
@@ -844,7 +883,7 @@ const atCarga = turma => cargaAtual().filter(l => l.turmas.includes(turma));
 const atModelo = () => Gerador.modelo(Object.assign({}, D, { carga: AT.carga }));
 const irmasDe = t => t.serie ? D.turmas.filter(x => x.serie === t.serie && x.segmento === t.segmento && x.nome !== t.nome) : [];
 const faltaMatriz = t => D.matriz.filter(m => m.serie === t.serie && !atCarga(t.nome).some(l => l.disciplina === m.componente));
-// com/total = matérias com professor; ok = todas com professor e a semana completa (contraturno: não precisa completar)
+// com/total = matérias com professor; ok = todas com professor e a semana completa (Extra: pode sobrar horário)
 function statusTurma(nome) {
   const t = turmaDe(nome), ls = atCarga(nome), falta = faltaMatriz(t).length;
   const com = ls.filter(l => l.professor).length, total = ls.length + falta, aulas = ls.reduce((s, l) => s + l.aulas, 0), cap = capacidade(nome);
@@ -852,11 +891,13 @@ function statusTurma(nome) {
 }
 function telaConferencia() {
   if (!AT || (!AT.sujo && AT.base !== D.carga)) iniciarAT(AT && AT.turma, AT && AT.aba);   // algo mudou em outra tela: recomeça da versão salva
+  const temExtra = D.turmas.some(t => t.segmento === 'Extra');
   $('tela').innerHTML = cabecalho('Conferência das turmas')
     + `<div class="card"><div class="abas"><button class="btn mini ${AT.aba === 'turma' ? 'on' : ''}" onclick="AT.aba='turma';redesenharAT()">Por turma</button>
-        <button class="btn mini ${AT.aba === 'prof' ? 'on' : ''}" onclick="AT.aba='prof';redesenharAT()">Por professor</button></div><div id="atCorpo"></div>
+        <button class="btn mini ${AT.aba === 'prof' ? 'on' : ''}" onclick="AT.aba='prof';redesenharAT()">Por professor</button>
+        ${temExtra ? `<button class="btn mini ${AT.aba === 'equipe' ? 'on' : ''}" onclick="AT.aba='equipe';redesenharAT()">Equipe do Extra</button>` : ''}</div><div id="atCorpo"></div>
       ${AT.sujo ? `<div class="barra-salvar"><span>Há mudanças não salvas</span><button class="btn" onclick="AT=null;telaConferencia()">Descartar</button><button class="btn prim" onclick="salvarAtribuicoes()">Salvar</button></div>` : ''}</div>`;
-  AT.aba === 'prof' ? atPorProfessor() : atPorTurma();
+  AT.aba === 'prof' ? atPorProfessor() : AT.aba === 'equipe' ? atEquipe() : atPorTurma();
 }
 function redesenharAT() { const y = window.scrollY; telaConferencia(); window.scrollTo(0, y); }
 function atSujo() { AT.sujo = true; }
@@ -877,7 +918,7 @@ function atPorTurma() {
     h += `<div class="at-seg"><span class="at-seg-nome">${seg}</span><div class="at-chips">${chips(ts)}</div></div>`;
   });
   h += '</div>';
-  if (extras.length) h += `<details class="conf-extra" ${atual && atual.segmento === 'Extra' ? 'open' : ''}><summary>Contraturno · ${okX} de ${extras.length} grupos com professor em tudo</summary>
+  if (extras.length) h += `<details class="conf-extra" ${atual && atual.segmento === 'Extra' ? 'open' : ''}><summary>Extra · ${okX} de ${extras.length} com professor em tudo</summary>
     <div class="at-chips" style="margin-top:6px">${chips(extras)}</div></details>`;
   $('atCorpo').innerHTML = h + (atual ? painelTurma(AT.turma, M) : '<p class="suave">Nenhuma turma cadastrada.</p>');
 }
@@ -887,15 +928,14 @@ function painelTurma(nome, M) {
   const idx = AT.carga.map((_, i) => i).filter(i => AT.carga[i].turmas.includes(nome))
     .sort((a, b) => { const x = ordem.indexOf(AT.carga[a].disciplina), y = ordem.indexOf(AT.carga[b].disciplina); return (x < 0 ? 999 : x) - (y < 0 ? 999 : y) || AT.carga[a].disciplina.localeCompare(AT.carga[b].disciplina, 'pt'); });
   const sem = idx.filter(i => !AT.carga[i].professor), com = idx.filter(i => AT.carga[i].professor), faltam = faltaMatriz(t);
-  const semana = seg === 'Extra' ? `<span class="tag neutra">${st.aulas} ${st.aulas === 1 ? 'aula' : 'aulas'} por semana</span>`
-    : `<span class="tag ${st.aulas === st.cap ? 'ok' : 'alerta'}">${st.aulas} de ${st.cap} aulas por semana</span>${st.aulas < st.cap ? ` <span class="peq suave">faltam ${st.cap - st.aulas}</span>` : st.aulas > st.cap ? ` <span class="peq" style="color:var(--erro)">${st.aulas - st.cap} a mais do que cabe</span>` : ''}`;
+  const semana = `<span class="tag ${st.aulas === st.cap ? 'ok' : 'alerta'}">${st.aulas} de ${st.cap} aulas por semana</span>${st.aulas < st.cap ? ` <span class="peq suave">faltam ${st.cap - st.aulas}</span>` : st.aulas > st.cap ? ` <span class="peq" style="color:var(--erro)">${st.aulas - st.cap} a mais do que cabe</span>` : ''}`;
   const linha = i => {
     const l = AT.carga[i], outras = l.turmas.filter(x => x !== nome), sob = l.professor && M.sobrecarga[l.professor];
-    const mz = (D.matriz.find(m => m.serie === t.serie && m.componente === l.disciplina) || {}).aulas;
+    const mzl = D.matriz.find(m => m.serie === t.serie && m.componente === l.disciplina) || {}, mz = mzl.aulas;
     const difere = l.professor && i === AT.ultimo ? irmas.filter(x => { const y = AT.carga.find(c => c.turmas.includes(x.nome) && c.disciplina === l.disciplina); return y && !y.turmas.includes(nome) && y.professor !== l.professor; }) : [];
     return `<tr class="${!l.professor ? 'semprof' : sob ? 'sobre' : ''}">
-      <td><div><b>${esc(l.disciplina)}</b>${outras.length ? `<div class="peq suave">🔗 junto com ${esc(outras.join(', '))}</div>` : ''}${l.duplas ? `<div class="peq suave">${l.duplas} aula(s) dupla(s)</div>` : ''}</div></td>
-      <td data-r="Aulas por semana"><div>${l.aulas}${mz && mz !== l.aulas ? `<span class="so-aqui">só nesta turma (a matriz pede ${mz})</span>` : !mz && seg !== 'Extra' ? '<span class="so-aqui">fora da matriz</span>' : ''}</div></td>
+      <td><div><b>${esc(l.disciplina)}</b>${outras.length ? `<div class="peq suave">🔗 junto com ${esc(outras.join(', '))}</div>` : ''}${l.duplas ? `<div class="peq suave">${l.duplas} aula(s) dupla(s)</div>` : ''}${l.posicao ? `<div class="peq suave">📌 sempre na ${l.posicao}ª aula do dia</div>` : ''}${mz && (mzl.posicao || 0) !== (l.posicao || 0) ? `<span class="so-aqui">${mzl.posicao ? `a matriz pede sempre na ${mzl.posicao}ª aula` : 'só nesta turma'}</span>` : ''}</div></td>
+      <td data-r="Aulas por semana"><div>${l.aulas}${mz && mz !== l.aulas ? `<span class="so-aqui">só nesta turma (a matriz pede ${mz})</span>` : !mz ? '<span class="so-aqui">fora da matriz</span>' : ''}</div></td>
       <td data-r="Professor"><div style="flex:1;min-width:0;text-align:left"><select onchange="atProf(${i},this.value)">${opcoesProf(listasProf(l.disciplina, seg), l.disciplina, seg, l.professor)}</select>
         ${sob ? `<div class="peq" style="color:var(--erro)">⚠ ${esc(l.professor)} fica com ${sob.aulas} aulas, mas só tem ${sob.livres} horários livres.</div>` : ''}
         ${difere.length ? `<button class="link peq" onclick="atSerie(${i})">Usar ${esc(l.professor)} também ${difere.length === 1 ? 'na' : 'nas turmas'} ${esc(difere.map(x => x.nome).join(', '))}</button>` : ''}</div></td>
@@ -906,7 +946,7 @@ function painelTurma(nome, M) {
   const grupo = rot => `<tr class="grupo-linha"><td colspan="4">${rot}</td></tr>`;
   const nSem = sem.length + faltam.length;
   return `<div class="at-painel"><div class="cab-tela" style="margin:16px 0 10px">
-      <div><h2>${esc(nome)} <span class="peq suave">· ${esc(t.serie || 'contraturno')} · ${esc(t.grade)}</span></h2><div style="margin-top:4px">${semana}</div></div>
+      <div><h2>${esc(nome)} <span class="peq suave">· ${esc(t.serie || '—')}${t.grade !== t.serie ? ' · ' + esc(t.grade) : ''}${(t.extraDe || []).length ? ' · Extra da turma ' + esc(t.extraDe.join(' + ')) : ''}</span></h2><div style="margin-top:4px">${semana}</div></div>
       <div class="acoes"><button class="btn" onclick="atCopiar()">Copiar professores de outra turma</button><button class="btn" title="Mais opções da turma" onclick="atMaisTurma()">⋯ Mais</button></div></div>
     ${idx.length || faltam.length ? `<table class="tab at-lista cartao"><tr><th>Matéria</th><th>Aulas por semana</th><th>Professor</th><th></th></tr>
       ${nSem ? grupo(`⚠ Sem professor (${nSem})`) + faltam.map(falta).join('') + sem.map(linha).join('') : ''}
@@ -923,7 +963,7 @@ function listasProf(comp, seg) {
 }
 function opcoesProf(L, comp, seg, atual, vazio) {
   const o = n => `<option ${n === atual ? 'selected' : ''}>${esc(n)}</option>`;
-  return `<option value="">${vazio || '— a definir —'}</option>` + (L.pref.length ? `<optgroup label="Dão ${esc(sigla(comp))}${seg ? ' no ' + esc(seg === 'Extra' ? 'contraturno' : seg) : ''}">${L.pref.map(o).join('')}</optgroup>` : '')
+  return `<option value="">${vazio || '— a definir —'}</option>` + (L.pref.length ? `<optgroup label="Dão ${esc(sigla(comp))}${seg ? ' no ' + esc(seg) : ''}">${L.pref.map(o).join('')}</optgroup>` : '')
     + `<optgroup label="Outros professores">${L.outros.map(o).join('')}</optgroup>`;
 }
 function atProf(i, v) { AT.carga[i].professor = v; AT.ultimo = i; atSujo(); redesenharAT(); }   // "ultimo": mostra o atalho para a série nessa linha
@@ -934,11 +974,11 @@ function atSerie(i) {   // mesmo professor nas outras turmas da série
 }
 function atAdicionar(comp, prof) {   // matéria da matriz que faltava na turma: entra já com o professor escolhido
   if (!prof) return;
-  const t = turmaDe(AT.turma), n = (D.matriz.find(m => m.serie === t.serie && m.componente === comp) || {}).aulas || 1;
-  AT.carga.push({ turmas: [AT.turma], disciplina: comp, professor: prof, aulas: n, duplas: 0, maxDia: Math.max(Math.ceil(n / 5), Math.min(n, 2)) });
+  const t = turmaDe(AT.turma), mz = D.matriz.find(m => m.serie === t.serie && m.componente === comp) || {}, n = mz.aulas || 1;
+  AT.carga.push({ turmas: [AT.turma], disciplina: comp, professor: prof, aulas: n, duplas: 0, maxDia: Math.max(Math.ceil(n / 5), Math.min(n, 2)), posicao: mz.posicao || 0 });
   atSujo(); redesenharAT();
 }
-// "⋯" da linha: outra quantidade só nesta turma, aula dupla, máximo no dia, turmas juntas, tirar a matéria
+// "⋯" da linha: outra quantidade só nesta turma, aula dupla, máximo no dia, sempre na Xª aula, turmas juntas, tirar a matéria
 function atMais(i) {
   const turma = AT.turma, t = turmaDe(turma), l = AT.carga[i], mz = (D.matriz.find(m => m.serie === t.serie && m.componente === l.disciplina) || {}).aulas;
   AT.ed = { i, turma, linha: clone(l) };
@@ -948,7 +988,8 @@ function atMais(i) {
       <label class="campo">Aulas por semana nesta turma<input id="adAulas" type="number" min="1" max="20" value="${l.aulas}">
         <span style="font-weight:400">${mz ? `A matriz do ${esc(t.serie)} pede ${mz}. Mude só se esta turma for exceção.` : 'Esta matéria não está na matriz desta série.'}</span></label>
       <label class="campo" title="Duas aulas seguidas, sem intervalo no meio">Aulas duplas por semana<input id="adDuplas" type="number" min="0" value="${l.duplas || 0}"></label>
-      <label class="campo">Máximo de aulas no mesmo dia<input id="adMax" type="number" min="1" value="${l.maxDia || 2}"></label></div>
+      <label class="campo">Máximo de aulas no mesmo dia<input id="adMax" type="number" min="1" value="${l.maxDia || 2}"></label>
+      <label class="campo" title="Regra obrigatória do gerador: uma por dia, sempre nessa aula">Sempre na aula do dia<select id="adPos" style="max-width:160px"><option value="0">— qualquer uma —</option>${aulasTurma(turma).map((x, a) => `<option value="${a + 1}" ${l.posicao === a + 1 ? 'selected' : ''}>${a + 1}ª · ${faixaTxt(x.ini, x.fim)}</option>`).join('')}</select></label></div>
     <div><div class="campo" style="margin-bottom:6px">Turmas juntas (mesmo horário e mesmo professor)</div>
       <div class="sub-linhas">${mesmas.map(x => `<label><input type="checkbox" class="adJ" value="${esc(x.nome)}" ${l.turmas.includes(x.nome) ? 'checked' : ''}>${esc(x.nome)}</label>`).join('') || '<span class="suave peq">Nenhuma outra turma com o mesmo horário das aulas.</span>'}</div></div>`,
     `<button class="btn perigo esq" onclick="atTirar()">Tirar ${esc(l.disciplina)} de ${esc(turma)}</button><button class="btn" onclick="fecharModal()">Cancelar</button><button class="btn prim" onclick="atOkMais()">Ok</button>`);
@@ -956,8 +997,10 @@ function atMais(i) {
 function atOkMais() {
   const e = AT.ed, l = e.linha, antes = AT.carga[e.i].turmas, n = Math.round(+$('adAulas').value);
   if (!(n > 0)) return toast('Informe as aulas por semana.', 'erro');
-  l.aulas = n; l.duplas = +$('adDuplas').value || 0; l.maxDia = +$('adMax').value || 2;
+  l.aulas = n; l.duplas = +$('adDuplas').value || 0; l.maxDia = +$('adMax').value || 2; l.posicao = +$('adPos').value || 0;
   if (l.duplas * 2 > l.aulas) return toast(`Aulas duplas demais para ${l.aulas} aulas por semana.`, 'erro');
+  if (l.posicao && l.duplas) return toast(`Aula dupla não combina com “sempre na ${l.posicao}ª aula”.`, 'erro');
+  if (l.posicao && l.aulas > D.dias.length) return toast(`${l.aulas} aulas não cabem sempre na ${l.posicao}ª aula (uma por dia).`, 'erro');
   if (l.duplas && l.maxDia < 2) return toast('Com aula dupla, o máximo no mesmo dia precisa ser pelo menos 2.', 'erro');
   if (l.maxDia * D.dias.length < l.aulas) l.maxDia = Math.ceil(l.aulas / D.dias.length);
   l.turmas = [e.turma].concat([...document.querySelectorAll('.adJ:checked')].map(x => x.value));
@@ -977,12 +1020,43 @@ function atTirar() {
   l.turmas = l.turmas.filter(t => t !== e.turma); AT.carga = AT.carga.filter(x => x.turmas.length);
   fecharModal(); atSujo(); redesenharAT();
 }
-function atMaisTurma() {   // "⋯ Mais" da turma
+function atMaisTurma() {   // "⋯ Mais" da turma: + matéria, copiar professores e o Extra (não tem Extra, juntar, separar)
+  const t = turmaDe(AT.turma), ex = t.segmento === 'Extra' ? t : extraDaTurma(t.nome), manha = !!D.tipoExtra[t.segmento] && gradeManha(t.grade);
+  let extra = '';
+  if (t.segmento !== 'Extra' && manha) extra += t.semExtra ? `<button class="btn" onclick="atExtraTem(true)">Esta turma tem Extra (criar o Extra de ${esc(t.nome)})</button>`
+    : `<button class="btn" onclick="atExtraTem(false)">Esta turma não tem Extra${ex ? ` (apaga ${esc(ex.nome)})` : ''}</button>`;
+  if (ex) {
+    const juntos = extrasJuntos(ex.nome), outros = D.turmas.filter(x => x.segmento === 'Extra' && x.nome !== ex.nome && x.grade === ex.grade && !juntos.includes(x.nome));
+    if (outros.length) extra += `<div><div class="campo" style="margin-bottom:6px">Juntar ${esc(ex.nome)} com o Extra de outra turma (mesmo horário e mesmo professor em cada matéria)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><select id="atJunta" style="flex:1;min-width:160px">${outros.map(x => `<option value="${esc(x.nome)}">${esc(x.nome)}</option>`).join('')}</select>
+      <button class="btn" data-x="${esc(ex.nome)}" onclick="atJuntarExtra(this.dataset.x)">Juntar</button></div></div>`;
+    if (juntos.length) extra += `<button class="btn" data-x="${esc(ex.nome)}" onclick="atSepararExtra(this.dataset.x)">Separar ${esc(ex.nome)} de ${esc(juntos.join(', '))}</button>`;
+  }
   abrirModal(`Mais opções · ${esc(AT.turma)}`, `<div style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn" onclick="atNovaMateria()">+ Matéria nesta turma (fora da matriz, como contraturno ou projeto)</button>
+      <button class="btn" onclick="atNovaMateria()">+ Matéria nesta turma (fora da matriz, como um projeto)</button>
       <button class="btn" onclick="atCopiar()">Copiar professores de outra turma</button></div>
+    ${extra ? `<div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--borda);padding-top:12px"><h3>Extra</h3>${extra}</div>` : ''}
     <p class="peq suave" style="margin:0">Para mudar as aulas por semana de uma matéria só nesta turma, use o “⋯” da linha da matéria.</p>`,
     '<button class="btn" onclick="fecharModal()">Fechar</button>');
+}
+// Ações do Extra gravam na hora (precisam das atribuições salvas)
+function atExtraOk() { if (AT && AT.sujo) { toast('Salve ou descarte as mudanças desta tela antes.', 'erro'); return false; } return true; }
+async function atExtraTem(tem) {
+  if (!atExtraOk()) return;
+  const t = AT.turma, ex = extraDaTurma(t);
+  if (!tem && ex && !confirm(`A turma ${t} não tem Extra? ${ex.nome} e as atribuições dele serão apagados.`)) return;
+  fecharModal();
+  await acao('extraTurma', { turma: t, tem }, tem ? `Extra de ${t} criado (matérias da matriz, sem professor).` : `${t} ficou sem Extra.`);
+}
+async function atJuntarExtra(x) {
+  if (!atExtraOk()) return;
+  const com = $('atJunta').value; fecharModal();
+  if (await acao('juntarExtra', { turma: x, com }, `${x} e ${com} juntos: mesmo horário e mesmo professor.`)) { AT = null; irConf(x); }
+}
+async function atSepararExtra(x) {
+  if (!atExtraOk() || !confirm(`Separar ${x} dos outros Extras? Cada um fica com as próprias aulas (com os mesmos professores).`)) return;
+  fecharModal();
+  if (await acao('separarExtra', { turma: x }, `${x} separado.`)) { AT = null; irConf(x); }
 }
 function atCopiar() {
   const t = turmaDe(AT.turma), irmas = irmasDe(t).map(x => x.nome), outras = turmasEmOrdem().map(x => x.nome).filter(n => n !== t.nome && !irmas.includes(n));
@@ -1020,7 +1094,7 @@ function anOk() {
   if (!(aulas > 0)) return toast('Informe as aulas por semana.', 'erro');
   const ja = ts.filter(t => AT.carga.some(l => l.turmas.includes(t) && l.disciplina === comp));
   if (ja.length) return toast(`${ja.join(', ')} já ${ja.length > 1 ? 'têm' : 'tem'} ${comp}.`, 'erro');
-  AT.carga.push({ turmas: ts, disciplina: comp, professor: prof, aulas, duplas: 0, maxDia: Math.max(Math.ceil(aulas / 5), Math.min(aulas, 2)) });
+  AT.carga.push({ turmas: ts, disciplina: comp, professor: prof, aulas, duplas: 0, maxDia: Math.max(Math.ceil(aulas / 5), Math.min(aulas, 2)), posicao: 0 });
   fecharModal(); atSujo(); redesenharAT();
 }
 // Visão secundária: o que cada professor dá
@@ -1041,15 +1115,67 @@ async function salvarAtribuicoes() {
   const aba = AT.aba, turma = AT.turma;
   if (await acao('salvarAtribuicoes', { carga: AT.carga, antes: D.carga }, 'Mudanças salvas.')) { iniciarAT(turma, aba); telaConferencia(); }
 }
+// ---------- Equipe do Extra ----------
+// Em cada horário do Extra, cada turma (ou grupo de turmas juntas) precisa de uma pessoa dando aula ao mesmo tempo.
+// "há" = pessoas com aulas no Extra que estão disponíveis naquele horário (sem "não pode" nem horário reservado).
+// Por matéria: o mínimo de pessoas ao mesmo tempo (aulas da semana ÷ horários em que a matéria pode estar) × pessoas cadastradas.
+// Também aponta quem dá Extra e tem aula regular à tarde no mesmo horário.
+function equipeExtra(carga) {
+  const extras = D.turmas.filter(t => t.segmento === 'Extra'); if (!extras.length) return null;
+  const gradeT = n => (turmaDe(n) || {}).grade, X = carga.filter(l => l.turmas.some(ehExtra));
+  const sig = {};   // turmas com exatamente as mesmas linhas (turmas juntas em tudo) contam como um grupo
+  extras.forEach(t => { const k = t.grade + '#' + X.map((l, i) => l.turmas.includes(t.nome) ? i : -1).filter(i => i >= 0).join(','); (sig[k] = sig[k] || { grade: t.grade, turmas: [] }).turmas.push(t.nome); });
+  const grupos = Object.values(sig), pessoas = [...new Set(X.map(l => l.professor).filter(Boolean))];
+  const gradesX = [...new Set(extras.map(t => t.grade))].map(gradeDe).filter(Boolean);
+  const cortes = [...new Set([].concat(...gradesX.map(g => [].concat(...aulasDe(g).map(x => [x.ini, x.fim])))))].sort((a, b) => a - b);
+  const livre = (n, d, ini, fim) => { const p = profPorNome(n), dia = D.dias[d];
+    return !!p && !(p.indisp || []).some(x => x.dia === dia && x.ini < fim && ini < x.fim) && !D.blocos.some(b => b.professor === n && b.dia === dia && minutos(b.ini) < fim && ini < minutos(b.fim)); };
+  const horarios = [];
+  for (let i = 0; i + 1 < cortes.length; i++) {
+    const ini = cortes[i], fim = cortes[i + 1], gs = grupos.filter(g => aulasDe(gradeDe(g.grade)).some(x => x.ini < fim && ini < x.fim));
+    if (gs.length) horarios.push({ ini, fim, precisa: gs.length, turmas: gs.reduce((s, g) => s + g.turmas.length, 0), ha: D.dias.map((_, d) => pessoas.filter(n => livre(n, d, ini, fim)).length) });
+  }
+  const porMat = {};
+  X.forEach(l => { const g = gradeT(l.turmas[0]), k = g + '|' + l.disciplina + '|' + (l.posicao || 0), x = porMat[k] = porMat[k] || { grade: g, disciplina: l.disciplina, posicao: l.posicao || 0, aulas: 0, pessoas: new Set(), semProf: 0 };
+    x.aulas += l.aulas; l.professor ? x.pessoas.add(l.professor) : x.semProf++; });
+  const materias = Object.values(porMat).map(x => {
+    const au = aulasDe(gradeDe(x.grade)), fixas = new Set(X.filter(l => l.posicao && gradeT(l.turmas[0]) === x.grade).map(l => l.posicao)), a = au[x.posicao - 1];
+    const vagas = x.posicao ? D.dias.length : Math.max(1, au.length - fixas.size) * D.dias.length;
+    return Object.assign(x, { precisa: Math.ceil(x.aulas / vagas), ha: x.pessoas.size, quando: x.posicao && a ? `sempre na ${x.posicao}ª aula (${faixaH(a.ini, a.fim)})` : '' });
+  }).sort((a, b) => a.grade.localeCompare(b.grade) || (b.precisa - b.ha) - (a.precisa - a.ha) || a.disciplina.localeCompare(b.disciplina, 'pt'));
+  const choques = [];
+  pessoas.forEach(n => {
+    const tx = [...new Set(X.filter(l => l.professor === n).map(l => gradeT(l.turmas[0])))].flatMap(g => aulasDe(gradeDe(g)));
+    const gr = [...new Set(carga.filter(l => l.professor === n && !l.turmas.some(ehExtra)).map(l => gradeT(l.turmas[0])))].filter(g => aulasDe(gradeDe(g)).some(x => tx.some(y => x.ini < y.fim && y.ini < x.fim)));
+    if (gr.length) choques.push({ professor: n, grades: gr });
+  });
+  return { grupos, horarios, materias, pessoas, choques };
+}
+function atEquipe() {
+  const E = equipeExtra(AT.carga);
+  if (!E) { $('atCorpo').innerHTML = '<p class="suave">Nenhuma turma de Extra.</p>'; return; }
+  const juntas = E.grupos.some(g => g.turmas.length > 1);
+  $('atCorpo').innerHTML = `<p class="peq suave" style="margin:0 0 10px">Em cada horário do Extra, cada turma${juntas ? ' (ou grupo de turmas juntas)' : ''} precisa de uma pessoa dando aula ao mesmo tempo.
+      O número (“há”) = pessoas com aulas no Extra disponíveis nesse horário; vermelho = falta gente. ${E.pessoas.length} ${E.pessoas.length === 1 ? 'pessoa tem' : 'pessoas têm'} aulas no Extra.</p>
+    <table class="equipe"><tr><th class="h">Horário</th>${D.dias.map(d => `<th>${d}</th>`).join('')}</tr>
+    ${E.horarios.map(h => `<tr><th class="h">${faixaH(h.ini, h.fim)}<small>${h.turmas} ${h.turmas === 1 ? 'turma' : 'turmas'}${h.turmas !== h.precisa ? ` (${h.precisa} grupos)` : ''} → precisa de ${h.precisa}</small></th>
+      ${h.ha.map((n, d) => `<td class="${n < h.precisa ? 'falta' : 'ok'}" title="${D.dias[d]} ${faixaH(h.ini, h.fim)}: precisa de ${h.precisa} pessoas; há ${n}"><span class="so-pc">há </span>${n}</td>`).join('')}</tr>`).join('')}</table>
+    <h3 style="margin:16px 0 6px">Por matéria</h3>
+    <table class="tab cartao equipe-mat"><tr><th>Matéria</th><th>Horário das aulas</th><th>Pessoas ao mesmo tempo</th><th>Cadastradas</th></tr>${E.materias.map(x => `<tr class="${x.semProf ? 'semprof' : x.ha < x.precisa ? 'sobre' : ''}">
+      <td><div><b>${esc(x.disciplina)}</b>${x.quando ? `<div class="peq suave">${esc(x.quando)}</div>` : ''}</div></td><td data-r="Horário das aulas">${esc(x.grade)}</td>
+      <td data-r="Precisa de">${x.precisa}</td><td data-r="Há"><div>${x.ha}${x.ha ? ` <span class="peq suave">(${esc([...x.pessoas].join(', '))})</span>` : ''}${x.semProf ? `<div class="peq" style="color:var(--alerta)">${x.semProf} sem professor</div>` : ''}</div></td></tr>`).join('')}</table>
+    ${E.choques.length ? `<div class="aviso alerta" style="margin-top:12px">Dão aula no Extra e também têm aulas regulares à tarde no mesmo horário: ${E.choques.map(c => `<b>${esc(c.professor)}</b> (${esc(c.grades.join(', '))})`).join(', ')}. O gerador não deixa as aulas baterem, mas sobra menos gente para o Extra.</div>` : ''}
+    <p class="peq suave" style="margin:10px 0 0">Quem dá cada matéria do Extra se marca no cadastro do professor (segmento Extra) ou turma por turma, na aba “Por turma”. O rodízio de cada turma sai do gerador.</p>`;
+}
 
 // ================= Matriz curricular =================
-const SEGS_MATRIZ = ['EFAI', 'EFAF', 'EM'];
+const SEGS_MATRIZ = ['EFAI', 'EFAF', 'EM', 'Extra'];   // no Extra, as "séries" são os tipos de Extra e dá para fixar a aula do dia
 let MZ = null;
 function iniciarMZ(aba) {
-  const m = {}, ordem = {};
-  D.matriz.forEach(x => (m[x.serie] = m[x.serie] || {})[x.componente] = x.aulas);
+  const m = {}, pos = {}, ordem = {};
+  D.matriz.forEach(x => { (m[x.serie] = m[x.serie] || {})[x.componente] = x.aulas; if (x.posicao) (pos[x.serie] = pos[x.serie] || {})[x.componente] = x.posicao; });
   SEGS_MATRIZ.forEach(seg => { ordem[seg] = []; D.matriz.forEach(x => { if (D.series[seg].includes(x.serie) && !ordem[seg].includes(x.componente)) ordem[seg].push(x.componente); }); });
-  MZ = { aba: aba || 'EFAI', m, ordem, comps: D.componentes.map(c => ({ nome: c.nome, nomeAntigo: c.nome, sigla: c.sigla, apelidos: c.apelidos.join('; ') })), sujo: false };
+  MZ = { aba: aba || 'EFAI', m, pos, ordem, comps: D.componentes.map(c => ({ nome: c.nome, nomeAntigo: c.nome, sigla: c.sigla, apelidos: c.apelidos.join('; ') })), sujo: false };
 }
 function mzSujo() { MZ.sujo = true; $('mzSalvar').disabled = $('mzDesc').disabled = false; }
 const mzComp = nome => MZ.comps.find(c => c.nome === nome);
@@ -1068,17 +1194,23 @@ function tabelaMatriz(seg) {
   $('mzCorpo').innerHTML = `<table class="tab mz"><tr><th>Matéria</th><th>Sigla</th>${series.map(s => `<th>${s}</th>`).join('')}<th></th></tr>
     ${comps.map((nome, i) => `<tr><td><input list="mzLista" value="${esc(nome)}" data-seg="${seg}" data-i="${i}" onchange="mzTrocarLinha(this)"></td>
       <td><input value="${esc((mzComp(nome) || {}).sigla || '')}" data-c="${esc(nome)}" oninput="mzSigla(this)" style="max-width:110px"></td>
-      ${series.map(s => `<td><input type="number" min="0" max="40" value="${(MZ.m[s] || {})[nome] || ''}" data-s="${s}" data-c="${esc(nome)}" oninput="mzValor(this)"></td>`).join('')}
+      ${series.map(s => `<td><input type="number" min="0" max="40" value="${(MZ.m[s] || {})[nome] || ''}" data-s="${s}" data-c="${esc(nome)}" oninput="mzValor(this)">${seg === 'Extra' ? mzPosSel(s, nome) : ''}</td>`).join('')}
       <td><button class="link" style="color:var(--erro)" data-seg="${seg}" data-i="${i}" onclick="mzRemover(this)">✕</button></td></tr>`).join('')}
     <tr class="total"><td>Total</td><td></td>${series.map((s, j) => `<td id="mzT${j}"></td>`).join('')}<td></td></tr></table>
     <datalist id="mzLista">${MZ.comps.map(c => `<option value="${esc(c.nome)}">`).join('')}</datalist>
-    <button class="btn" style="margin-top:12px" onclick="MZ.ordem['${seg}'].push('');mzSujo();telaMatriz()">+ Matéria</button>`;
+    <button class="btn" style="margin-top:12px" onclick="MZ.ordem['${seg}'].push('');mzSujo();telaMatriz()">+ Matéria</button>
+    ${seg === 'Extra' ? '<p class="peq suave" style="margin:10px 0 0">“Sempre na” fixa a matéria numa aula do dia (ex.: Lição de Casa sempre na 1ª aula). É regra obrigatória do gerador: uma por dia, sempre ali. “Aplicar matriz às turmas” leva tudo para os Extras, sem professor (“a definir”).</p>' : ''}`;
   mzTotais(seg);
+}
+function mzPosSel(s, nome) {   // "sempre na Xª aula do dia" (aulas do horário com o nome do tipo do Extra)
+  const n = Math.max(1, aulasDe(gradeDe(s)).length || 6), v = (MZ.pos[s] || {})[nome] || 0;
+  return `<select class="peq" style="margin-top:4px;padding:3px 4px;max-width:110px" data-s="${s}" data-c="${esc(nome)}" onchange="(MZ.pos[this.dataset.s]=MZ.pos[this.dataset.s]||{})[this.dataset.c]=+this.value;mzSujo()" title="Sempre na aula do dia">
+    <option value="0">qualquer aula</option>${Array.from({ length: n }, (_, a) => `<option value="${a + 1}" ${v === a + 1 ? 'selected' : ''}>sempre na ${a + 1}ª</option>`).join('')}</select>`;
 }
 function mzTotais(seg) {
   D.series[seg].forEach((s, j) => {
     const tot = MZ.ordem[seg].reduce((x, c) => x + ((MZ.m[s] || {})[c] || 0), 0);
-    const caps = [...new Set(D.turmas.filter(t => t.serie === s && t.segmento !== 'Extra').map(t => capacidade(t.nome)))];   // horários da semana das turmas da série
+    const caps = [...new Set(D.turmas.filter(t => t.serie === s).map(t => capacidade(t.nome)))];   // horários da semana das turmas da série
     const cls = !caps.length ? 'neutra' : caps.every(c => c === tot) ? 'ok' : 'alerta';
     $('mzT' + j).innerHTML = `<span class="tag ${cls}" title="${caps.length ? 'Horários na grade das turmas: ' + caps.join(', ') : 'Nenhuma turma nesta série'}">${tot}${caps.length && caps[0] !== tot ? ' / ' + caps[0] : ''}</span>`;
   });
@@ -1091,7 +1223,7 @@ function mzSigla(inp) {
 function mzTrocarLinha(inp) {   // escolhe outro componente para a linha (move os números)
   const seg = inp.dataset.seg, i = +inp.dataset.i, velho = MZ.ordem[seg][i], novo = inp.value.trim();
   if (novo && MZ.ordem[seg].some((c, j) => c === novo && j !== i)) { toast(`${novo} já está na tabela.`, 'erro'); return telaMatriz(); }
-  D.series[seg].forEach(s => { const m = MZ.m[s] = MZ.m[s] || {}; if (velho in m) { if (novo) m[novo] = m[velho]; delete m[velho]; } });
+  D.series[seg].forEach(s => [MZ.m, MZ.pos].forEach(o => { const m = o[s] = o[s] || {}; if (velho in m) { if (novo) m[novo] = m[velho]; delete m[velho]; } }));
   MZ.ordem[seg][i] = novo;
   if (novo && !mzComp(novo)) MZ.comps.push({ nome: novo, nomeAntigo: '', sigla: '', apelidos: '' });
   mzSujo(); telaMatriz();
@@ -1105,7 +1237,7 @@ function tabelaComps() {
   const naMatriz = nome => Object.values(MZ.m).some(m => m[nome] > 0), naCarga = nome => D.carga.some(c => c.disciplina === nome);
   $('mzCorpo').innerHTML = `<p class="peq suave" style="margin:0 0 10px">Sigla: aparece na grade e na impressão. Outros nomes: como a matéria aparece no aSc (separe por “;”), para o sistema reconhecer a matéria ao importar.</p>
     <table class="tab"><tr><th>Matéria</th><th>Sigla</th><th>Outros nomes (aSc)</th><th>Onde aparece</th><th></th></tr>
-    ${MZ.comps.map((c, i) => { const uso = naMatriz(c.nome) ? 'Matriz' : naCarga(c.nome) ? 'Contraturno / atribuições' : '—'; return `<tr>
+    ${MZ.comps.map((c, i) => { const uso = naMatriz(c.nome) ? 'Matriz' : naCarga(c.nome) ? 'Atribuições' : '—'; return `<tr>
       <td><input value="${esc(c.nome)}" data-i="${i}" onchange="mzRenomear(this)"></td>
       <td><input value="${esc(c.sigla)}" oninput="MZ.comps[${i}].sigla=this.value;mzSujo()" style="max-width:110px"></td>
       <td><input value="${esc(c.apelidos)}" oninput="MZ.comps[${i}].apelidos=this.value;mzSujo()" placeholder="Ex.: Líng. Port."></td>
@@ -1123,7 +1255,7 @@ function mzRenomear(inp) {
 }
 async function salvarMatriz() {
   const matriz = [], comps = MZ.comps.filter(c => c.nome.trim());
-  SEGS_MATRIZ.forEach(seg => MZ.ordem[seg].filter(Boolean).forEach(c => D.series[seg].forEach(s => { const n = (MZ.m[s] || {})[c]; if (n > 0) matriz.push({ serie: s, componente: c, aulas: n }); })));
+  SEGS_MATRIZ.forEach(seg => MZ.ordem[seg].filter(Boolean).forEach(c => D.series[seg].forEach(s => { const n = (MZ.m[s] || {})[c]; if (n > 0) matriz.push({ serie: s, componente: c, aulas: n, posicao: (MZ.pos[s] || {})[c] || 0 }); })));
   matriz.forEach(x => { if (!comps.some(c => c.nome === x.componente)) comps.push({ nome: x.componente, nomeAntigo: '', sigla: '', apelidos: '' }); });
   const aba = MZ.aba; MZ.sujo = false;
   const ok = await acao('salvarMatriz', { matriz, componentes: comps.map(c => ({ nome: c.nome.trim(), nomeAntigo: c.nomeAntigo, sigla: c.sigla, apelidos: String(c.apelidos).split(';') })) }, 'Matriz salva.');
@@ -1131,8 +1263,8 @@ async function salvarMatriz() {
 }
 function abrirAplicar() {
   if (MZ && MZ.sujo) return toast('Salve a matriz antes de aplicar.', 'erro');
-  const series = [].concat(...SEGS_MATRIZ.map(s => D.series[s])).filter(s => D.turmas.some(t => t.serie === s && t.segmento !== 'Extra'));
-  abrirModal('Aplicar matriz às turmas', `<p class="peq suave" style="margin:0">Acerta as aulas por semana de cada turma pela matriz da série. Professores, aulas duplas e turmas juntas continuam como estão; matéria que faltar entra sem professor (“a definir”). O contraturno não muda.</p>
+  const series = [].concat(...SEGS_MATRIZ.map(s => D.series[s])).filter(s => D.turmas.some(t => t.serie === s));
+  abrirModal('Aplicar matriz às turmas', `<p class="peq suave" style="margin:0">Acerta as aulas por semana de cada turma pela matriz da série (no Extra, pelo tipo do Extra, com o “sempre na Xª aula”). Professores, aulas duplas e turmas juntas continuam como estão; matéria que faltar entra sem professor (“a definir”).</p>
     <div class="sub-linhas">${series.map(s => `<label><input type="checkbox" class="apS" value="${s}" checked onchange="$('apAplicar').disabled=true">${s}</label>`).join('')}</div>
     <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="apRemover" onchange="$('apAplicar').disabled=true"> Tirar das turmas o que não está na matriz</label>
     <div id="apRes"></div>`,
@@ -1248,9 +1380,9 @@ function telaAno() {
       <li>As aulas fixas (${D.fixas.length})</li>
       <li>Os horários reservados dos professores (${D.blocos.length})</li></ul></div></div>
     <div><h3 style="margin-bottom:6px">3. E os professores? (${D.professores.length} cadastrados)</h3>
-      <label class="opcao-radio"><input type="radio" name="anoProf" value="manter" onchange="anoTexto()"><span><b>Manter os professores.</b> Continuam cadastrados, com as matérias. Todos voltam para “não respondeu” e respondem o formulário de novo (o que marcaram antes já vem preenchido).</span></label>
-      <label class="opcao-radio"><input type="radio" name="anoProf" value="apagar" onchange="anoTexto()"><span><b>Apagar todos os professores.</b> Começa do zero: cada professor se cadastra pelo formulário.</span></label></div>
-    <div><h3 style="margin-bottom:6px">4. Continua igual</h3><div class="aviso" style="background:var(--azul-claro);color:var(--marinho)">Horários das aulas (${D.grades.length} períodos) · Turmas (${D.turmas.length}) · Matriz curricular · Usuários${(D.versoes || []).length ? ' · Versões anteriores da grade' : ''}</div></div>
+      <label class="opcao-radio"><input type="radio" name="anoProf" value="manter" onchange="anoTexto()"><span><b>Manter os professores.</b> Continuam cadastrados, com as matérias e os horários em que não podem. Todos voltam para “disponibilidade a conferir”.</span></label>
+      <label class="opcao-radio"><input type="radio" name="anoProf" value="apagar" onchange="anoTexto()"><span><b>Apagar todos os professores.</b> Começa do zero: cadastre cada professor de novo.</span></label></div>
+    <div><h3 style="margin-bottom:6px">4. Continua igual</h3><div class="aviso" style="background:var(--azul-claro);color:var(--marinho)">Horários das aulas (${D.grades.length} períodos) · Turmas e Extras (${D.turmas.length}) · Matriz curricular · Usuários${(D.versoes || []).length ? ' · Versões anteriores da grade' : ''}</div></div>
     <label style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" id="anoOk" onchange="anoTexto()"> Entendi o que será apagado.</label>
     <div><button class="btn perigo" id="anoBtn" onclick="comecarAno()" disabled style="min-height:46px"></button>
       <p class="peq suave" id="anoFalta" style="margin:6px 0 0"></p></div>
@@ -1334,7 +1466,7 @@ function telaGrade() {
         <div class="card"><h3>Conferência</h3><div id="problemas"><span class="suave peq">—</span></div></div>
       </aside><div class="card">
         <div class="abas"><button class="btn mini" data-v="turma" onclick="visao('turma')">Turma</button><button class="btn mini" data-v="prof" onclick="visao('prof')">Professor</button>
-          <button class="btn mini" data-v="geral" onclick="visao('geral')">Todas as turmas</button><select id="selItem" onchange="GR.item=this.value;desenharGrade()"></select></div>
+          <button class="btn mini" data-v="geral" onclick="visao('geral')">Todas as turmas</button>${D.turmas.some(t => t.segmento === 'Extra') ? `<button class="btn mini" data-v="extra" onclick="visao('extra')">Extra</button>` : ''}<select id="selItem" onchange="GR.item=this.value;desenharGrade()"></select></div>
         <div id="conteudo" class="rolar"></div></div></div>`;
   listaOpcoes(); preencherSelect(); conferir(); progresso();
 }
@@ -1439,7 +1571,7 @@ function tabelaTurma(turma, editavel) {
 // Visão do professor em tempo real: linhas = horários reais das grades em que ele dá aula + horários reservados dele
 function tabelaProf(nome) {
   const prof = profPorNome(nome); if (!prof) return '';
-  const ind = new Set(prof.indisp), itens = {}, usadas = new Set();
+  const itens = {}, usadas = new Set();
   Object.entries(GR.atual || {}).forEach(([k, c]) => {
     if (c.professor !== nome) return;
     const [t, ds, as] = k.split('|'), g = gradeDaTurma(t), x = aulasDe(g)[+as]; if (!x) return;
@@ -1461,7 +1593,7 @@ function tabelaProf(nome) {
       h += `<tr><th class="hora">${faixaTxt(r.ini, r.fim)}</th>`;
       D.dias.forEach((dia, d) => {
         const aqui = lista.filter(x => x.d === d && x.ini === r.ini && x.fim === r.fim), bl = blocos.filter(x => x.d === d && x.ini === r.ini && x.fim === r.fim);
-        let fora = false; for (let hh = Math.floor(r.ini / 60); hh * 60 < r.fim; hh++) if (ind.has(dia + '|' + hh)) fora = true;
+        const fora = (prof.indisp || []).some(x => x.dia === dia && x.ini < r.fim && r.ini < x.fim);
         const conf = aqui.some(x => x.chaves.some(k => GR.ruins.has(k)));
         h += `<td class="cel ${!aqui.length && !bl.length ? (fora ? 'indisp' : 'vazia') : ''} ${conf ? 'conf' : ''}" style="${aqui[0] ? cor(aqui[0].disc) : bl.length ? 'background:#fbf6e6' : ''}">
           ${aqui.map(x => `<div class="d">${esc(x.turmas.join(' + '))}</div><div class="p">${esc(sigla(x.disc))}</div>`).join('')}
@@ -1473,10 +1605,10 @@ function tabelaProf(nome) {
   });
   return h;
 }
-function tabelaGeral() {
+function tabelaGeral(soExtra) {   // todas as turmas, por horário das aulas; soExtra = visão geral do Extra (o rodízio de cada turma)
   return D.grades.map(g => {
-    const ts = D.turmas.filter(t => t.grade === g.nome), au = aulasDe(g); if (!ts.length) return '';
-    return `<h3 style="margin:6px 0">${esc(g.nome)}</h3><div class="rolar"><table class="grade geral" style="min-width:${120 + au.length * D.dias.length * 34}px"><tr><th class="turma"></th>${D.dias.map(d => `<th colspan="${au.length}">${d}</th>`).join('')}</tr>
+    const ts = D.turmas.filter(t => t.grade === g.nome && (!soExtra || t.segmento === 'Extra')), au = aulasDe(g); if (!ts.length) return '';
+    return `<h3 style="margin:6px 0">${esc(g.nome)}</h3><div class="rolar"><table class="grade geral" style="min-width:${120 + au.length * D.dias.length * (soExtra ? 58 : 34)}px"><tr><th class="turma"></th>${D.dias.map(d => `<th colspan="${au.length}">${d}</th>`).join('')}</tr>
       ${ts.map(t => `<tr><th class="turma">${esc(t.nome)}</th>${D.dias.map((_, d) => au.map((x, a) => {
         const k = t.nome + '|' + d + '|' + a, c = GR.atual && GR.atual[k];
         return `<td class="cel ${c ? '' : 'vazia'} ${GR.ruins.has(k) ? 'conf' : GR.mudou.has(k) ? 'mudou' : ''}" style="${c ? cor(c.disciplina) : ''}" title="${c ? esc(faixaTxt(x.ini, x.fim) + ' · ' + c.disciplina + ' · ' + c.professor) : ''}"><div class="d">${c ? esc(sigla(c.disciplina)) : ''}</div></td>`;
@@ -1495,7 +1627,7 @@ function desenharGrade() {
   if (!GR.atual) { $('conteudo').innerHTML = `<p class="suave" style="padding:30px;text-align:center">${podeEditar() ? 'Toque em “Gerar opções”.' : 'A grade ainda não foi publicada.'}</p>`; return; }
   const nome = GR.nome === 'Oficial' ? 'Oficial' : GR.nome;
   if (celular()) {   // celular: um dia por vez, em lista
-    if (GR.visao === 'geral') { $('conteudo').innerHTML = '<div class="aviso alerta">“Todas as turmas” é uma tabela muito larga e só aparece no computador. No celular, veja uma turma ou um professor por vez.</div>'; return; }
+    if (GR.visao === 'geral' || GR.visao === 'extra') { $('conteudo').innerHTML = `<div class="aviso alerta">“${GR.visao === 'extra' ? 'Extra' : 'Todas as turmas'}” é uma tabela muito larga e só aparece no computador. No celular, veja uma turma ou um professor por vez.</div>`; return; }
     const D_ = GR.dia, abas = `<div class="dias-abas">${D.dias.map((x, i) => `<button class="${i === D_ ? 'on' : ''}" onclick="GR.dia=${i};desenharGrade()">${x}</button>`).join('')}</div>`;
     $('conteudo').innerHTML = situacaoGrade() + `<h2 style="margin-bottom:8px">${esc(GR.item)} <span class="peq suave">· ${esc(nome)}${GR.editado ? ' (alterada, não salva)' : ''}</span></h2>` + abas
       + (GR.visao === 'turma' ? listaDiaTurma(GR.item, D_) : listaDiaProf(GR.item, D_))
@@ -1504,7 +1636,7 @@ function desenharGrade() {
   }
   $('conteudo').innerHTML = situacaoGrade() + (GR.visao === 'turma' ? `<h2 style="margin-bottom:8px">${esc(GR.item)} <span class="peq suave">· ${esc(nome)}${GR.editado ? ' (alterada, não salva)' : ''}</span></h2>`
       + (podeEditar() && !GR.versao ? '<div class="dica-fixa">Para trocar duas aulas de lugar, clique numa e depois na outra (da mesma turma).</div>' : '') + tabelaTurma(GR.item, podeEditar() && !GR.versao)
-    : GR.visao === 'prof' ? tabelaProf(GR.item) : tabelaGeral());
+    : GR.visao === 'prof' ? tabelaProf(GR.item) : tabelaGeral(GR.visao === 'extra'));
 }
 // Celular: lista vertical do dia (horário · matéria · professor ou turma)
 function listaDiaTurma(turma, d) {
@@ -1560,7 +1692,7 @@ function imprimir(tipo) {
   if (!tipo || !GR.atual) return;
   imprimirPaginas(tipo === 'turmas' ? D.turmas.map(t => cabImpressao(t.nome) + tabelaTurma(t.nome, false))
     : tipo === 'profs' ? ordenarNomes(D.professores.filter(p => aulasProf(p.nome)).map(p => p.nome)).map(n => cabImpressao('Professor') + tabelaProf(n))
-    : [cabImpressao(GR.visao === 'geral' ? 'Todas as turmas' : GR.item) + $('conteudo').innerHTML]);
+    : [cabImpressao(GR.visao === 'geral' ? 'Todas as turmas' : GR.visao === 'extra' ? 'Extra' : GR.item) + $('conteudo').innerHTML]);
 }
 
 // ---------- Versões anteriores da grade oficial ----------

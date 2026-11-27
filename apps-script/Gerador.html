@@ -1,13 +1,15 @@
 <script>
 // ===================== GERADOR DE GRADE (roda no navegador) =====================
 // D = { dias, grades:[{nome, itens:[{tipo:'aula'|'intervalo', ini:'07:00', fim:'07:40'}]}],
-//       professores:[{nome, maxDia, indisp:["Seg|7", ...]}]  (faixas de 1h em que NÃO pode),
-//       turmas:[{nome, segmento, grade}], carga:[{turmas:[...], disciplina, professor, aulas, duplas, maxDia}],
+//       professores:[{nome, maxDia, indisp:[{dia:'Seg', ini:420, fim:500}, ...]}]  (intervalos em minutos em que NÃO pode),
+//       turmas:[{nome, segmento, grade}], carga:[{turmas:[...], disciplina, professor, aulas, duplas, maxDia, posicao}],
 //       fixas:[{turma, dia, aula, disciplina}], blocos:[{professor, tipo, dia, ini, fim}] }
 // Grade = { "turma|dia|aula": { disciplina, professor, fixa } }   (dia e aula começam em 0; aula = posição na grade da turma)
 // Tempo real: o professor ocupa blocos de 10 min por dia. Duas aulas dele não podem se sobrepor, mesmo em grades diferentes
 // (ex.: 7:40–8:20 do EFAI conflita com 8:00–8:50 do EFAF). A turma ocupa as aulas da própria grade.
 // Turmas juntas: uma linha da carga vale para várias turmas (mesma grade) com um professor, no mesmo horário.
+// "posicao" (opcional): a matéria fica sempre na Xª aula do dia (regra obrigatória; uma por dia).
+// Disponibilidade: aula bloqueada = sobreposição estrita com um intervalo "não pode" (só encostar na ponta não bloqueia).
 const Gerador = (() => {
   const PASSO = 10, MEIO_DIA = 13 * 60, FOLGA = 3;   // FOLGA: até 30 min entre aulas não conta como janela (intervalo/deslocamento)
   const minutos = h => { const m = /^(\d{1,2}):(\d{2})/.exec(String(h || '')); return m ? +m[1] * 60 + +m[2] : NaN; };
@@ -45,16 +47,15 @@ const Gerador = (() => {
 
     const profs = {}, pIdx = {};
     D.professores.forEach((p, i) => { profs[p.nome] = p; pIdx[p.nome] = i; });
-    const indisp = D.professores.map(p => new Set(p.indisp || []));
+    const indisp = D.professores.map(p => D.dias.map(dia => (p.indisp || []).filter(x => x && x.dia === dia)));
     const blocosP = D.professores.map(() => D.dias.map(() => []));
     (D.blocos || []).forEach(b => {
       const pi = pIdx[b.professor], di = D.dias.indexOf(b.dia), ini = minutos(b.ini), fim = minutos(b.fim);
       if (pi !== undefined && di >= 0 && fim > ini) blocosP[pi][di].push({ ini, fim, tipo: b.tipo || 'bloco' });
     });
-    // '' = pode; 'indisp' = faixa marcada como "não posso"; senão o tipo do bloco (Complementação, Plantão…)
+    // '' = pode; 'indisp' = horário marcado como "não pode"; senão o tipo do bloco (Complementação, Plantão…)
     const impede = (pi, di, ini, fim) => {
-      const dia = D.dias[di];
-      for (let h = Math.floor(ini / 60); h * 60 < fim; h++) if (indisp[pi].has(dia + '|' + h)) return 'indisp';
+      for (const x of indisp[pi][di]) if (x.ini < fim && ini < x.fim) return 'indisp';
       for (const b of blocosP[pi][di]) if (b.ini < fim && ini < b.fim) return b.tipo;
       return '';
     };
@@ -76,17 +77,23 @@ const Gerador = (() => {
       if (!c.professor) return erros.push(`${lin}: falta escolher o professor.`);
       if (!profs[c.professor]) return erros.push(`${lin}: professor "${c.professor}" não cadastrado.`);
       if (!(c.aulas > 0)) return erros.push(`${lin}: informe as aulas por semana.`);
-      const duplas = c.duplas > 0 ? c.duplas : 0, maxDia = c.maxDia > 0 ? c.maxDia : 2;
+      const duplas = c.duplas > 0 ? c.duplas : 0, maxDia = c.maxDia > 0 ? c.maxDia : 2, pos = c.posicao > 0 ? c.posicao - 1 : -1;
       if (duplas * 2 > c.aulas) return erros.push(`${lin}: ${duplas} dupla(s) não cabem em ${c.aulas} aulas.`);
+      if (pos >= 0 && pos >= aulasG[gi]) return erros.push(`${lin}: o horário das aulas não tem ${pos + 1}ª aula.`);
+      if (pos >= 0 && duplas) return erros.push(`${lin}: aula dupla não combina com “sempre na ${pos + 1}ª aula”.`);
+      if (pos >= 0 && c.aulas > nD) return erros.push(`${lin}: ${c.aulas} aulas não cabem sempre na ${pos + 1}ª aula (uma por dia).`);
       if (duplas > 0 && maxDia < 2) return erros.push(`${lin}: aula dupla precisa de pelo menos 2 aulas no mesmo dia.`);
       if (maxDia * nD < c.aulas) erros.push(`${lin}: ${c.aulas} aulas não cabem com máximo de ${maxDia} por dia.`);
       const rep = ts.find(t => carga[t + '|' + c.disciplina]); if (rep) return erros.push(`${rep}: ${c.disciplina} aparece duas vezes nas atribuições.`);
-      const r = { ...c, turmas: ts, rot, duplas, maxDia, simples: c.aulas - 2 * duplas, duplasRest: duplas, idx: linhas.length,
+      const r = { ...c, turmas: ts, rot, duplas, maxDia: pos >= 0 ? 1 : maxDia, pos, simples: c.aulas - 2 * duplas, duplasRest: duplas, idx: linhas.length,
         tis: ts.map(t => tIdx[t]), gi, pi: pIdx[c.professor] };
       ts.forEach(t => { carga[t + '|' + c.disciplina] = r; usadoTurma[t] = (usadoTurma[t] || 0) + c.aulas; });
       linhas.push(r);
     });
 
+    const naPos = {};   // turma|posição: aulas que precisam ficar sempre naquela aula do dia
+    linhas.forEach(c => { if (c.pos >= 0) c.turmas.forEach(t => { const k = t + '|' + c.pos; naPos[k] = (naPos[k] || 0) + c.aulas; }); });
+    Object.entries(naPos).forEach(([k, n]) => { if (n > nD) { const [t, a] = k.split('|'); erros.push(`Turma ${t}: ${n} aulas precisam ficar sempre na ${+a + 1}ª aula, mas a semana só tem ${nD} dias.`); } });
     D.turmas.forEach(t => {
       const gi = turmas[t.nome].gi; if (gi < 0) return;
       const cap = aulasG[gi] * nD, u = usadoTurma[t.nome] || 0;
@@ -101,6 +108,7 @@ const Gerador = (() => {
       if (!c) return erros.push(`${lin}: ${f.disciplina} não está nas atribuições da turma.`);
       if (di < 0) return erros.push(`${lin}: dia inválido.`);
       if (!(ai >= 0 && ai < aulasG[c.gi])) return erros.push(`${lin}: aula inválida.`);
+      if (c.pos >= 0 && ai !== c.pos) return erros.push(`${lin}: ${f.disciplina} fica sempre na ${c.pos + 1}ª aula.`);
       const k = c.idx + '|' + di + '|' + ai; if (vistas.has(k)) return; vistas.add(k);   // turmas juntas: uma fixa basta
       if (c.simples > 0) c.simples--; else if (c.duplasRest > 0) { c.duplasRest--; c.simples++; }
       else return erros.push(`${lin}: há mais aulas fixas do que aulas por semana de ${f.disciplina}.`);
@@ -113,20 +121,41 @@ const Gerador = (() => {
       disp[((pi * nG + gi) * nD + d) * A + a] = impede(pi, d, x.ini, x.fim) ? 0 : 1;
     }); }));
 
-    // Professor: carga x disponibilidade (por grade) e limite por dia
-    const porProf = {}, sobrecarga = {};   // sobrecarga[nome] = { aulas, livres, grade }: mais aulas que horários livres
-    linhas.forEach(c => { const x = porProf[c.pi] = porProf[c.pi] || { total: 0, g: {} }; x.total += c.aulas; x.g[c.gi] = (x.g[c.gi] || 0) + c.aulas; });
+    // Professor: carga x horários possíveis (por grade e por período) e limite por dia.
+    // Por período (manhã/tarde): junta as aulas de todas as grades das turmas dele naquele período e conta quantas,
+    // no máximo, cabem sem se sobrepor (aulas de grades diferentes que se cruzam, como EFAF × EM, contam uma vez),
+    // tirando os horários em que não pode e os reservados. Passou → não cabe; acima de 90% → apertado.
+    const periodoG = grades.map(g => g.aulas.length && g.aulas[0].ini >= MEIO_DIA ? 1 : 0), NOME_PER = ['manhã', 'tarde'];
+    const porProf = {}, sobrecarga = {}, apertado = {}, capacidade = {};   // sobrecarga[nome] = { aulas, livres, grade, periodo }
+    linhas.forEach(c => { const x = porProf[c.pi] = porProf[c.pi] || { total: 0, g: {}, per: [0, 0] }; x.total += c.aulas; x.g[c.gi] = (x.g[c.gi] || 0) + c.aulas; x.per[periodoG[c.gi]] += c.aulas; });
+    const exc = s => s.aulas - s.livres + (s.periodo ? 0.1 : 0);   // o pior excesso; no empate, a mensagem por período (mais clara)
+    const pior = (nome, s) => { if (!sobrecarga[nome] || exc(s) > exc(sobrecarga[nome])) sobrecarga[nome] = s; };
     Object.keys(porProf).forEach(pi => {
       const p = D.professores[pi], mx = p.maxDia > 0 ? p.maxDia : 99, x = porProf[pi];
       Object.keys(x.g).forEach(gi => {
         let cap = 0;
         for (let d = 0; d < nD; d++) { let livres = 0; for (let a = 0; a < aulasG[gi]; a++) livres += disp[((pi * nG + +gi) * nD + d) * A + a]; cap += Math.min(livres, mx); }
-        if (x.g[gi] > cap) {
-          erros.push(`${p.nome}: tem ${x.g[gi]} aulas (${grades[gi].nome}), mas só ${cap} horários livres.`);
-          if (!sobrecarga[p.nome] || x.g[gi] - cap > sobrecarga[p.nome].aulas - sobrecarga[p.nome].livres) sobrecarga[p.nome] = { aulas: x.g[gi], livres: cap, grade: grades[gi].nome };
-        }
+        if (x.g[gi] > cap) { erros.push(`${p.nome}: tem ${x.g[gi]} aulas (${grades[gi].nome}), mas só ${cap} horários livres.`); pior(p.nome, { aulas: x.g[gi], livres: cap, grade: grades[gi].nome, periodo: '' }); }
       });
-      if (mx < 99 && x.total > mx * nD) { erros.push(`${p.nome}: ${x.total} aulas na semana passam do limite de ${mx} por dia.`); if (!sobrecarga[p.nome]) sobrecarga[p.nome] = { aulas: x.total, livres: mx * nD, grade: '' }; }
+      capacidade[p.nome] = [];
+      [0, 1].forEach(per => {
+        if (!x.per[per]) return;
+        const gs = [...new Set(linhas.filter(c => c.pi === +pi && periodoG[c.gi] === per).map(c => c.gi))];
+        let cap = 0;
+        for (let d = 0; d < nD; d++) {
+          const au = [];
+          gs.forEach(gi => grades[gi].aulas.forEach((y, a) => { if (disp[((pi * nG + gi) * nD + d) * A + a]) au.push(y); }));
+          au.sort((u, v) => u.fim - v.fim);
+          let n = 0, fim = -1;
+          au.forEach(y => { if (y.ini >= fim) { n++; fim = y.fim; } });   // o máximo de aulas que não se sobrepõem
+          cap += Math.min(n, mx);
+        }
+        const item = { periodo: NOME_PER[per], aulas: x.per[per], cabem: cap };
+        capacidade[p.nome].push(item);
+        if (item.aulas > cap) { erros.push(`${p.nome}: ${item.aulas} aulas de ${item.periodo}, mas só cabem ${cap} — passe algumas turmas para outro professor.`); pior(p.nome, { aulas: item.aulas, livres: cap, grade: '', periodo: item.periodo }); }
+        else if (item.aulas > 0.9 * cap) (apertado[p.nome] = apertado[p.nome] || []).push(item);
+      });
+      if (mx < 99 && x.total > mx * nD) { erros.push(`${p.nome}: ${x.total} aulas na semana passam do limite de ${mx} por dia.`); if (!sobrecarga[p.nome]) sobrecarga[p.nome] = { aulas: x.total, livres: mx * nD, grade: '', periodo: '' }; }
     });
 
     const grupos = [];
@@ -136,7 +165,7 @@ const Gerador = (() => {
     });
 
     return { D, nD, nG, A, nB, t0, meio, grades, aulasG, bIni, bFim, contig, turmas, profs, pIdx, carga, linhas, grupos, fixas, disp,
-      impede, rotuloAula, erros, avisos, sobrecarga, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
+      impede, rotuloAula, erros, avisos, sobrecarga, apertado, capacidade, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
   }
 
   // ---------- Busca com reparo: aloca a aula mais difícil; se não couber, desaloja quem atrapalha ----------
@@ -158,7 +187,7 @@ const Gerador = (() => {
 
     const valido = (c, len, d, a) => {
       const g = c.gi;
-      if (a + len > aulasG[g] || (len === 2 && !contig[g * A + a])) return false;
+      if (a + len > aulasG[g] || (len === 2 && !contig[g * A + a]) || (c.pos >= 0 && a !== c.pos)) return false;
       const b = ((c.pi * nG + g) * nD + d) * A + a;
       return disp[b] === 1 && (len === 1 || disp[b + 1] === 1);
     };
@@ -543,6 +572,7 @@ const Gerador = (() => {
         }
       });
       if (n !== c.aulas) problemas.push(`${c.rot}: ${c.disciplina} com ${n} de ${c.aulas} aulas.`);
+      if (c.pos >= 0) Object.keys(s).forEach(da => { const [d, a] = da.split('|').map(Number); if (a !== c.pos) { problemas.push(`${c.rot}: ${c.disciplina} deveria ficar sempre na ${c.pos + 1}ª aula (${M.rotuloAula(c.gi, d, a, 1)}).`); c.turmas.forEach(t => ruins.add(t + '|' + d + '|' + a)); } });
       Object.entries(porDia).forEach(([d, as]) => {
         if (as.length > c.maxDia) { problemas.push(`${c.rot}: ${c.disciplina} ${as.length}x na ${D.dias[d]} (máximo ${c.maxDia}).`); as.forEach(a => c.turmas.forEach(t => ruins.add(t + '|' + d + '|' + a))); }
       });
