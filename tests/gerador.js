@@ -290,8 +290,7 @@ function mini(extra) {
       ok(G.validar(D, o.grade).problemas.length === 0 && sobreposicoes(D, o.grade) === 0, `opção ${i + 1} sem conflitos`);
       ok(o.metricas.mediaParado === Math.round(o.metricas.janelasMin / o.metricas.nProfs), `opção ${i + 1}: média parada por professor`);
     });
-    const vis = m => [Math.round(m.mediaParado / 5), Object.values(m.parado).filter(x => x > 120).length];
-    ok(r.opcoes.every((o, i) => { if (!i) return true; const a = vis(r.opcoes[i - 1].metricas), b = vis(o.metricas); return a[0] < b[0] || (a[0] === b[0] && a[1] <= b[1]); }), 'a recomendada vem primeiro pelo que a tela mostra');
+    ok(r.opcoes.every((o, i) => !i || r.opcoes[i - 1].metricas.pontos <= o.metricas.pontos), 'a recomendada vem primeiro (menor pontuação de conforto)');
     const r2 = await gerar(G, D, { tentativas: 12, semente: 4 });
     ok(r2.opcoes.length <= 3, 'padrão: 3 melhores');
   });
@@ -463,7 +462,7 @@ function mini(extra) {
     const app = ler('App.html'), estilo = ler('Estilo.html'), comum = ler('Comum.html');
     const telas = [...app.matchAll(/\{ id: '(\w+)', nome: '([^']+)'([^\n]*)\}/g)];
     ok(telas.filter(t => !/pai:/.test(t[3])).map(t => t[2]).join(' · ') === 'Início · Grade horária · Professores · Conferência das turmas · Configuração', 'menu: ' + telas.filter(t => !/pai:/.test(t[3])).map(t => t[2]).join(' · '));
-    ok(telas.filter(t => /pai: 'config'/.test(t[3])).map(t => t[2]).join(' · ') === 'Começar ano letivo · Horários das aulas · Turmas · Matriz curricular · Aulas fixas · Usuários', 'cartões da Configuração na ordem');
+    ok(telas.filter(t => /pai: 'config'/.test(t[3])).map(t => t[2]).join(' · ') === 'Aplicar plano do Extra 2027 · Começar ano letivo · Horários das aulas · Turmas · Matriz curricular · Aulas fixas · Usuários', 'cartões da Configuração na ordem (o plano do Extra só aparece com o plano e antes de usado)');
     ok(!/\(raro\)|Dia a dia|telaAtribuicoes/.test(app), 'sem "(raro)", sem grupos e sem a tela Atribuições');
     ok(/← Configuração/.test(app), 'botão “← Configuração”');
     ok(/abrirMenu/.test(app) && /btn-menu/.test(app) && /\.menu\.aberto/.test(app), 'menu ☰ com gaveta');
@@ -976,6 +975,175 @@ function mini(extra) {
     ok(/estiloCel/.test(appTxt) && /var\(--alerta-bg\)/.test(appTxt) && /Salvar como oficial mesmo assim\?/.test(appTxt), '“a definir” em amarelo e confirmação ao salvar como oficial');
   });
 
+  // ---------------- Plano do Extra 2027 (com nomes fictícios da escola de exemplo) ----------------
+  const { PLANO, EX1, EX2 } = require('./plano-exemplo');
+  const ABAS_PLANO = ['Professores', 'Carga', 'Turmas', 'Equipe do Extra', 'Fixas'];
+  function escolaPlano(plano) {   // exemplo + duas matérias fora da matriz nos Extras + usuários; devolve o ambiente e os tokens
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    require('./plano-exemplo').prepararPlano(v);
+    v.ctx.gravar_('Usuários', [['admin', 'teste', 'Admin Teste', 'admin', 'Sim', ''], ['coord', 'teste', 'Coord Teste', 'coordenacao', 'Sim', '']]);
+    if (plano === null) delete v.props.PLANO_EXTRA; else if (plano) v.props.PLANO_EXTRA = JSON.stringify(plano);
+    return { v, adm: v.ctx.login('admin', 'teste').token, coord: v.ctx.login('coord', 'teste').token };
+  }
+  const fotoAbas = v => JSON.stringify(ABAS_PLANO.map(a => v.ctx.valores_(a)));
+  const appPlano = require('fs').readFileSync(require('path').join(__dirname, '..', 'apps-script', 'App.html'), 'utf8');
+
+  await caso('Plano do Extra 2027: só com o plano e só admin; a prévia mostra tudo e não grava nada', () => {
+    const sem = escolaPlano(null);
+    ok(sem.v.dados().planoExtra.disponivel === false && !sem.v.dados().planoExtra.erro, 'sem a propriedade PLANO_EXTRA o botão não aparece');
+    ok(sem.v.dados('coordenacao').planoExtra === undefined, 'coordenação não recebe nada do plano');
+    const { v, adm, coord } = escolaPlano();
+    ok(v.dados().planoExtra.disponivel === true, 'com o plano, o botão aparece para o admin');
+    ok(/permissão/.test(erroDe(() => v.ctx.api(coord, 'previaPlanoExtra', {}))) && /permissão/.test(erroDe(() => v.ctx.api(coord, 'aplicarPlanoExtra', {}))), 'coordenação não pode ver nem aplicar');
+    const antes = fotoAbas(v), r = v.ctx.api(adm, 'previaPlanoExtra', {});
+    ok(fotoAbas(v) === antes && !v.ss.getSheets().some(s => /^Backup antes do plano/.test(s.getName())), 'a prévia não grava nada');
+    ok(r.erros.length === 0, 'plano bate com a planilha: ' + r.erros.join(' | '));
+    ok(r.limpeza.map(x => x.materia).sort().join() === 'Arte e Natureza,Atividades Lúdicas' && r.limpeza.find(x => x.materia === 'Arte e Natureza').extras.join() === 'Extra 6A,Extra 6B', 'limpeza: tira o que está fora da matriz dos Extras');
+    ok(r.grupos.map(x => x.tipo + ':' + x.grupos.map(g => g.turmas.length).join('/')).join() === 'Extra 1º ao 5º:3/3,Extra 6º ao EM:15', 'juntar: 2 grupos no 1º ao 5º e um grupo só no 6º ao EM');
+    ok(r.grupos[0].grupos[0].rotulo === '1º ao 3º ano' && r.grupos[0].grupos[1].rotulo === '4º ao 5º ano', 'rótulo dos grupos por série: ' + r.grupos[0].grupos.map(g => g.rotulo).join(' | '));
+    ok(r.atribuicoes.length === 17 && r.atribuicoes.find(a => a.grupo === 1 && a.materia === 'Lição de Casa').antes === 'Jussara, Natália, Mônica', 'atribuições: 17, com quem dava antes');
+    const extras = r.resultado.carga.filter(c => /^Extra /.test(c.turmas[0]));
+    ok(extras.length === 17 && extras.every(c => c.professor && c.fixado), 'todas as linhas do Extra com professor e 📌');
+    ok(extras.some(c => c.turmas.join(' + ') === EX1.join(' + ') && c.disciplina === 'Lição de Casa' && c.professor === 'Jussara' && c.posicao === 1), 'Lição de Casa do grupo 1 = Jussara, sempre na 1ª aula');
+    ok(extras.some(c => c.turmas.length === 15 && c.disciplina === 'Vôlei' && c.professor === 'Nelson'), '6º ao EM num grupo só, Vôlei = Nelson');
+    const nel = r.cadastros.find(c => c.professor === 'Nelson'), gio = r.cadastros.find(c => c.professor === 'Giovana');
+    ok(nel && nel.materias.sort().join() === 'Futebol,Vôlei' && !nel.segmentos.length, 'cadastro: acrescenta só o que falta (Nelson: Vôlei e Futebol)');
+    ok(!gio, 'quem já tem tudo não aparece nos cadastros');
+    const pNel = r.resultado.professores.find(p => p.nome === 'Nelson'), p0 = v.dados().professores.find(p => p.nome === 'Nelson');
+    ok(p0.materias.every(m => pNel.materias.includes(m)) && pNel.segmentos.includes('Extra'), 'cadastro não tira nada');
+    ok(r.resultado.equipes.some(e => e.tipo === 'Extra 1º ao 5º' && e.disciplina === 'Lição de Casa' && e.professor === 'Adriana') && r.resultado.equipes.some(e => e.tipo === 'Extra 6º ao EM' && e.disciplina === 'Futebol' && e.professor === 'Nelson'), 'Equipe do Extra: quem dá + as matérias do cadastro no tipo em que trabalha');
+    ok(!r.resultado.equipes.some(e => e.tipo === 'Extra 1º ao 5º' && e.professor === 'Nelson'), 'Equipe: não põe ninguém no tipo em que não trabalha');
+    ok(r.ajustes.map(a => a.status + (a.marcado ? '+' : '')).join() === 'ok+,ok+,conflito,feito', 'ajustes: ' + r.ajustes.map(a => a.status + ' ' + a.motivo).join(' | '));
+    ok(/hoje está com Sílvia/.test(r.ajustes[2].motivo) && /já está com Bianca/.test(r.ajustes[3].motivo), 'ajustes impossíveis dizem o motivo');
+    ok(r.resultado.carga.find(c => c.turmas.join() === '1 EM A' && c.disciplina === 'Biologia').professor === 'Gilberto', 'ajuste marcado entra na prévia');
+    const gil = r.cargas.find(c => c.professor === 'Gilberto'), eli = r.cargas.find(c => c.professor === 'Elias');
+    ok(gil && eli && gil.depois - gil.antes === 4 && eli.antes - eli.depois === 4 && gil.limite === 35, 'aulas por semana antes → depois (só EM: máximo 35)');
+    ok(r.cargas.find(c => c.professor === 'Vera').limite === 42, 'quem dá aula no EFAF: o limite geral (42 no exemplo)');
+    ok(r.acima.length === 0 && r.incompletas.length === 0, 'ninguém acima do limite e tudo completo: ' + r.acima.map(x => x.professor).concat(r.incompletas.map(x => x.turma + ' ' + x.motivo)).join(' | '));
+    const ck = X.conferirPlano(Object.assign({}, v.dados(), r.resultado), r.limites);
+    ok(ck.equipeOk && ck.conta.length === 10, 'Equipe do Extra verde na prévia: ' + ck.conta.filter(x => !x.ok).map(x => x.texto).join(' | '));
+    ok(ck.acima.length === 0 && ck.incompletas.length === 0 && ck.maior.professor === r.maior.professor, 'a conferência da tela dá o mesmo que a do servidor');
+    const r2 = v.ctx.api(adm, 'previaPlanoExtra', { ajustes: [1] });
+    ok(r2.ajustes.map(a => a.marcado).join() === 'false,true,false,false' && r2.resultado.carga.find(c => c.turmas.join() === '1 EM A' && c.disciplina === 'Biologia').professor === 'Elias' && r2.chave !== r.chave, 'desmarcar um ajuste refaz a prévia sem ele');
+  });
+
+  await caso('Plano do Extra 2027: nomes errados ou Extra fora dos grupos impedem (nada muda)', () => {
+    const p = JSON.parse(JSON.stringify(PLANO));
+    p.atribuicoes[0].professor = 'Jusara'; p.grupos['Extra 1º ao 5º'][1] = ['Extra 4A', 'Extra 5A']; p.ajustes[0].turmas = ['1 EM Z'];
+    const { v, adm } = escolaPlano(p), antes = fotoAbas(v), r = v.ctx.api(adm, 'previaPlanoExtra', {});
+    ok(r.erros.some(e => /“Jusara” não encontrado.*parecidos: Jussara/.test(e)), 'professor que não existe, com sugestão: ' + r.erros.join(' | '));
+    ok(r.erros.some(e => /Extra 5B existe na planilha, mas não está em nenhum grupo/.test(e)), 'Extra fora dos grupos');
+    ok(r.erros.some(e => /Turma 1 EM Z/.test(e)), 'turma que não existe');
+    ok(/não bate com a planilha/.test(erroDe(() => v.ctx.api(adm, 'aplicarPlanoExtra', { chave: r.chave, equipeOk: true }))) && fotoAbas(v) === antes, 'aplicar recusa e nada muda');
+    const q = escolaPlano(); q.v.props.PLANO_EXTRA = '{ isto não é json';
+    ok(/não é um JSON válido/.test(q.v.dados().planoExtra.erro), 'plano com texto inválido mostra o erro');
+  });
+
+  await caso('Plano do Extra 2027: aplicar grava tudo, com backup, Registro e Histórico, e o botão some', async () => {
+    const { v, adm } = escolaPlano(), antes = ABAS_PLANO.slice(0, 4).map(a => JSON.stringify(v.ctx.valores_(a)));
+    const r = v.ctx.api(adm, 'previaPlanoExtra', {}), ck = X.conferirPlano(Object.assign({}, v.dados(), r.resultado), r.limites);
+    const D2 = v.ctx.api(adm, 'aplicarPlanoExtra', { ajustes: [0, 1], chave: r.chave, equipeOk: ck.equipeOk });
+    const bk = v.ss.getSheets().filter(s => /^Backup antes do plano Extra · /.test(s.getName()));
+    ok(bk.length === 4 && bk.every(s => s.isSheetHidden()), 'backup em 4 abas ocultas: ' + bk.map(s => s.getName()).join(', '));
+    ok(['Professores', 'Carga', 'Turmas', 'Equipe do Extra'].every((a, i) => { const s = v.ss.getSheetByName('Backup antes do plano Extra · ' + a); return s && JSON.stringify(s.d.slice(1).filter(l => l && String(l[0] || '').trim())) === antes[i]; }), 'o backup tem os dados de antes');
+    ok(JSON.stringify(D2.carga) === JSON.stringify(r.resultado.carga), 'gravou exatamente a prévia (atribuições)');
+    ok(!D2.carga.some(c => /Atividades Lúdicas|Arte e Natureza/.test(c.disciplina)), 'limpeza gravada');
+    ok(D2.carga.find(c => c.turmas.join(' + ') === EX2.join(' + ') && c.disciplina === 'Recreação').professor === 'Adriana', 'Recreação do grupo 2 = Adriana');
+    ok(D2.carga.filter(c => /^Extra /.test(c.turmas[0])).every(c => c.fixado), 'todas as atribuições do Extra com 📌');
+    ok(D2.carga.find(c => c.turmas.join() === '9A' && c.disciplina === 'História das Religiões').professor === 'Vera' && D2.carga.find(c => c.turmas.join() === '9C' && c.disciplina === 'História das Religiões').professor === 'Wagner', 'ajuste só nas turmas do plano');
+    const gil = D2.professores.find(p => p.nome === 'Gilberto');
+    ok(gil.materias.includes('Biologia') && gil.segmentos.includes('EM'), 'quem recebe matéria regular ganha a matéria no cadastro');
+    ok(D2.professores.find(p => p.nome === 'Nelson').materias.includes('Vôlei') && D2.equipes.some(e => e.professor === 'Nelson' && e.disciplina === 'Vôlei'), 'cadastros e Equipe gravados');
+    ok(/^Aplicou o plano do Extra 2027: tirou .*Atividades Lúdicas.*17 atribuição\(ões\) com 📌; 2 ajuste\(s\)/.test(D2.registro[0].acao), 'Registro: ' + D2.registro[0].acao);
+    ok(/^Plano do Extra 2027 aplicado \(atribuições e 2 ajuste\(s\) da parte regular; a grade não mudou\)$/.test(D2.versoes[0].descricao), 'Histórico: ' + D2.versoes[0].descricao);
+    ok(D2.planoExtra.disponivel === false && /por Admin Teste$/.test(D2.planoExtra.usado), 'o botão some depois de usado: ' + D2.planoExtra.usado);
+    ok(/já foi aplicado/.test(erroDe(() => v.ctx.api(adm, 'previaPlanoExtra', {}))) && /já foi aplicado/.test(erroDe(() => v.ctx.api(adm, 'aplicarPlanoExtra', { chave: r.chave, equipeOk: true }))), 'não dá para usar de novo');
+    const fim = X.conferirPlano(D2, r.limites);
+    ok(fim.acima.length === 0 && fim.incompletas.length === 0 && fim.equipeOk, 'cargas finais: ninguém acima do limite (só EM: 35), tudo completo, Equipe verde');
+    const M = G.modelo(D2);
+    ok(M.erros.length === 0, 'o gerador aceita as atribuições: ' + M.erros.slice(0, 3).join(' | '));
+    const g = await gerar(G, D2, { tentativas: 3, semente: 5 });
+    ok(g.opcoes.length > 0 && G.validar(D2, g.opcoes[0].grade).problemas.length === 0, 'gera a grade com o plano aplicado (' + g.gargalos.join(' | ') + ')');
+  });
+
+  await caso('Plano do Extra 2027: se algo falhar, nada é gravado', () => {
+    // dados mudaram depois da prévia
+    let { v, adm } = escolaPlano(), r = v.ctx.api(adm, 'previaPlanoExtra', {});
+    v.ctx.gravar_('Carga', v.ctx.valores_('Carga').map(x => { if (x[0] === '1A' && x[1] === 'Arte') x[2] = 'Igor'; return x; }));
+    let antes = fotoAbas(v);
+    ok(/mudaram depois da prévia/.test(erroDe(() => v.ctx.api(adm, 'aplicarPlanoExtra', { chave: r.chave, equipeOk: true }))), 'outra pessoa salvou depois da prévia: recusa');
+    ok(fotoAbas(v) === antes && !v.ss.getSheets().some(s => /^Backup antes do plano/.test(s.getName())) && v.dados().planoExtra.disponivel, 'nada gravado, sem backup, botão continua');
+    // equipe não verde (conferida na tela)
+    r = v.ctx.api(adm, 'previaPlanoExtra', {});
+    ok(/Equipe do Extra/.test(erroDe(() => v.ctx.api(adm, 'aplicarPlanoExtra', { chave: r.chave, equipeOk: false }))) && fotoAbas(v) === antes, 'Equipe do Extra não verde: recusa');
+    // erro no meio da gravação: volta tudo
+    const gravar = v.ctx.gravar_; let falhou = false;
+    v.ctx.gravar_ = (nome, linhas) => { if (nome === 'Equipe do Extra' && !falhou) { falhou = true; throw new Error('falha simulada'); } return gravar(nome, linhas); };
+    const e = erroDe(() => v.ctx.api(adm, 'aplicarPlanoExtra', { ajustes: [0, 1], chave: r.chave, equipeOk: true }));
+    v.ctx.gravar_ = gravar;
+    ok(falhou && /Nada foi gravado .*falha simulada/.test(e), 'erro no meio: ' + e);
+    ok(fotoAbas(v) === antes, 'Professores, Carga, Turmas, Equipe do Extra e aulas fixas voltaram como estavam');
+    ok(v.dados().planoExtra.disponivel && !v.dados().versoes.some(x => /Plano do Extra/.test(x.descricao)), 'botão continua e nada no Histórico');
+    v.ctx.api(adm, 'aplicarPlanoExtra', { ajustes: [0, 1], chave: r.chave, equipeOk: true });
+    ok(v.ss.getSheets().filter(s => /^Backup antes do plano/.test(s.getName())).length === 4 && !v.dados().planoExtra.disponivel, 'depois dá para aplicar (o backup é refeito, sem duplicar)');
+    // alguém passaria do limite
+    const p = JSON.parse(JSON.stringify(PLANO)); p.atribuicoes.push({ tipo: 'Extra 1º ao 5º', grupos: [1, 2], materia: 'Teatro', professor: 'Bianca' }); p.atribuicoes.splice(7, 1);
+    ({ v, adm } = escolaPlano(p)); r = v.ctx.api(adm, 'previaPlanoExtra', {}); antes = fotoAbas(v);
+    ok(r.acima.some(x => x.professor === 'Bianca' && x.aulas === 44 && x.limite === 42), 'prévia aponta quem passa do limite: ' + JSON.stringify(r.acima));
+    ok(/Bianca ficaria com 44 aulas \(máximo 42\)/.test(erroDe(() => v.ctx.api(adm, 'aplicarPlanoExtra', { chave: r.chave, equipeOk: true }))) && fotoAbas(v) === antes, 'aplicar recusa e nada muda');
+    ok(/Só dá para aplicar com as três conferências verdes/.test(appPlano) && /onclick="aplicarPlano\(\)" \$\{pode \? '' : 'disabled'\}/.test(appPlano), 'na tela, “Aplicar” só com as três conferências verdes');
+  });
+
+  // ---------------- Grade mais confortável ----------------
+  const hm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  const escolaConforto = () => ({
+    dias: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'],
+    grades: [
+      { nome: 'Manhã', itens: ['07:00', '07:50', '08:40', '09:30'].map(ini => ({ tipo: 'aula', ini, fim: hm(min(ini) + 50) })) },
+      { nome: 'Tarde', itens: ['13:00', '13:50', '14:40', '15:30'].map(ini => ({ tipo: 'aula', ini, fim: hm(min(ini) + 50) })) },
+    ],
+    professores: ['P', 'Q', 'S', 'U', 'V', 'W'].map(nome => ({ nome, indisp: [] })),
+    turmas: [{ nome: 'M1', segmento: 'EFAF', grade: 'Manhã' }, { nome: 'T1', segmento: 'EFAF', grade: 'Tarde' }, { nome: 'T2', segmento: 'EFAF', grade: 'Tarde' }],
+    carga: [   // P: 15 aulas de manhã e 6 de tarde (no máximo 2 por turma por dia → dá para vir de tarde em só 2 dias)
+      { turmas: ['M1'], disciplina: 'Mat', professor: 'P', aulas: 15, duplas: 0, maxDia: 3 }, { turmas: ['M1'], disciplina: 'Port', professor: 'Q', aulas: 5, duplas: 0, maxDia: 1 },
+      { turmas: ['T1'], disciplina: 'Ciên', professor: 'P', aulas: 3, duplas: 0, maxDia: 2 }, { turmas: ['T1'], disciplina: 'Hist', professor: 'S', aulas: 9, duplas: 0, maxDia: 2 },
+      { turmas: ['T1'], disciplina: 'Geo', professor: 'U', aulas: 8, duplas: 0, maxDia: 2 }, { turmas: ['T2'], disciplina: 'Ciên', professor: 'P', aulas: 3, duplas: 0, maxDia: 2 },
+      { turmas: ['T2'], disciplina: 'Port', professor: 'V', aulas: 9, duplas: 0, maxDia: 2 }, { turmas: ['T2'], disciplina: 'Ing', professor: 'W', aulas: 8, duplas: 0, maxDia: 2 },
+    ],
+    fixas: [], blocos: [],
+  });
+
+  await caso('Conforto: dia dividido e maior janela nas métricas de cada opção', () => {
+    const d = escolaConforto(), M = G.modelo(d);
+    ok(M.erros.length === 0, 'escola de teste sem erros: ' + M.erros.join(' | '));
+    ok(M.divPeso[M.pIdx.P] > 5 && M.divPeso[M.pIdx.Q] === 0, 'dia dividido pesa mais para quem é quase só de um período (P: 15 de manhã, 6 de tarde → ' + M.divPeso[M.pIdx.P].toFixed(1) + ')');
+    const g = { 'M1|0|0': { disciplina: 'Mat', professor: 'P' }, 'M1|0|3': { disciplina: 'Mat', professor: 'P' }, 'T1|0|0': { disciplina: 'Ciên', professor: 'P' }, 'T1|1|0': { disciplina: 'Ciên', professor: 'P' }, 'M1|1|1': { disciplina: 'Mat', professor: 'P' } };
+    const m = G.avaliar(M, g);
+    ok(m.nDivididos === 1 && m.divididos.P.join() === '0,1', 'P vem de manhã e de tarde na Seg e na Ter');
+    ok(m.maiorJanela === 2 && m.janelasAula[0].professor === 'P' && m.janelasAula[0].d === 0 && m.janelasAula[0].ini === min('07:50') && m.janelasAula[0].fim === min('09:30'), 'maior janela: 2 aulas (Seg 7:50–9:30)');
+    const g2 = Object.assign({}, g); delete g2['T1|1|0']; g2['T1|0|1'] = { disciplina: 'Ciên', professor: 'P' };
+    ok(G.avaliar(M, g2).pontos < m.pontos, 'juntar as aulas da tarde no mesmo dia melhora a pontuação');
+    ok(/vêm de manhã e de tarde no mesmo dia/.test(appPlano) && /Maior janela: /.test(appPlano) && /function verDivididos/.test(appPlano) && /function verJanelas/.test(appPlano), 'cada opção mostra as duas frases, clicáveis com a lista');
+  });
+
+  await caso('Conforto: o gerador junta as aulas da tarde de quem é quase só da manhã e evita janela de 2 aulas', async () => {
+    const d = escolaConforto();
+    let pior = 0, piorJ = 0;
+    for (const semente of [1, 2, 3, 4, 5, 6]) {
+      const r = await gerar(G, d, { tentativas: 4, semente });
+      ok(r.opcoes.length > 0 && G.validar(d, r.opcoes[0].grade).problemas.length === 0, 'gera sem conflitos (semente ' + semente + ')');
+      if (!r.opcoes.length) continue;
+      const m = r.opcoes[0].metricas;
+      pior = Math.max(pior, (m.divididos.P || []).length); piorJ = Math.max(piorJ, m.maiorJanela);
+      ok(typeof m.nDivididos === 'number' && Array.isArray(m.janelasAula), 'métricas novas em cada opção');
+    }
+    ok(pior === 2, 'P (15 aulas de manhã, 6 de tarde) vem de tarde em só 2 dias, o mínimo possível (pior caso: ' + pior + '; o gerador antigo chegava a 3)');
+    ok(piorJ <= 1, 'nenhuma janela de 2 aulas ou mais (pior: ' + piorJ + ')');
+    if (oficial) {   // escola de exemplo, semente 7: o gerador antigo deixava 5 janelas de 2 aulas ou mais (a maior de 3)
+      const m = G.avaliar(G.modelo(D), oficial), j2 = m.janelasAula.filter(j => j.n >= 2).length;
+      ok(m.maiorJanela <= 2 && j2 <= 2, 'escola de exemplo: maior janela ' + m.maiorJanela + ', ' + j2 + ' janela(s) de 2 aulas ou mais');
+    }
+  });
   console.log(`\n${total - falhas}/${total} verificações ok.`);
   if (falhas) process.exit(1);
 })();

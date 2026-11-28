@@ -10,8 +10,12 @@
 // Turmas juntas: uma linha da carga vale para várias turmas (mesma grade) com um professor, no mesmo horário.
 // "posicao" (opcional): a matéria fica sempre na Xª aula do dia (regra obrigatória; uma por dia).
 // Disponibilidade: aula bloqueada = sobreposição estrita com um intervalo "não pode" (só encostar na ponta não bloqueia).
+// Conforto: além do tempo parado, pesa "dia dividido" (aula de manhã e de tarde no mesmo dia; mais forte para quem tem poucas
+// aulas num dos períodos, para juntar essas aulas em poucos dias) e janela de 2 aulas ou mais no mesmo período.
 const Gerador = (() => {
   const PASSO = 10, MEIO_DIA = 13 * 60, FOLGA = 3;   // FOLGA: até 30 min entre aulas não conta como janela (intervalo/deslocamento)
+  const DIV_BASE = 2, DIV_EXTRA = 6, PESO_JAN2 = 4;   // dia dividido: 2 (manhã e tarde equilibradas) a 8 (quase tudo num período); janela: +4 por aula a partir da 2ª
+  const pesoDividido = (m, t) => m > 0 && t > 0 ? DIV_BASE + DIV_EXTRA * (1 - Math.min(m, t) / Math.max(m, t)) : 0;
   const minutos = h => { const m = /^(\d{1,2}):(\d{2})/.exec(String(h || '')); return m ? +m[1] * 60 + +m[2] : NaN; };
   const hora = m => Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
   const rngSeed = (seed) => { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
@@ -192,14 +196,21 @@ const Gerador = (() => {
       if (c.simples > 0) grupos.push({ r: c.idx, len: 1, n: c.simples });
     });
 
+    // Conforto: peso do dia dividido de cada professor (pelas aulas de manhã × de tarde) e a aula mais curta dele, em blocos de 10 min
+    // (vão de 2 dessas aulas ou mais = janela de 2 aulas)
+    const nPr = Math.max(1, D.professores.length), divPeso = new Float32Array(nPr), aulaMin = new Uint8Array(nPr);
+    const curta = grades.map(g => Math.max(1, Math.min(99, ...g.aulas.map(x => Math.ceil((x.fim - x.ini) / PASSO)))));
+    Object.keys(porProf).forEach(pi => { divPeso[pi] = pesoDividido(porProf[pi].per[0], porProf[pi].per[1]); });
+    linhas.forEach(c => { if (!aulaMin[c.pi] || curta[c.gi] < aulaMin[c.pi]) aulaMin[c.pi] = curta[c.gi]; });
+
     return { D, nD, nG, A, nB, t0, meio, grades, aulasG, bIni, bFim, contig, turmas, profs, pIdx, carga, linhas, grupos, fixas, disp,
-      impede, rotuloAula, erros, avisos, sobrecarga, apertado, capacidade, posFixa, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
+      impede, rotuloAula, erros, avisos, sobrecarga, apertado, capacidade, posFixa, divPeso, aulaMin, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
   }
 
   // ---------- Busca com reparo: aloca a aula mais difícil; se não couber, desaloja quem atrapalha ----------
   // base (opcional): grade atual em unidades, para reencaixar sem refazer tudo
   function resolver(M, rng, orcamento, base) {
-    const { nD, nG, A, nB, meio, linhas: L, disp, aulasG, bIni, bFim, contig, maxProf } = M;
+    const { nD, nG, A, nB, meio, linhas: L, disp, aulasG, bIni, bFim, contig, maxProf, divPeso, aulaMin } = M;
     const nT = M.D.turmas.length, nP = M.D.professores.length;
     let U = [];   // cada aula (ou bloco duplo) é uma unidade
     if (base) U = base.map(u => ({ ...u, d0: u.d, a0: u.a, ultimo: -1, peso: u.peso || 1 }));
@@ -211,6 +222,8 @@ const Gerador = (() => {
     let it = 0;
     const tOcc = new Int32Array(Math.max(1, nT * nD * A)), pOcc = new Int32Array(Math.max(1, nP * nD * nB)); // guardam unidade + 1
     const pDia = new Uint8Array(Math.max(1, nP * nD)), dDia = new Uint8Array(Math.max(1, L.length * nD));
+    const pPer = new Uint8Array(Math.max(1, nP * nD * 2));   // aulas do professor no dia, de manhã [0] e de tarde [1]
+    const perDe = (c, a) => bIni[c.gi * A + a] < meio ? 0 : 1;
     const bT = (ti, d, a) => (ti * nD + d) * A + a;
 
     const valido = (c, len, d, a) => {
@@ -234,12 +247,12 @@ const Gerador = (() => {
     const por = (ui, d, a) => {
       const u = U[ui], c = u.c;
       marcar(u, d, a, ui + 1);
-      pDia[c.pi * nD + d] += u.len; dDia[c.idx * nD + d] += u.len; u.d = d; u.a = a; u.quando = it;
+      pDia[c.pi * nD + d] += u.len; dDia[c.idx * nD + d] += u.len; pPer[(c.pi * nD + d) * 2 + perDe(c, a)] += u.len; u.d = d; u.a = a; u.quando = it;
     };
     const tirar = (ui) => {
       const u = U[ui], c = u.c, d = u.d, a = u.a;
       marcar(u, d, a, 0);
-      pDia[c.pi * nD + d] -= u.len; dDia[c.idx * nD + d] -= u.len; u.ultimo = d * A + a; u.d = -1; u.a = -1;
+      pDia[c.pi * nD + d] -= u.len; dDia[c.idx * nD + d] -= u.len; pPer[(c.pi * nD + d) * 2 + perDe(c, a)] -= u.len; u.ultimo = d * A + a; u.d = -1; u.a = -1;
     };
     const custo = (u, d, a) => {
       const c = u.c, len = u.len;
@@ -251,6 +264,8 @@ const Gerador = (() => {
         for (let b = Math.max(0, s - FOLGA); b < s && !perto; b++) if (pOcc[pb + b]) perto = true;
         for (let b = e; b < Math.min(nB, e + FOLGA) && !perto; b++) if (pOcc[pb + b]) perto = true;
         if (!perto) x += 2;
+        const q = (c.pi * nD + d) * 2, per = perDe(c, a);
+        if (pPer[q + 1 - per] && !pPer[q + per]) x += divPeso[c.pi];          // divide o dia (manhã e tarde)
       }
       if (len === 1 && dDia[c.idx * nD + d] > 0) x += 1.5;                    // mesma matéria 2x no dia
       return x + a * 0.15 + rng() * 2.5;
@@ -362,17 +377,19 @@ const Gerador = (() => {
     }
 
     // ---------- Otimização: troca aulas simples dentro da mesma turma se melhorar a pontuação ----------
-    const nota = (pi, d) => {               // janelas do professor no dia em tempo real (0,75 por 10 min) + período usado (1)
-      const pb = (pi * nD + d) * nB; let x = 0;
+    // janelas do professor no dia em tempo real (0,75 por 10 min; +4 por aula a partir da 2ª aula vaga seguida) + período usado (1)
+    // + dia dividido (manhã e tarde no mesmo dia: divPeso)
+    const nota = (pi, d) => {
+      const pb = (pi * nD + d) * nB, L1 = aulaMin[pi] || 99; let x = 0, partes = 0;
       for (let parte = 0; parte < 2; parte++) {
         let ult = -1;
         for (let b = parte ? meio : 0, fim = parte ? nB : meio; b < fim; b++) if (pOcc[pb + b]) {
-          if (ult >= 0 && b - ult - 1 > FOLGA) x += (b - ult - 1 - FOLGA) * 0.75;
-          if (ult < 0) x += 1;
+          if (ult >= 0) { const v = b - ult - 1; if (v > FOLGA) { x += (v - FOLGA) * 0.75; if (v >= 2 * L1) x += PESO_JAN2 * (Math.floor(v / L1) - 1); } }
+          if (ult < 0) { x += 1; partes++; }
           ult = b;
         }
       }
-      return x;
+      return partes === 2 ? x + divPeso[pi] : x;
     };
     const notaTurma = (ti, d) => {          // janelas da turma (6) + mesma matéria separada no dia (2)
       const b = (ti * nD + d) * A; let ini = -1, fim = -1, n = 0, x = 0; const ultimo = {};
@@ -479,26 +496,48 @@ const Gerador = (() => {
   }
 
   // ---------- Pontuação (menor = melhor) ----------
+  // divididos[professor] = dias (índices) com aula de manhã e de tarde; janelasAula = vãos de pelo menos uma aula inteira no mesmo
+  // período ({ professor, d, n, ini, fim }; n = quantas aulas cabem no vão, pelos horários das aulas das turmas dele naquele período).
   function avaliar(M, grade) {
-    const m = { janelasMin: 0, diasProf: 0, repetidas: 0, janelasTurma: 0, parado: {} };   // parado[professor] = minutos parados na semana
+    const m = { janelasMin: 0, diasProf: 0, repetidas: 0, janelasTurma: 0, parado: {}, divididos: {}, janelasAula: [] };   // parado[professor] = minutos parados na semana
     const pD = {}, tD = {}, dD = {};
     for (const [k, c] of Object.entries(grade)) {
       const [turma, d, a] = k.split('|'), T = M.turmas[turma]; if (!T || T.gi < 0) continue;
       const x = M.grades[T.gi].aulas[+a]; if (!x) continue;
-      if (!provisorio(c.professor)) (pD[c.professor + '|' + d] = pD[c.professor + '|' + d] || new Map()).set(x.ini + '-' + x.fim, [x.ini, x.fim]);   // turmas juntas contam uma vez; "a definir" não conta no tempo parado
+      if (!provisorio(c.professor)) (pD[c.professor + '|' + d] = pD[c.professor + '|' + d] || new Map()).set(x.ini + '-' + x.fim, [x.ini, x.fim, T.gi]);   // turmas juntas contam uma vez; "a definir" não conta no tempo parado
       (tD[turma + '|' + d] = tD[turma + '|' + d] || []).push(+a);
       (dD[turma + '|' + c.disciplina + '|' + d] = dD[turma + '|' + c.disciplina + '|' + d] || []).push(+a);
     }
     const buracos = as => { as.sort((x, y) => x - y); return as[as.length - 1] - as[0] + 1 - as.length; };
+    let extra = 0;
     Object.entries(pD).forEach(([k, mp]) => {
-      const p = k.slice(0, k.lastIndexOf('|')), j = janelas([...mp.values()]);
+      const i = k.lastIndexOf('|'), p = k.slice(0, i), d = +k.slice(i + 1), l = [...mp.values()], j = janelas(l);
       m.diasProf++; m.janelasMin += j; m.parado[p] = (m.parado[p] || 0) + j;
+      const partes = [l.filter(a => a[0] < MEIO_DIA), l.filter(a => a[0] >= MEIO_DIA)];
+      if (partes[0].length && partes[1].length) { (m.divididos[p] = m.divididos[p] || []).push(d); extra += M.pIdx[p] !== undefined ? M.divPeso[M.pIdx[p]] : DIV_BASE; }
+      partes.forEach(pt => {
+        pt.sort((a, b) => a[0] - b[0]);
+        const gs = [...new Set(pt.map(a => a[2]))];
+        let fim = -1;
+        pt.forEach(a => {
+          if (fim >= 0 && a[0] - fim > FOLGA * PASSO) {
+            const n = Math.max(...gs.map(gi => M.grades[gi].aulas.filter(y => y.ini >= fim && y.fim <= a[0]).length));
+            if (n >= 1) m.janelasAula.push({ professor: p, d, n, ini: fim, fim: a[0] });
+            if (n >= 2) extra += PESO_JAN2 * (n - 1);
+          }
+          fim = Math.max(fim, a[1]);
+        });
+      });
     });
     m.nProfs = Object.keys(m.parado).length;
     m.mediaParado = m.nProfs ? Math.round(m.janelasMin / m.nProfs) : 0;   // minutos por professor na semana
+    Object.values(m.divididos).forEach(ds => ds.sort((x, y) => x - y));
+    m.nDivididos = Object.keys(m.divididos).length;
+    m.janelasAula.sort((x, y) => y.n - x.n || x.professor.localeCompare(y.professor, 'pt') || x.d - y.d || x.ini - y.ini);
+    m.maiorJanela = m.janelasAula.length ? m.janelasAula[0].n : 0;
     Object.values(tD).forEach(as => m.janelasTurma += buracos(as));
     Object.values(dD).forEach(as => { as.sort((x, y) => x - y); for (let i = 1; i < as.length; i++) if (as[i] - as[i - 1] !== 1) m.repetidas++; });
-    m.pontos = m.janelasMin / PASSO * 0.75 + m.diasProf + m.repetidas * 2 + m.janelasTurma * 6;
+    m.pontos = m.janelasMin / PASSO * 0.75 + m.diasProf + m.repetidas * 2 + m.janelasTurma * 6 + extra;
     return m;
   }
 
@@ -532,9 +571,7 @@ const Gerador = (() => {
       const fracao = Math.min(1, Math.max((Date.now() - inicio) / tempoMs, isFinite(tentativas) ? i / tentativas : 0));
       aoProgredir && aoProgredir(acabou() ? 1 : fracao, vistas.size);
       if (!acabou()) return setTimeout(passo, 0);
-      // Entre as melhores, a ordem final segue o que a tela mostra: média parada (de 5 em 5 min), depois quem passa de 2h
-      const vis = m => [Math.round(m.mediaParado / 5), Object.values(m.parado).filter(x => x > 120).length, m.pontos];
-      melhores.sort((x, y) => { const a = vis(x.metricas), b = vis(y.metricas); return a[0] - b[0] || a[1] - b[1] || a[2] - b[2]; });
+      // a ordem final é a da pontuação de conforto (tempo parado, dia dividido e janelas de 2 aulas ou mais juntos): a 1ª é a recomendada
       aoTerminar({ opcoes: melhores, erros: [], avisos: M.avisos, encontradas: vistas.size, tentativas: i,
         gargalos: Object.entries(travas).sort((x, y) => y[1] - x[1]).slice(0, 5).map(x => x[0]) });
     };
