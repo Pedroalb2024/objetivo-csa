@@ -121,6 +121,34 @@ const Gerador = (() => {
       disp[((pi * nG + gi) * nD + d) * A + a] = impede(pi, d, x.ini, x.fim) ? 0 : 1;
     }); }));
 
+    // Aula fixa do dia ("sempre na Xª aula"): no mesmo horário fixo, o professor só dá aula para um grupo por dia.
+    // Ex.: Lição de Casa é às 13h em todas as turmas ao mesmo tempo → com 5 aulas por semana, cada pessoa fica com 1 turma.
+    const posFixa = [], fixasProf = {};
+    linhas.forEach(c => { if (c.pos >= 0 && c.pos < aulasG[c.gi]) (fixasProf[c.pi] = fixasProf[c.pi] || []).push(c); });
+    Object.keys(fixasProf).forEach(pi => {
+      const ls = fixasProf[pi], vistos = new Set(), nome = D.professores[pi].nome;
+      ls.forEach(c => {
+        if (vistos.has(c.idx)) return;
+        const x = grades[c.gi].aulas[c.pos];
+        const grupo = ls.filter(o => { const y = grades[o.gi].aulas[o.pos]; return y.ini < x.fim && x.ini < y.fim; });
+        grupo.forEach(o => vistos.add(o.idx));
+        let dias = 0;
+        for (let d = 0; d < nD; d++) if (grupo.every(o => disp[((+pi * nG + o.gi) * nD + d) * A + o.pos])) dias++;
+        const total = grupo.reduce((s, o) => s + o.aulas, 0); if (total <= dias) return;
+        let cabem = 0, soma = 0;
+        grupo.map(o => o.aulas).sort((a, b) => a - b).forEach(k => { if (soma + k <= dias) { soma += k; cabem++; } });
+        const h = hora(x.ini).replace(/:00$/, 'h'), discs = [...new Set(grupo.map(o => o.disciplina))], rots = grupo.map(o => o.rot), n = grupo.length;
+        const tur = k => k === 1 ? 'turma' : 'turmas', dia = k => k === 1 ? 'dia' : 'dias';
+        let txt;
+        if (n === 1) txt = `${c.disciplina} é sempre às ${h}, mas ${nome} não pode nesse horário em ${nD - dias} ${dia(nD - dias)} (${c.rot} tem ${c.aulas} aulas às ${h}).`;
+        else txt = (discs.length === 1 ? `${discs[0]} é às ${h} em todas as turmas ao mesmo tempo.` : `${discs.join(' e ')} são às ${h}, na mesma hora.`)
+          + ` ${nome} ${cabem ? `só pode ficar com ${cabem} ${tur(cabem)}` : 'não pode ficar com nenhuma'} (hoje está em ${n}: ${rots.join(', ')}).`
+          + (dias < nD ? ` Além disso, não pode às ${h} em ${nD - dias} ${dia(nD - dias)}.` : '');
+        erros.push(txt);
+        posFixa.push({ professor: nome, disciplinas: discs, hora: h, cabem, n, turmas: rots, texto: txt });
+      });
+    });
+
     // Professor: carga x horários possíveis (por grade e por período) e limite por dia.
     // Por período (manhã/tarde): junta as aulas de todas as grades das turmas dele naquele período e conta quantas,
     // no máximo, cabem sem se sobrepor (aulas de grades diferentes que se cruzam, como EFAF × EM, contam uma vez),
@@ -165,7 +193,7 @@ const Gerador = (() => {
     });
 
     return { D, nD, nG, A, nB, t0, meio, grades, aulasG, bIni, bFim, contig, turmas, profs, pIdx, carga, linhas, grupos, fixas, disp,
-      impede, rotuloAula, erros, avisos, sobrecarga, apertado, capacidade, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
+      impede, rotuloAula, erros, avisos, sobrecarga, apertado, capacidade, posFixa, maxProf: D.professores.map(p => p.maxDia > 0 ? p.maxDia : 99) };
   }
 
   // ---------- Busca com reparo: aloca a aula mais difícil; se não couber, desaloja quem atrapalha ----------
@@ -426,6 +454,30 @@ const Gerador = (() => {
     passo();
   }
 
+  // ---------- Gerar uma primeira versão mesmo incompleta ----------
+  // aDefinir: cada matéria sem professor ganha um professor provisório só daquela turma (ou turmas juntas): "A definir · 1A".
+  // extra === false: gera só a parte regular (tira as turmas do Extra, as atribuições e as aulas fixas delas).
+  const PROV = 'A definir · ';
+  const provisorio = nome => String(nome || '').indexOf(PROV) === 0;
+  function preparar(D, opt) {
+    const { aDefinir = false, extra = true } = opt || {};
+    const ex = new Set(D.turmas.filter(t => t.segmento === 'Extra').map(t => t.nome));
+    let turmas = D.turmas, carga = D.carga, fixas = D.fixas || [];
+    if (extra === false) {
+      turmas = turmas.filter(t => !ex.has(t.nome));
+      carga = carga.filter(c => !(c.turmas || []).some(t => ex.has(t)));
+      fixas = fixas.filter(f => !ex.has(f.turma));
+    }
+    const professores = D.professores.slice(), nomes = new Set(professores.map(p => p.nome));
+    if (aDefinir) carga = carga.map(c => {
+      if (c.professor) return c;
+      const nome = PROV + (c.turmas || []).join(' + ');
+      if (!nomes.has(nome)) { nomes.add(nome); professores.push({ nome, indisp: [], maxDia: 0, provisorio: true }); }
+      return Object.assign({}, c, { professor: nome });
+    });
+    return Object.assign({}, D, { turmas, carga, fixas, professores });
+  }
+
   // ---------- Pontuação (menor = melhor) ----------
   function avaliar(M, grade) {
     const m = { janelasMin: 0, diasProf: 0, repetidas: 0, janelasTurma: 0, parado: {} };   // parado[professor] = minutos parados na semana
@@ -433,7 +485,7 @@ const Gerador = (() => {
     for (const [k, c] of Object.entries(grade)) {
       const [turma, d, a] = k.split('|'), T = M.turmas[turma]; if (!T || T.gi < 0) continue;
       const x = M.grades[T.gi].aulas[+a]; if (!x) continue;
-      (pD[c.professor + '|' + d] = pD[c.professor + '|' + d] || new Map()).set(x.ini + '-' + x.fim, [x.ini, x.fim]);   // turmas juntas contam uma vez
+      if (!provisorio(c.professor)) (pD[c.professor + '|' + d] = pD[c.professor + '|' + d] || new Map()).set(x.ini + '-' + x.fim, [x.ini, x.fim]);   // turmas juntas contam uma vez; "a definir" não conta no tempo parado
       (tD[turma + '|' + d] = tD[turma + '|' + d] || []).push(+a);
       (dD[turma + '|' + c.disciplina + '|' + d] = dD[turma + '|' + c.disciplina + '|' + d] || []).push(+a);
     }
@@ -538,7 +590,10 @@ const Gerador = (() => {
       if (!x) { problemas.push(`${turma}: aula fora do horário da turma (${D.dias[d]}, ${a + 1}ª).`); ruins.add(k); continue; }
       const quando = `${D.dias[d]} ${hora(x.ini)}–${hora(x.fim)}`, linha = M.carga[turma + '|' + c.disciplina];
       if (!linha) { problemas.push(`${turma}: ${c.disciplina} (${quando}) não está nas atribuições da turma.`); ruins.add(k); }
-      else (slots[linha.idx] = slots[linha.idx] || {})[d + '|' + a] = ((slots[linha.idx] || {})[d + '|' + a] || []).concat(turma);
+      else if (linha.professor !== c.professor && (provisorio(c.professor) || provisorio(linha.professor)))
+        problemas.push(provisorio(c.professor) ? `${turma}: ${c.disciplina} (${quando}) está “a definir” na grade, mas agora é de ${linha.professor}. Use “Trocar professor”.`
+          : `${turma}: ${c.disciplina} (${quando}) está com ${c.professor} na grade, mas ficou sem professor nas atribuições.`);
+      if (linha) (slots[linha.idx] = slots[linha.idx] || {})[d + '|' + a] = ((slots[linha.idx] || {})[d + '|' + a] || []).concat(turma);
       const id = (linha ? 'L' + linha.idx : turma + '|' + c.disciplina) + '|' + a;   // turmas juntas: uma aula só para o professor
       const pd = porProf[c.professor] = porProf[c.professor] || {}, dia = pd[d] = pd[d] || {};
       if (!dia[id]) dia[id] = { ini: x.ini, fim: x.fim, chaves: [], turmas: [], quando };
@@ -585,7 +640,7 @@ const Gerador = (() => {
     return { problemas, ruins: [...ruins], metricas: avaliar(M, grade), erros: M.erros };
   }
 
-  return { gerar, validar, avaliar, modelo, reencaixar, afetados, mensagem, minutos, hora };
+  return { gerar, validar, avaliar, modelo, reencaixar, afetados, mensagem, minutos, hora, preparar, provisorio, PROV };
 })();
 
 </script>

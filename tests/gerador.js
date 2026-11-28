@@ -1,6 +1,6 @@
 // Testes do servidor (Codigo.js) e do gerador (Gerador.html) com a escola de exemplo e casos pequenos.
 // Uso: node tests/gerador.js
-const { criarAmbiente } = require('./ambiente'), vm = require('vm');
+const { criarAmbiente, carregarScript } = require('./ambiente'), vm = require('vm');
 let falhas = 0, total = 0;
 const ok = (cond, msg) => { total++; if (!cond) { falhas++; console.error('  ✗ ' + msg); } };
 const caso = async (nome, fn) => { const f0 = falhas; try { await fn(); } catch (e) { falhas++; console.error('  ✗ erro: ' + (e.stack || e)); } console.log((falhas === f0 ? '✓ ' : '✗ ') + nome); };
@@ -202,7 +202,7 @@ function mini(extra) {
     ok(d.turmas.filter(t => t.segmento === 'Extra').map(t => t.extraDe[0]).join() === '6º A,1ª EM,3º ano', 'turmas da manhã ganham o Extra');
     ok(d.carga[0].turmas[0] === '6º A', 'carga mantida');
     ok(d.componentes.length > 30 && d.matriz.length > 50, 'componentes e matriz padrão criados');
-    ok(v.props.ESQUEMA === '9', 'versão gravada');
+    ok(v.props.ESQUEMA === '10', 'versão gravada');
     ok(p.segmentos.join(',') === 'EFAF' && p.materias.join(',') === 'Física', 'segmentos e matérias completados pela carga');
   });
 
@@ -348,7 +348,7 @@ function mini(extra) {
     w.ss.deleteSheet(w.ss.getSheetByName('Histórico da grade')); w.props.ESQUEMA = '5';
     w.ctx.garantirEsquema_();
     const d = w.dados();
-    ok(w.props.ESQUEMA === '9' && d.versoes.length === 1 && d.versoes[0].descricao === 'Grade oficial que já estava salva', 'migração v5 → v6 guarda a grade que já existia');
+    ok(w.props.ESQUEMA === '10' && d.versoes.length === 1 && d.versoes[0].descricao === 'Grade oficial que já estava salva', 'migração v5 → v6 guarda a grade que já existia');
   });
 
   await caso('Vigência: “válida a partir de” na grade oficial e na troca', () => {
@@ -509,7 +509,7 @@ function mini(extra) {
     v.props.SAL_CODIGO = 'sal'; v.props.PROFS_TESTE = '1'; v.props.ESQUEMA = '8'; delete v.props.SEM_FORMULARIO;   // como na planilha real: primeira vez
     v.ctx.garantirEsquema_();
     const cab = prof.d[0], d = v.dados(), P = n => d.professores.find(p => p.nome === n);
-    ok(v.props.ESQUEMA === '9' && cab.length === 9 && cab[5] === 'Não pode (dia início-fim)' && cab[6] === 'Disponibilidade conferida em', 'cabeçalho novo (9 colunas)');
+    ok(v.props.ESQUEMA === '10' && cab.length === 9 && cab[5] === 'Não pode (dia início-fim)' && cab[6] === 'Disponibilidade conferida em', 'cabeçalho novo (9 colunas)');
     ok(prof.d.slice(1).every(r => !r.slice(9).some(x => x !== '' && x !== undefined)), 'código e situação saíram da planilha');
     ok(P('Bianca').materias.join() === 'Língua Portuguesa,Matemática' && P('Bianca').segmentos.join() === 'EFAI' && P('Bianca').tel === '11 90000-0000' && P('Bianca').maxDia === 5 && P('Bianca').obs === 'só de manhã', 'matérias, segmentos e outros dados mantidos');
     ok(JSON.stringify(P('Bianca').indisp) === JSON.stringify([nao('Seg', '07:00', '09:00'), nao('Ter', '13:00', '14:00')]), 'faixas de 1h viram intervalos (e se juntam): ' + JSON.stringify(P('Bianca').indisp));
@@ -547,7 +547,7 @@ function mini(extra) {
   await caso('Quadro de disponibilidade: aulas reais (um horário no período) ou 30 min (vários)', () => {
     const fs = require('fs'), path = require('path'), dir = path.join(__dirname, '..', 'apps-script');
     const comum = fs.readFileSync(path.join(dir, 'Comum.html'), 'utf8'), estilo = fs.readFileSync(path.join(dir, 'Estilo.html'), 'utf8'), app = fs.readFileSync(path.join(dir, 'App.html'), 'utf8');
-    const fn = nome => (new RegExp('function ' + nome + '\\([\\s\\S]*?\\n}\\n').exec(app) || [''])[0];
+    const fn = nome => (new RegExp('function ' + nome + '\\([\\s\\S]*?\\r?\\n}\\r?\\n').exec(app) || [''])[0];
     const c = { console, Math, JSON, document: { addEventListener() { }, querySelectorAll: () => [] }, window: {}, D: criarAmbiente().ctx.dados_ ? null : null };
     vm.createContext(c);
     const amb2 = criarAmbiente(); amb2.ctx.gravarExemplo_(); c.D = amb2.dados();
@@ -767,7 +767,7 @@ function mini(extra) {
 
   await caso('Equipe do Extra: pessoas necessárias ao mesmo tempo × disponíveis, por horário e por matéria', () => {
     const fs = require('fs'), path = require('path'), app = fs.readFileSync(path.join(__dirname, '..', 'apps-script', 'App.html'), 'utf8');
-    const fonte = (/function equipeExtra\([\s\S]*?\n}\n/.exec(app) || [''])[0];
+    const fonte = (/function equipeExtra\([\s\S]*?\r?\n}\r?\n/.exec(app) || [''])[0];
     const c = { console, Math, JSON }; vm.createContext(c);
     vm.runInContext(`const minutos = h => { const m = /^(\\d{1,2}):(\\d{2})/.exec(String(h || '')); return m ? +m[1] * 60 + +m[2] : NaN; };
       const hora = m => Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'), horaH = m => m % 60 ? hora(m) : m / 60 + 'h', faixaH = (a, b) => horaH(a) + '–' + horaH(b);
@@ -789,6 +789,191 @@ function mini(extra) {
     d2.carga.push({ turmas: ['1B'], disciplina: 'Teste', professor: 'Jussara', aulas: 1, duplas: 0, maxDia: 1 });
     ok(c.equipe(d2).choques.some(x => x.professor === 'Jussara' && x.grades.join() === 'EFAI Tarde'), 'aponta quem dá Extra e tem aula regular à tarde no mesmo horário');
     ok(/Equipe do Extra: falta gente em/.test(app) && /precisa de \$\{f\.h\.precisa\}/.test(app) && /function atEquipe/.test(app), 'pendência “falta gente” e aba “Equipe do Extra” na Conferência');
+  });
+
+  // ===================== Extra: mensagens, equipes, agrupamento, distribuição e V1 incompleta =====================
+  const X = carregarScript('Extra.html', 'Extra'), copia = o => JSON.parse(JSON.stringify(o)), s0 = { u: 'teste', nome: 'Teste', perfil: 'admin' };
+  const appTxt = require('fs').readFileSync(require('path').join(__dirname, '..', 'apps-script', 'App.html'), 'utf8');
+  const doTipo = (d, tipo) => l => l.turmas.every(t => (d.turmas.find(x => x.nome === t) || {}).serie === tipo);
+
+  await caso('Aula fixa do dia: mensagem com o motivo real (todas as turmas ao mesmo tempo) e seletor com quem já está ocupado', async () => {
+    const d = copia(D);
+    d.carga.filter(c => ['Extra 1A', 'Extra 2A', 'Extra 3A'].includes(c.turmas.join()) && c.disciplina === 'Lição de Casa').forEach(c => { c.professor = 'Giovana'; });
+    const M = G.modelo(d);
+    ok(M.erros.includes('Lição de Casa é às 13h em todas as turmas ao mesmo tempo. Giovana só pode ficar com 1 turma (hoje está em 3: Extra 1A, Extra 2A, Extra 3A).'), 'mensagem: ' + M.erros.filter(e => /Giovana/.test(e)).join(' | '));
+    ok(M.posFixa.length === 1 && M.posFixa[0].professor === 'Giovana' && M.posFixa[0].cabem === 1 && M.posFixa[0].n === 3, 'posFixa para a pendência e para a linha da turma');
+    const r = await gerar(G, d, { tentativas: 1 });
+    ok(!r.opcoes.length && r.erros.some(e => /Giovana só pode ficar com 1 turma/.test(e)), 'o gerador recusa com a mensagem clara (em vez de “não coube”)');
+    const d2 = copia(D); d2.carga.find(c => c.turmas.join() === 'Extra 1A' && c.disciplina === 'Lição de Casa').professor = 'Priscila';   // não pode Qua 13h–14h
+    ok(G.modelo(d2).erros.includes('Lição de Casa é sempre às 13h, mas Priscila não pode nesse horário em 1 dia (Extra 1A tem 5 aulas às 13h).'), 'uma turma só, mas sem um dia livre às 13h');
+    ok(G.modelo(D).posFixa.length === 0, 'no exemplo, ninguém em duas turmas na mesma aula fixa');
+    // seletor: quem já está na Lição de Casa de outro Extra vai para o fim, com o motivo
+    const fn = nome => (new RegExp('function ' + nome + '\\([\\s\\S]*?\\r?\\n}\\r?\\n').exec(appTxt) || [''])[0];
+    const c = { console, Math, JSON }; vm.createContext(c);
+    vm.runInContext((/const artigo = [^\n]*\n/.exec(appTxt) || [''])[0] + fn('ocupadosNaAula') + `
+      const aulasTurma = n => n.startsWith('Extra') ? [{ ini: 780, fim: 840 }, { ini: 840, fim: 900 }, { ini: 900, fim: 960 }, { ini: 960, fim: 1020 }] : [];
+      this.ocup = (carga, i) => { AT = { carga }; return ocupadosNaAula(carga[i]); }; let AT; const D = { dias: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'] };`, c);
+    const cg = copia(D.carga), i2 = cg.findIndex(l => l.turmas.join() === 'Extra 1A' && l.disciplina === 'Lição de Casa');
+    const o = c.ocup(cg, i2);
+    ok(o['Natália'] === 'já está na Lição de Casa do Extra 2A' && o['Mônica'] === 'já está na Lição de Casa do Extra 3A', 'motivo ao lado do nome: ' + JSON.stringify(o));
+    ok(!o['Jussara'] && !o['Giovana'], 'quem só tem esta turma ou está livre às 13h não aparece como ocupado');
+    ok(/Já ocupados neste horário/.test(appTxt) && /opcoesProf\(listasProf\(l\.disciplina, seg, t\.serie\), l\.disciplina, seg, l\.professor, '', ocup\)/.test(appTxt), 'ocupados no fim da lista do seletor da turma');
+    ok(/Tirar matérias fora da matriz/.test(appTxt) && /function atTirarFora/.test(appTxt) && /Estas matérias não estão na matriz/.test(appTxt), 'turma com aulas demais: “Tirar matérias fora da matriz”, mostrando quais antes');
+  });
+
+  await caso('Equipe do Extra: pessoas necessárias por matéria (aula fixa, disponibilidade, aulas regulares), com e sem Extras juntados', () => {
+    const C = X.conta(D, D.carga), m = (tipo, disc, cc) => (cc || C).find(x => x.tipo === tipo && x.disciplina === disc);
+    const lc = m('Extra 1º ao 5º', 'Lição de Casa');
+    ok(lc.texto === 'Lição de Casa · 1º ao 5º: 6 grupos às 13h → precisa de 6 pessoas. Equipe: 6 ✓' && lc.ok, lc.texto);
+    const ref = m('Extra 1º ao 5º', 'Reforço');
+    ok(ref.texto === 'Reforço · 1º ao 5º: 6 grupos, 12 aulas por semana em 10 horários possíveis → precisa de 2 pessoas. Equipe: 6 ✓', ref.texto);
+    const fut = m('Extra 6º ao EM', 'Futebol');
+    ok(fut.grupos === 7 && fut.precisa === 3 && fut.equipe.length === 3 && fut.ok, 'Futebol 6º ao EM: Extras juntados contam como um grupo (7) → 35 aulas em 15 horários → 3 pessoas: ' + fut.texto);
+    ok(C.every(x => x.ok), 'no exemplo, todas as equipes dão conta');
+    // juntando dois Extras, um grupo a menos
+    const v = criarAmbiente(); v.ctx.gravarExemplo_(); v.ctx.juntarExtra_({ turma: 'Extra 1A', com: 'Extra 2A' }, s0);
+    const d1 = v.dados(), lc1 = m('Extra 1º ao 5º', 'Lição de Casa', X.conta(d1, d1.carga));
+    ok(lc1.grupos === 5 && lc1.precisa === 5 && /5 grupos às 13h → precisa de 5 pessoas/.test(lc1.texto), 'com Extra 1A + 2A juntos: ' + lc1.texto);
+    // equipe pequena: falta gente e vem a sugestão de juntar em grupos
+    const d2 = copia(D);
+    d2.carga.filter(l => doTipo(d2, 'Extra 1º ao 5º')(l) && l.disciplina === 'Lição de Casa').forEach(l => { l.professor = ''; });
+    d2.equipes = d2.equipes.filter(e => !(e.disciplina === 'Lição de Casa' && !['Jussara', 'Natália'].includes(e.professor)));
+    let lc2 = m('Extra 1º ao 5º', 'Lição de Casa', X.conta(d2, d2.carga));
+    ok(lc2.texto === 'Lição de Casa · 1º ao 5º: 6 grupos às 13h → precisa de 6 pessoas. Equipe: 2 ✗' && !lc2.ok, lc2.texto);
+    ok(lc2.sugestao && lc2.sugestao.grupos === 2 && lc2.sugestao.texto === 'Com 2 pessoas, junte o Extra em 2 grupos', 'sugestão: ' + JSON.stringify(lc2.sugestao));
+    // disponibilidade: Priscila não pode quarta 13h–14h → não fecha um grupo de 5 aulas às 13h
+    d2.equipes.push({ tipo: 'Extra 1º ao 5º', disciplina: 'Lição de Casa', professor: 'Priscila' });
+    lc2 = m('Extra 1º ao 5º', 'Lição de Casa', X.conta(d2, d2.carga));
+    ok(lc2.equipe.length === 3 && lc2.cabem === 2 && lc2.notas.Priscila === 'não pode às 13h em 1 dia', 'quem não pode em algum dia às 13h não conta como um grupo: ' + JSON.stringify(lc2.notas));
+    // aulas regulares à tarde no mesmo horário
+    d2.equipes.push({ tipo: 'Extra 1º ao 5º', disciplina: 'Lição de Casa', professor: 'Bianca' });
+    lc2 = m('Extra 1º ao 5º', 'Lição de Casa', X.conta(d2, d2.carga));
+    ok(lc2.cabem === 3 && !lc2.notas.Bianca, 'Bianca (1B à tarde) ainda tem folga à tarde para um grupo: ' + JSON.stringify(lc2.notas));
+    d2.carga.push({ turmas: ['1B'], disciplina: 'Projeto', professor: 'Bianca', aulas: 12, duplas: 0, maxDia: 3 });   // a tarde dela fica cheia
+    lc2 = m('Extra 1º ao 5º', 'Lição de Casa', X.conta(d2, d2.carga));
+    ok(lc2.notas.Bianca === 'tem aulas regulares à tarde' && lc2.cabem === 2, 'com a tarde cheia de aulas regulares, não sobra para um grupo inteiro: ' + JSON.stringify(lc2.notas) + ' cabem ' + lc2.cabem);
+    ok(/function atEquipe/.test(appTxt) && /\+ Nova pessoa/.test(appTxt) && /segmentos: \['Extra'\]/.test(appTxt) && /Ver como ficaria/.test(appTxt), 'tela: chips da equipe, “+ Nova pessoa” (com segmento Extra e a matéria) e “Ver como ficaria”');
+  });
+
+  await caso('Sugestão de agrupamento por série (editável) e “juntar em grupos” no servidor', () => {
+    const g2 = X.agrupar(D, 'Extra 1º ao 5º', 2);
+    ok(JSON.stringify(g2) === JSON.stringify([{ turmas: ['Extra 1A', 'Extra 2A', 'Extra 3A'], rotulo: '1º–3º ano' }, { turmas: ['Extra 4A', 'Extra 5A', 'Extra 5B'], rotulo: '4º–5º ano' }]), '2 grupos: ' + JSON.stringify(g2));
+    ok(X.agrupar(D, 'Extra 1º ao 5º', 5).map(g => g.rotulo).join() === '1º ano,2º ano,3º ano,4º ano,5º ano', '5 grupos: um por série');
+    ok(X.agrupar(D, 'Extra 1º ao 5º', 6).every(g => g.turmas.length === 1) && X.agrupar(D, 'Extra 1º ao 5º', 1)[0].rotulo === '1º–5º ano', '6 grupos: cada Extra sozinho; 1 grupo: 1º–5º ano');
+    const e2 = X.agrupar(D, 'Extra 6º ao EM', 2);
+    ok(e2.map(g => g.rotulo + ':' + g.turmas.length).join() === '6º–9º ano:8,1ª–3ª série:7', '6º ao EM em 2: ' + e2.map(g => g.rotulo + ':' + g.turmas.length).join());
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    v.ctx.agruparExtra_({ tipo: 'Extra 1º ao 5º', grupos: g2.map(g => g.turmas) }, s0);
+    let d = v.dados(), lcs = d.carga.filter(l => l.disciplina === 'Lição de Casa' && doTipo(d, 'Extra 1º ao 5º')(l));
+    ok(lcs.length === 2 && lcs[0].turmas.join(' + ') === 'Extra 1A + Extra 2A + Extra 3A' && lcs[0].professor === 'Jussara' && lcs[1].professor === 'Adriana', 'cada matéria vira turmas juntas, com o professor do primeiro Extra do grupo');
+    ok(X.conta(d, d.carga).find(x => x.disciplina === 'Lição de Casa').texto.startsWith('Lição de Casa · 1º ao 5º: 2 grupos às 13h → precisa de 2 pessoas'), 'depois de juntar: 2 grupos às 13h');
+    ok(d.carga.filter(l => doTipo(d, 'Extra 6º ao EM')(l)).length === 21, 'o outro tipo não muda');
+    ok(/Cada Extra precisa ficar em um grupo/.test(erroDe(() => v.ctx.agruparExtra_({ tipo: 'Extra 1º ao 5º', grupos: [['Extra 1A', 'Extra 2A']] }, s0))), 'recusa se faltar algum Extra');
+    v.ctx.agruparExtra_({ tipo: 'Extra 1º ao 5º', grupos: X.agrupar(d, 'Extra 1º ao 5º', 6).map(g => g.turmas) }, s0);
+    d = v.dados();
+    ok(d.carga.filter(l => doTipo(d, 'Extra 1º ao 5º')(l)).every(l => l.turmas.length === 1) && d.carga.find(l => l.turmas.join() === 'Extra 3A' && l.disciplina === 'Lição de Casa').professor === 'Jussara', 'separar de novo: cada Extra com as próprias aulas (e o professor do grupo)');
+    const ACOES = vm.runInContext('ACOES', v.ctx);
+    ok(ACOES.agruparExtra && ACOES.agruparExtra.p.indexOf('consulta') < 0, 'consulta não agrupa');
+    ok(/function abrirAgrupar/.test(appTxt) && /agMover/.test(appTxt) && /Extra\.agrupar/.test(appTxt), 'prévia editável (mudar turma de grupo) antes de aplicar');
+  });
+
+  await caso('Distribuir automaticamente: equipe, carga equilibrada, Lição de Casa e Recreação com a mesma pessoa, 📌 mantido', () => {
+    const d = copia(D), tipo = 'Extra 1º ao 5º', dt = doTipo(d, tipo);
+    d.carga.filter(dt).forEach(l => { l.professor = ''; });
+    d.carga.find(l => l.turmas.join() === 'Extra 4A' && l.disciplina === 'Língua Inglesa').professor = 'Giovana';
+    d.carga.find(l => l.turmas.join() === 'Extra 4A' && l.disciplina === 'Língua Inglesa').fixado = true;
+    const r = X.distribuir(d, d.carga, { tipo });
+    const ls = r.carga.filter(dt), eq = (disc) => X.equipe(d, d.carga, tipo, disc);
+    ok(!r.faltas.length && ls.every(l => l.professor && eq(l.disciplina).includes(l.professor)), 'todo grupo com alguém da equipe da matéria: ' + r.faltas.join(' | '));
+    const de = (t, disc) => ls.find(l => l.turmas.join() === t && l.disciplina === disc).professor;
+    ok(['Extra 1A', 'Extra 2A', 'Extra 3A', 'Extra 4A', 'Extra 5A', 'Extra 5B'].every(t => de(t, 'Lição de Casa') === de(t, 'Recreação')), 'Lição de Casa e Recreação do mesmo grupo com a mesma pessoa');
+    ok(new Set(ls.filter(l => l.disciplina === 'Lição de Casa').map(l => l.professor)).size === 6, '6 grupos às 13h → 6 pessoas diferentes');
+    ok(de('Extra 4A', 'Língua Inglesa') === 'Giovana', '📌 mantido');
+    const ing = ls.filter(l => l.disciplina === 'Língua Inglesa').map(l => l.professor);
+    ok(ing.filter(n => n === 'Giovana').length === 3 && ing.filter(n => n === 'Hugo').length === 3, 'Inglês equilibrado entre as 2 pessoas da equipe: ' + ing.join());
+    ok(r.mudancas.length === ls.length - 1 && Object.keys(r.porPessoa).length >= 10 && r.porPessoa.Giovana.aulas === 6, 'prévia: mudanças (menos a fixada) e aulas por pessoa: ' + r.mudancas.length + '/' + ls.length);
+    ok(G.modelo(Object.assign({}, d, { carga: r.carga })).erros.length === 0, 'o resultado passa no gerador (ninguém em duas turmas na mesma aula fixa)');
+    // equipe pequena: explica onde falta gente
+    const d2 = copia(d); d2.equipes = d2.equipes.filter(e => !(e.disciplina === 'Lição de Casa' && !['Jussara', 'Natália'].includes(e.professor)));
+    const r2 = X.distribuir(d2, d2.carga, { tipo, juntarFixas: false });
+    ok(r2.faltas.some(f => /^Lição de Casa · 1º ao 5º: ficou sem professor em 4 grupos \(.*\) — todos da equipe já têm um grupo às 13h ou não podem nesse horário\.$/.test(f)), 'faltas: ' + r2.faltas.join(' | '));
+    // só preencher o que está vazio
+    const d3 = copia(D); d3.carga.find(l => l.turmas.join() === 'Extra 1A' && l.disciplina === 'Teatro').professor = '';
+    const r3 = X.distribuir(d3, d3.carga, { tipo, soVazias: true });
+    ok(r3.mudancas.length === 1 && r3.mudancas[0].disciplina === 'Teatro' && ['Laura', 'Mauro'].includes(r3.mudancas[0].para), '“só o que está sem professor” não muda quem já está escolhido');
+    ok(/Distribuir automaticamente/.test(appTxt) && /Salvar esta distribuição/.test(appTxt) && /Onde falta gente/.test(appTxt) && /function atFixar/.test(appTxt), 'tela: prévia antes de salvar, onde falta gente e 📌');
+  });
+
+  await caso('Equipe e 📌 gravados com as atribuições; migração v9 → v10 não altera professores, turmas nem atribuições', () => {
+    const v = criarAmbiente(); v.ctx.gravarExemplo_();
+    const d = v.dados();
+    ok(d.equipes.some(e => e.tipo === 'Extra 1º ao 5º' && e.disciplina === 'Lição de Casa' && e.professor === 'Jussara'), 'exemplo já vem com a equipe de cada matéria');
+    const carga = copia(d.carga), l = carga.find(x => x.turmas.join() === 'Extra 1A' && x.disciplina === 'Língua Inglesa'); l.fixado = true;
+    carga.find(x => x.turmas.join() === 'Extra 2A' && x.disciplina === 'Teatro').fixado = true;
+    carga.find(x => x.turmas.join() === 'Extra 2A' && x.disciplina === 'Teatro').professor = '';
+    v.ctx.salvarAtribuicoes_({ carga, antes: d.carga, equipes: d.equipes.concat([{ tipo: 'Extra 1º ao 5º', disciplina: 'Teatro', professor: 'Bianca' }]) }, s0);
+    let d2 = v.dados();
+    ok(d2.carga.find(x => x.turmas.join() === 'Extra 1A' && x.disciplina === 'Língua Inglesa').fixado === true, '📌 gravado');
+    ok(d2.carga.find(x => x.turmas.join() === 'Extra 2A' && x.disciplina === 'Teatro').fixado === false, 'sem professor, não fica fixado');
+    const bi = d2.professores.find(p => p.nome === 'Bianca');
+    ok(d2.equipes.some(e => e.professor === 'Bianca' && e.disciplina === 'Teatro') && bi.materias.includes('Teatro') && bi.segmentos.includes('Extra'), 'quem entra na equipe ganha a matéria e o segmento Extra no cadastro');
+    ok(/Outra pessoa mudou/.test(erroDe(() => v.ctx.salvarAtribuicoes_({ carga, antes: d.carga, equipes: [] }, s0))), 'a proteção contra edição simultânea vale também para o 📌');
+    v.ctx.salvarProfessor_(Object.assign({}, bi, { nomeAntigo: 'Bianca', nome: 'Bianca M', blocos: [] }), s0);
+    ok(v.dados().equipes.some(e => e.professor === 'Bianca M'), 'renomear o professor renomeia na equipe');
+    // migração: planilha como está hoje (v9: Carga com 7 colunas, sem a aba da equipe)
+    const w = criarAmbiente(); w.ctx.gravarExemplo_();
+    w.ss.getSheetByName('Carga').d.forEach(r => { r.length = 7; });
+    w.ss.deleteSheet(w.ss.getSheetByName('Equipe do Extra'));
+    w.ctx.gravar_('Professores', w.ctx.valores_('Professores').concat([['Zeca (teste)', 'Zeca Modelo (teste)', '', '', '', '', '', '', '']]));
+    const tira = n => JSON.stringify(w.ss.getSheetByName(n).d.slice(1).filter(r => r[0]).map(r => r.slice(0, 7)));
+    const antes = { p: tira('Professores'), t: tira('Turmas'), c: tira('Carga'), g: tira('Grade'), f: tira('Fixas') };
+    w.props.ESQUEMA = '9'; w.ctx.garantirEsquema_();
+    ok(w.props.ESQUEMA === '10', 'versão 10');
+    ok(tira('Professores') === antes.p && tira('Turmas') === antes.t && tira('Carga') === antes.c && tira('Grade') === antes.g && tira('Fixas') === antes.f, 'professores (inclusive “(teste)”), turmas, atribuições, grade e fixas iguais');
+    ok(w.ss.getSheetByName('Carga').d[0][7] === 'Fixado na distribuição (📌)' && w.ss.getSheetByName('Equipe do Extra').d[0].join() === 'Tipo do Extra,Matéria,Professor', 'só o cabeçalho da coluna 📌 e a aba “Equipe do Extra” (vazia)');
+    ok(!w.dados().equipes.length && w.dados().carga.every(c => c.fixado === false), 'nada fixado nem equipe escolhida depois da migração');
+  });
+
+  await caso('Gerar uma V1 mesmo incompleta: “a definir” vira professor provisório da turma; o Extra é opcional', async () => {
+    const d = copia(D);
+    d.carga.filter(c => c.turmas.join() === '6A').slice(0, 3).forEach(c => { c.professor = ''; });
+    d.carga.filter(c => c.turmas.join() === 'Extra 1A').forEach(c => { c.professor = ''; });
+    ok(G.modelo(d).erros.some(e => /falta escolher o professor/.test(e)), 'sem a opção: “falta escolher o professor”');
+    const P = G.preparar(d, { aDefinir: true });
+    ok(P.professores.filter(p => G.provisorio(p.nome)).map(p => p.nome).sort().join() === 'A definir · 6A,A definir · Extra 1A' && P.carga.every(c => c.professor), 'um professor provisório por turma: ' + P.professores.filter(p => p.provisorio).map(p => p.nome).join());
+    ok(d.carga.filter(c => c.turmas.join() === '6A' && !c.professor).length === 3, 'não mexe nos dados originais');
+    const r = await gerar(G, P, { tentativas: 6, semente: 5 });
+    ok(r.opcoes.length > 0, 'gerou: ' + r.gargalos.join(' | '));
+    if (r.opcoes.length) {
+      const g = r.opcoes[0].grade, defs = Object.values(g).filter(c => G.provisorio(c.professor));
+      ok(defs.some(c => c.professor === 'A definir · 6A') && defs.some(c => c.professor === 'A definir · Extra 1A'), 'aulas “a definir” na grade (6A e Extra 1A)');
+      ok(G.validar(P, g).problemas.length === 0 && sobreposicoes(P, g) === 0, 'sem conflitos');
+      ok(!Object.keys(r.opcoes[0].metricas.parado).some(G.provisorio), '“a definir” não entra no tempo parado');
+      const d2 = copia(d); d2.carga.filter(c => c.turmas.join() === '6A' && !c.professor)[0].professor = 'Igor';
+      ok(G.validar(G.preparar(d2, { aDefinir: true }), g).problemas.some(p => /está “a definir” na grade, mas agora é de Igor\. Use “Trocar professor”\./.test(p)), 'professor escolhido depois: a conferência pede “Trocar professor”');
+      // servidor: anota no histórico; troca “a definir” → professor
+      const v = criarAmbiente(); v.ctx.gravarExemplo_();
+      v.ctx.gravar_('Carga', v.ctx.valores_('Carga').map(x => { if (x[0] === '6A' && d.carga.some(c => c.turmas.join() === '6A' && c.disciplina === x[1] && !c.professor) || x[0] === 'Extra 1A') x[2] = ''; return x; }));
+      v.ctx.salvarGrade_({ grade: g, vigencia: '2026-03-02' }, s0);
+      ok(new RegExp('^Salvou como oficial \\(com ' + defs.length + ' aula\\(s\\) a definir\\)$').test(v.dados().versoes[0].descricao), 'histórico: ' + v.dados().versoes[0].descricao);
+      const disc = d.carga.find(c => c.turmas.join() === '6A' && !c.professor).disciplina, g2 = copia(g);
+      Object.keys(g2).forEach(k => { if (g2[k].professor === 'A definir · 6A' && g2[k].disciplina === disc) g2[k].professor = 'Igor'; });
+      v.ctx.substituir_({ sai: 'A definir · 6A', entra: 'Igor', linhas: [{ turmas: '6A', disciplina: disc }], grade: g2, vigencia: '2026-03-09' }, s0);
+      const dv = v.dados();
+      ok(dv.carga.find(c => c.turmas.join() === '6A' && c.disciplina === disc).professor === 'Igor' && /^Troca: a definir \(6A\) → Igor/.test(dv.versoes[0].descricao), '“Trocar professor” com Sai = a definir · 6A: ' + dv.versoes[0].descricao);
+    }
+    // só a parte regular
+    const S = G.preparar(D, { extra: false });
+    ok(!S.turmas.some(t => t.segmento === 'Extra') && !S.carga.some(c => /^Extra /.test(c.turmas[0])) && S.turmas.length === 31, 'sem o Extra: só as 31 turmas regulares');
+    const r2 = await gerar(G, S, { tentativas: 4, semente: 8 });
+    ok(r2.opcoes.length > 0 && !Object.keys(r2.opcoes[0].grade).some(k => /^Extra /.test(k)) && G.validar(S, r2.opcoes[0].grade).problemas.length === 0, 'gera só a parte regular, sem conflitos');
+    if (r2.opcoes.length) {
+      const v = criarAmbiente(); v.ctx.gravarExemplo_();
+      v.ctx.salvarGrade_({ grade: r2.opcoes[0].grade, vigencia: '2026-03-02' }, s0);
+      ok(v.dados().versoes[0].descricao === 'Salvou como oficial (sem o Extra)', 'histórico: ' + v.dados().versoes[0].descricao);
+    }
+    ok(/Gerar mesmo com matérias a definir/.test(appTxt) && /Incluir o Extra/.test(appTxt) && /Gerador\.preparar\(D, \{ aDefinir: GR\.aDefinir, extra: GR\.comExtra \}\)/.test(appTxt), 'opções na Grade horária');
+    ok(/estiloCel/.test(appTxt) && /var\(--alerta-bg\)/.test(appTxt) && /Salvar como oficial mesmo assim\?/.test(appTxt), '“a definir” em amarelo e confirmação ao salvar como oficial');
   });
 
   console.log(`\n${total - falhas}/${total} verificações ok.`);
