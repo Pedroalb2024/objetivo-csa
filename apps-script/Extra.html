@@ -1,0 +1,224 @@
+<script>
+// ===================== EXTRA: equipes, pessoas necessárias, agrupamento e distribuição automática (roda no navegador) =====================
+// D = os mesmos dados da tela (dias, grades, turmas, professores, carga, matriz, blocos, series, equipes).
+// equipes = [{ tipo: 'Extra 1º ao 5º', disciplina: 'Lição de Casa', professor: 'Ana' }] (aba "Equipe do Extra").
+// Tipo do Extra = série da turma do Extra (é também o nome do horário das aulas e da matriz dele).
+// Grupo = uma linha das atribuições do Extra: uma turma ou várias juntas, com uma pessoa dando aquela matéria.
+// A equipe de uma matéria = quem foi escolhido para ela + quem já dá essa matéria em algum Extra do tipo.
+const Extra = (() => {
+  const minutos = h => { const m = /^(\d{1,2}):(\d{2})/.exec(String(h || '')); return m ? +m[1] * 60 + +m[2] : NaN; };
+  const horaH = m => m % 60 ? Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') : m / 60 + 'h';
+  const curto = tipo => String(tipo || '').replace(/^Extra\s+/, '');
+  const aulasDe = g => g ? g.itens.filter(i => i.tipo !== 'intervalo').map(i => ({ ini: minutos(i.ini), fim: minutos(i.fim) })) : [];
+  const pessoas = n => n === 1 ? 'pessoa' : 'pessoas', grupos = n => n === 1 ? 'grupo' : 'grupos', dias = n => n === 1 ? 'dia' : 'dias';
+  const nomes = l => l.slice().sort((a, b) => a.localeCompare(b, 'pt'));
+
+  function base(D, carga) {
+    const turma = {}, grade = {}, prof = {};
+    D.turmas.forEach(t => turma[t.nome] = t);
+    D.grades.forEach(g => grade[g.nome] = aulasDe(g));
+    D.professores.forEach(p => prof[p.nome] = p);
+    const ehX = n => (turma[n] || {}).segmento === 'Extra';
+    const linhas = carga.map((l, i) => ({ l, i })).filter(x => (x.l.turmas || []).length && x.l.turmas.every(ehX));
+    const tipoDe = l => turma[l.turmas[0]].serie, gradeDe = l => turma[l.turmas[0]].grade;
+    // livre = sem "não pode" e sem horário reservado nesse horário
+    const livre = (n, d, ini, fim) => {
+      const p = prof[n], dia = D.dias[d];
+      return !!p && !(p.indisp || []).some(x => x.dia === dia && x.ini < fim && ini < x.fim)
+        && !(D.blocos || []).some(b => b.professor === n && b.dia === dia && minutos(b.ini) < fim && ini < minutos(b.fim));
+    };
+    // posições fixas ("sempre na Xª aula") de cada horário do Extra; as outras aulas ficam para as matérias sem posição fixa
+    const fixas = {};
+    linhas.forEach(({ l }) => { if (l.posicao > 0) (fixas[gradeDe(l)] = fixas[gradeDe(l)] || new Set()).add(l.posicao - 1); });
+    const soltas = g => (grade[g] || []).map((_, a) => a).filter(a => !(fixas[g] && fixas[g].has(a)));
+    return { turma, grade, prof, ehX, linhas, tipoDe, gradeDe, livre, soltas };
+  }
+  // Tipos de Extra que têm turmas, na ordem da matriz
+  function tipos(D) {
+    const t = [...new Set(D.turmas.filter(x => x.segmento === 'Extra').map(x => x.serie))], ordem = ((D.series || {}).Extra || []);
+    return t.sort((a, b) => (ordem.indexOf(a) + 1 || 99) - (ordem.indexOf(b) + 1 || 99) || a.localeCompare(b, 'pt'));
+  }
+  function equipe(D, carga, tipo, disc, B) {
+    B = B || base(D, carga);
+    const s = new Set();
+    (D.equipes || []).forEach(e => { if (e.tipo === tipo && e.disciplina === disc && B.prof[e.professor]) s.add(e.professor); });
+    B.linhas.forEach(({ l }) => { if (l.professor && l.disciplina === disc && B.tipoDe(l) === tipo && B.prof[l.professor]) s.add(l.professor); });
+    return nomes([...s]);
+  }
+  // Aulas regulares à tarde no mesmo horário: quanto ainda sobra para o Extra (Infinity = não tem aula regular nesse horário)
+  function folgaTarde(D, carga, B, n, gradeX) {
+    const xa = B.grade[gradeX] || []; if (!xa.length) return Infinity;
+    const w0 = Math.min(...xa.map(a => a.ini)), w1 = Math.max(...xa.map(a => a.fim));
+    const regs = carga.filter(l => l.professor === n && (l.turmas || []).length && !l.turmas.some(B.ehX) && B.turma[l.turmas[0]]);
+    const gs = [...new Set(regs.map(l => B.turma[l.turmas[0]].grade))].filter(g => (B.grade[g] || []).some(a => a.ini < w1 && w0 < a.fim));
+    if (!gs.length) return Infinity;
+    const R = regs.filter(l => gs.includes(B.turma[l.turmas[0]].grade)).reduce((s, l) => s + l.aulas, 0), mx = (B.prof[n] || {}).maxDia > 0 ? B.prof[n].maxDia : 99;
+    let cap = 0;
+    D.dias.forEach((_, d) => {
+      const au = [].concat(...gs.concat([gradeX]).map(g => B.grade[g] || [])).filter(a => B.livre(n, d, a.ini, a.fim)).sort((a, b) => a.fim - b.fim);
+      let k = 0, fim = -1; au.forEach(a => { if (a.ini >= fim) { k++; fim = a.fim; } });
+      cap += Math.min(k, mx);
+    });
+    return Math.max(0, cap - R);
+  }
+  const ffd = (ks, cap) => { const b = []; ks.slice().sort((x, y) => y - x).forEach(k => { const i = b.findIndex(v => v + k <= cap); if (i >= 0) b[i] += k; else b.push(k); }); return b.length; };
+
+  // ---------- Pessoas necessárias por matéria ----------
+  // Com posição fixa (ex.: Lição de Casa sempre às 13h): todos os grupos têm a matéria na mesma hora → uma pessoa por grupo
+  // (se o grupo tem 5 aulas por semana). A equipe "cabe" se cada grupo encontra alguém livre nesse horário em dias suficientes.
+  // Sem posição fixa: aulas da semana ÷ horários possíveis (as aulas que sobram depois das fixas) = pessoas ao mesmo tempo.
+  // Considera disponibilidade, horários reservados e aulas regulares à tarde no mesmo horário (folgaTarde).
+  function conta(D, carga) {
+    const B = base(D, carga), nD = D.dias.length, out = [];
+    tipos(D).forEach(tipo => {
+      const ls = B.linhas.filter(x => B.tipoDe(x.l) === tipo); if (!ls.length) return;
+      const gradeX = B.gradeDe(ls[0].l), au = B.grade[gradeX] || [], soltas = B.soltas(gradeX);
+      const ordem = (D.matriz || []).filter(m => m.serie === tipo).map(m => m.componente);
+      const discs = [...new Set(ls.map(x => x.l.disciplina))].sort((a, b) => (ordem.indexOf(a) + 1 || 99) - (ordem.indexOf(b) + 1 || 99) || a.localeCompare(b, 'pt'));
+      discs.forEach(disc => {
+        const L = ls.filter(x => x.l.disciplina === disc), G = L.length, aulas = L.reduce((s, x) => s + x.l.aulas, 0);
+        const ps = [...new Set(L.map(x => x.l.posicao || 0))], pos = ps.length === 1 ? ps[0] : 0, a = pos ? au[pos - 1] : null;
+        const eq = equipe(D, carga, tipo, disc, B), notas = {}, folga = {};
+        eq.forEach(n => folga[n] = folgaTarde(D, carga, B, n, gradeX));
+        let precisa, cabem, ok, texto, sugestao = null;
+        if (a) {
+          precisa = ffd(L.map(x => x.l.aulas), nD);
+          const livres = {};
+          eq.forEach(n => {
+            let k = D.dias.filter((_, d) => B.livre(n, d, a.ini, a.fim)).length;
+            if (k < nD) notas[n] = `não pode às ${horaH(a.ini)} em ${nD - k} ${dias(nD - k)}`;
+            if (folga[n] < k) { k = folga[n]; notas[n] = 'tem aulas regulares à tarde'; }
+            livres[n] = k;
+          });
+          cabem = 0;   // grupos com alguém (os maiores primeiro, em quem tem menos dias sobrando que ainda cabem)
+          L.map(x => x.l.aulas).sort((x, y) => y - x).forEach(k => { const n = eq.filter(p => livres[p] >= k).sort((x, y) => livres[x] - livres[y])[0]; if (n) { livres[n] -= k; cabem++; } });
+          ok = cabem >= G;
+          texto = `${disc} · ${curto(tipo)}: ${G} ${grupos(G)} às ${horaH(a.ini)} → precisa de ${precisa} ${pessoas(precisa)}. Equipe: ${eq.length} ${ok ? '✓' : '✗'}`;
+          if (!ok && cabem > 0) sugestao = { grupos: cabem, texto: `Com ${cabem} ${pessoas(cabem)}, junte o Extra em ${cabem} ${grupos(cabem)}` };
+        } else {
+          const V = soltas.length * nD;
+          precisa = Math.max(1, Math.ceil(aulas / Math.max(1, V)));
+          let cap = 0, uteis = 0;
+          eq.forEach(n => {
+            let c = 0; D.dias.forEach((_, d) => soltas.forEach(i => { if (B.livre(n, d, au[i].ini, au[i].fim)) c++; }));
+            if (c < V) notas[n] = `pode em ${c} de ${V} horários`;
+            if (folga[n] < c) { c = folga[n]; notas[n] = 'tem aulas regulares à tarde'; }
+            if (c > 0) uteis++; cap += c;
+          });
+          cabem = cap; ok = uteis >= precisa && cap >= aulas;
+          texto = `${disc} · ${curto(tipo)}: ${G} ${grupos(G)}, ${aulas} aulas por semana em ${V} horários possíveis → precisa de ${precisa} ${pessoas(precisa)}. Equipe: ${eq.length} ${ok ? '✓' : '✗'}`;
+        }
+        out.push({ tipo, grade: gradeX, disciplina: disc, posicao: pos, ini: a ? a.ini : null, fim: a ? a.fim : null, grupos: G, aulas, precisa, equipe: eq, notas, cabem, ok, texto, sugestao,
+          linhas: L.map(x => x.i), semProf: L.filter(x => !x.l.professor).length });
+      });
+    });
+    return out;
+  }
+
+  // ---------- Sugestão de agrupamento por série ----------
+  // Junta os Extras de um tipo em k grupos de séries seguidas (ex.: 1º–2º e 3º–5º), o mais parecidos possível em tamanho.
+  function agrupar(D, tipo, k) {
+    const ordemS = [].concat(...['EFAI', 'EFAF', 'EM'].map(s => ((D.series || {})[s] || []))), turma = {};
+    D.turmas.forEach(t => turma[t.nome] = t);
+    const xs = D.turmas.filter(t => t.segmento === 'Extra' && t.serie === tipo).map(t => {
+      const o = turma[(t.extraDe || [])[0]]; return { nome: t.nome, serie: o ? o.serie : '', so: o && ordemS.indexOf(o.serie) >= 0 ? ordemS.indexOf(o.serie) : 999 };
+    }).sort((a, b) => a.so - b.so || a.nome.localeCompare(b.nome, 'pt', { numeric: true }));
+    if (!xs.length) return [];
+    k = Math.max(1, Math.min(Math.round(k) || 1, xs.length));
+    const series = [];
+    xs.forEach(x => { const u = series[series.length - 1]; if (u && u.serie === x.serie) u.ts.push(x); else series.push({ serie: x.serie, ts: [x] }); });
+    let gs;
+    if (k >= series.length) {   // uma série por grupo; se ainda faltar, divide o grupo maior
+      gs = series.map(s => s.ts.slice());
+      while (gs.length < k) { let m = 0; gs.forEach((g, i) => { if (g.length > gs[m].length) m = i; }); const g = gs[m], h = Math.ceil(g.length / 2); gs.splice(m, 1, g.slice(0, h), g.slice(h)); }
+    } else {   // séries seguidas em k grupos: menor grupo maior possível e, no empate, tamanhos parecidos
+      const n = series.length, tam = series.map(s => s.ts.length), soma = (i, j) => tam.slice(i, j).reduce((s, x) => s + x, 0);
+      const melhor = (x, y) => !y || x[0] < y[0] || (x[0] === y[0] && x[1] < y[1]);
+      const dp = Array.from({ length: n + 1 }, () => Array(k + 1).fill(null)); dp[0][0] = [0, 0, -1];
+      for (let i = 1; i <= n; i++) for (let j = 1; j <= Math.min(k, i); j++) for (let p = j - 1; p < i; p++) {
+        if (!dp[p][j - 1]) continue;
+        const s = soma(p, i), c = [Math.max(dp[p][j - 1][0], s), dp[p][j - 1][1] + s * s, p];
+        if (melhor(c, dp[i][j])) dp[i][j] = c;
+      }
+      const cortes = []; for (let i = n, j = k; j > 0; j--) { const p = dp[i][j][2]; cortes.unshift([p, i]); i = p; }
+      gs = cortes.map(([p, i]) => [].concat(...series.slice(p, i).map(s => s.ts)));
+    }
+    return gs.map(g => ({ turmas: g.map(x => x.nome), rotulo: rotulo(g.map(x => x.serie)) }));
+  }
+  function rotulo(series) {
+    const s = [...new Set(series.filter(Boolean))]; if (!s.length) return '';
+    if (s.length === 1) return s[0];
+    const a = s[0], b = s[s.length - 1], fa = /\s(ano|série)$/.exec(a), fb = /\s(ano|série)$/.exec(b);
+    return fa && fb && fa[1] === fb[1] ? a.replace(/\s(ano|série)$/, '') + '–' + b : a + '–' + b;
+  }
+
+  // ---------- Distribuição automática ----------
+  // Atribui cada (Extra, matéria) a alguém da equipe daquela matéria, equilibrando as aulas de cada pessoa.
+  // Mantém as atribuições fixadas com 📌 (e, com soVazias, todas as que já têm professor). tipo (opcional): só esse tipo de Extra.
+  // juntarFixas (padrão): no mesmo grupo, as matérias de aula fixa do dia (Lição de Casa e Recreação) ficam com a mesma pessoa.
+  // Devolve { carga (cópia), mudancas, faltas (frases), porPessoa }.
+  function distribuir(D, carga, opt) {
+    const o = Object.assign({ soVazias: false, juntarFixas: true }, opt || {});
+    const B = base(D, carga), nD = D.dias.length, nova = carga.map(l => Object.assign({}, l, { turmas: l.turmas.slice() }));
+    const est = {}, st = n => est[n] = est[n] || { aulas: 0, soltas: 0, ocup: D.dias.map(() => []), folga: {} };
+    const hora = l => (B.grade[B.gradeDe(l)] || [])[l.posicao - 1];
+    const diasLivres = (n, a) => D.dias.map((_, d) => d).filter(d => B.livre(n, d, a.ini, a.fim) && !st(n).ocup[d].some(([i, f]) => i < a.fim && a.ini < f));
+    const capSoltas = (n, g) => { const au = B.grade[g] || []; let c = 0; D.dias.forEach((_, d) => B.soltas(g).forEach(i => { const a = au[i]; if (B.livre(n, d, a.ini, a.fim) && !st(n).ocup[d].some(([x, y]) => x < a.fim && a.ini < y)) c++; })); return c; };
+    const folga = (n, g) => { const s = st(n); if (!(g in s.folga)) s.folga[g] = folgaTarde(D, carga, B, n, g); return s.folga[g]; };
+    const pode = (n, ls) => {
+      const g = B.gradeDe(ls[0]), total = ls.reduce((s, l) => s + l.aulas, 0), soltas = ls.filter(l => !(l.posicao > 0 && hora(l))).reduce((s, l) => s + l.aulas, 0);
+      if (st(n).aulas + total > folga(n, g)) return false;
+      if (ls.some(l => l.posicao > 0 && hora(l) && diasLivres(n, hora(l)).length < l.aulas)) return false;
+      return !soltas || st(n).soltas + soltas <= capSoltas(n, g);
+    };
+    const comprometer = (n, ls) => ls.forEach(l => {
+      const s = st(n), a = l.posicao > 0 && hora(l);
+      if (a) diasLivres(n, a).slice(0, l.aulas).forEach(d => s.ocup[d].push([a.ini, a.fim])); else s.soltas += l.aulas;
+      s.aulas += l.aulas;
+    });
+    const doTipo = x => !o.tipo || B.tipoDe(x.l) === o.tipo;   // tipo: distribui só esse tipo; o outro conta como já ocupado
+    const mantem = x => !!x.l.professor && (o.soVazias || x.l.fixado || !doTipo(x));
+    B.linhas.filter(mantem).forEach(x => comprometer(x.l.professor, [x.l]));
+    const resto = B.linhas.filter(x => !mantem(x) && doTipo(x)), eqDe = l => equipe(D, carga, B.tipoDe(l), l.disciplina, B);
+    let itens = [];
+    if (o.juntarFixas) {   // matérias de aula fixa do dia do mesmo grupo, juntas
+      const porGrupo = {};
+      resto.filter(x => x.l.posicao > 0).forEach(x => (porGrupo[x.l.turmas.join(' + ')] = porGrupo[x.l.turmas.join(' + ')] || []).push(x));
+      Object.values(porGrupo).filter(xs => xs.length > 1).forEach(xs => {
+        const eqs = xs.map(x => eqDe(x.l)), eq = eqs[0].filter(n => eqs.every(e => e.includes(n)));
+        if (eq.length) itens.push({ xs, eq, junto: true });
+      });
+    }
+    const usados = new Set([].concat(...itens.map(it => it.xs.map(x => x.i))));
+    resto.filter(x => !usados.has(x.i)).forEach(x => itens.push({ xs: [x], eq: eqDe(x.l) }));
+    const peso = it => (it.junto ? 0 : it.xs[0].l.posicao > 0 ? 1 : 2);
+    itens.sort((a, b) => peso(a) - peso(b) || a.eq.length - b.eq.length || b.xs.reduce((s, x) => s + x.l.aulas, 0) - a.xs.reduce((s, x) => s + x.l.aulas, 0)
+      || a.xs[0].l.turmas.join().localeCompare(b.xs[0].l.turmas.join(), 'pt', { numeric: true }));
+    const faltas = {};
+    const tentar = it => {
+      const ls = it.xs.map(x => x.l), atual = ls[0].professor;
+      const cand = it.eq.filter(n => pode(n, ls)).sort((a, b) => st(a).aulas - st(b).aulas || (a === atual ? -1 : b === atual ? 1 : 0) || a.localeCompare(b, 'pt'));
+      if (cand.length) { comprometer(cand[0], ls); it.xs.forEach(x => { nova[x.i].professor = cand[0]; }); return; }
+      if (it.junto) return it.xs.forEach(x => tentar({ xs: [x], eq: eqDe(x.l) }));   // não coube junto: tenta cada matéria separada
+      const l = ls[0], a = l.posicao > 0 && hora(l);
+      const motivo = !it.eq.length ? 'a equipe está vazia' : a ? `todos da equipe já têm um grupo às ${horaH(a.ini)} ou não podem nesse horário` : 'a equipe não tem horários livres suficientes';
+      const k = B.tipoDe(l) + '|' + l.disciplina + '|' + motivo, f = faltas[k] = faltas[k] || { tipo: B.tipoDe(l), disciplina: l.disciplina, motivo, turmas: [] };
+      f.turmas.push(l.turmas.join(' + '));
+      nova[it.xs[0].i].professor = ''; nova[it.xs[0].i].fixado = false;
+    };
+    itens.forEach(tentar);
+    const mudancas = [], porPessoa = {};
+    B.linhas.filter(doTipo).forEach(({ i }) => {
+      const l = nova[i];
+      if (l.professor !== (carga[i].professor || '')) mudancas.push({ i, turmas: l.turmas.join(' + '), disciplina: l.disciplina, de: carga[i].professor || '', para: l.professor });
+      if (l.professor) { const p = porPessoa[l.professor] = porPessoa[l.professor] || { aulas: 0, itens: [] }; p.aulas += l.aulas; p.itens.push({ disciplina: l.disciplina, turmas: l.turmas.join(' + '), aulas: l.aulas }); }
+    });
+    return {
+      carga: nova, mudancas, porPessoa,
+      faltas: Object.values(faltas).map(f => `${f.disciplina} · ${curto(f.tipo)}: ficou sem professor em ${f.turmas.length} ${grupos(f.turmas.length)} (${f.turmas.join(', ')}) — ${f.motivo}.`),
+    };
+  }
+
+  return { conta, agrupar, distribuir, equipe, tipos, curto, rotulo };
+})();
+</script>
