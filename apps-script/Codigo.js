@@ -129,6 +129,8 @@ const ACOES = {
   aplicarMatriz:    { p: EDITA, f: aplicarMatriz_ },
   conferirEstrutura:{ p: EDITA, f: conferirEstrutura_ },
   comecarAno:       { p: ['admin'], f: comecarAno_ },
+  previaPlanoExtra: { p: ['admin'], f: previaPlanoExtra_, leitura: true },
+  aplicarPlanoExtra:{ p: ['admin'], f: aplicarPlanoExtra_ },
   salvarUsuario:    { p: ['admin'], f: salvarUsuario_ },
   excluirUsuario:   { p: ['admin'], f: excluirUsuario_ },
 };
@@ -177,6 +179,7 @@ function dados_(s) {
     const sh = aba_(ABA.registro), n = sh.getLastRow();
     D.registro = n < 2 ? [] : sh.getRange(Math.max(2, n - 39), 1, Math.min(40, n - 1), 3).getValues().reverse()
       .map(r => ({ quando: r[0] instanceof Date ? Utilities.formatDate(r[0], tz_(), 'dd/MM HH:mm') : txt_(r[0]), usuario: txt_(r[1]), acao: txt_(r[2]) }));
+    D.planoExtra = infoPlano_();
   }
   return D;
 }
@@ -384,12 +387,19 @@ function separarExtra_(d) {
 // Junta os Extras de um tipo nos grupos escolhidos (ex.: 1º–2º e 3º–5º): primeiro separa todos, depois junta cada grupo,
 // matéria a matéria (mesmo horário e mesmo professor; fica o professor do primeiro Extra do grupo que tiver um).
 function agruparExtra_(d) {
-  const tipo = txt_(d.tipo), ts = lerTurmas_().filter(t => t.segmento === 'Extra' && t.serie === tipo), nomes = ts.map(t => t.nome);
+  const tipo = txt_(d.tipo), grupos = (d.grupos || []).map(g => [...new Set(listaTurmas_(g))]).filter(g => g.length);
+  const final = agruparLinhas_(valores_(ABA.carga), lerTurmas_(), tipo, grupos);
+  conferirDuplicadas_(final); gravar_(ABA.carga, final); limparFixas_(final);
+  return `Agrupou o ${tipo} em ${grupos.length} grupo(s): ${grupos.map(g => g.join(' + ')).join('; ')}`;
+}
+// Sem gravar: devolve as linhas da Carga com os Extras do tipo juntados nos grupos (usado também pelo plano do Extra 2027)
+function agruparLinhas_(rows, turmas, tipo, grupos) {
+  const ts = turmas.filter(t => t.segmento === 'Extra' && t.serie === tipo), nomes = ts.map(t => t.nome);
   if (!ts.length) throw new Error('Não há Extras desse tipo.');
   if (new Set(ts.map(t => t.grade)).size > 1) throw new Error(`Os Extras do tipo ${tipo} usam horários das aulas diferentes; não dá para agrupar todos.`);
-  const grupos = (d.grupos || []).map(g => [...new Set(listaTurmas_(g))]).filter(g => g.length), todas = [].concat(...grupos);
+  const todas = [].concat(...grupos);
   if (todas.length !== nomes.length || new Set(todas).size !== todas.length || nomes.some(n => todas.indexOf(n) < 0)) throw new Error('Cada Extra precisa ficar em um grupo (e só em um).');
-  const doTipo = r => listaTurmas_(r[0]).some(t => nomes.indexOf(t) >= 0), rows = valores_(ABA.carga), sep = [];
+  const doTipo = r => listaTurmas_(r[0]).some(t => nomes.indexOf(t) >= 0), sep = [];
   rows.filter(doTipo).forEach(r => listaTurmas_(r[0]).forEach(t => { const x = r.slice(); x[0] = t; sep.push(x); }));
   const novas = [];
   grupos.forEach(g => {
@@ -402,9 +412,7 @@ function agruparExtra_(d) {
       novas.push(x);
     });
   });
-  const final = rows.filter(r => !doTipo(r)).concat(novas);
-  conferirDuplicadas_(final); gravar_(ABA.carga, final); limparFixas_(final);
-  return `Agrupou o ${tipo} em ${grupos.length} grupo(s): ${grupos.map(g => g.join(' + ')).join('; ')}`;
+  return rows.filter(r => !doTipo(r)).concat(novas);
 }
 
 // Disciplinas de uma turma. Linha com "juntas" vale para várias turmas ao mesmo tempo (ex.: "5A + 5B").
@@ -616,6 +624,228 @@ function comecarAno_(d, s) {
   pr.setProperty('ANO_LETIVO', ano); pr.deleteProperty('ESTRUTURA_CONFERIDA');
   return `Começou o ano letivo ${ano} (professores ${d.professores === 'apagar' ? 'apagados' : 'mantidos'})`;
 }
+// ---------------- Plano do Extra 2027 (uso único, só admin) ----------------
+// Aplica de uma vez o plano combinado para o Extra: tira dos Extras as matérias fora da matriz, junta os Extras nos grupos,
+// põe quem dá cada matéria (com 📌), acrescenta matérias e o segmento Extra nos cadastros (sem tirar nada), preenche a Equipe
+// do Extra e faz os ajustes da parte regular marcados na prévia. Nada muda sem a prévia e a confirmação; se algo falhar, nada é gravado.
+// O plano tem nomes de pessoas, por isso NÃO fica no código (o repositório é público): vem da propriedade do script PLANO_EXTRA
+// (JSON, colocada uma vez em Configurações do projeto → Propriedades do script). Formato:
+// { "grupos": { "Extra 1º ao 5º": [["Extra 1A", "Extra 1B"], ["Extra 3A", "Extra 4A"]], "Extra 6º ao EM": [[...]] },
+//   "atribuicoes": [{ "tipo": "Extra 1º ao 5º", "grupos": [1, 2], "materia": "Teatro", "professor": "Nome" }],   (grupos contados a partir de 1)
+//   "cadastros": { "Nome": ["Lição de Casa", "Recreação"] },   (matérias do Extra no cadastro, além das que a pessoa passa a dar)
+//   "ajustes": [{ "materia": "Biologia", "turmas": ["1 EM A", "1 EM B"], "de": "Nome", "para": "Nome" }],
+//   "limites": { "geral": 40, "soEM": 35 } }   (aulas por semana; soEM = quem só dá aula no EM)
+// Depois de aplicado, PLANO_EXTRA_USADO guarda quando e quem, e o botão some (fica no Registro e no Histórico).
+const PLANO_PROP = 'PLANO_EXTRA', PLANO_USADO = 'PLANO_EXTRA_USADO', BACKUP_PLANO = 'Backup antes do plano Extra · ';
+function planoExtra_() {
+  const pr = PropertiesService.getScriptProperties(), bruto = pr.getProperty(PLANO_PROP), usado = pr.getProperty(PLANO_USADO) || '';
+  if (!bruto) return { plano: null, usado, erro: '' };
+  try { return { plano: JSON.parse(bruto), usado, erro: '' }; }
+  catch (e) { return { plano: null, usado, erro: 'O texto do plano (propriedade PLANO_EXTRA) não é um JSON válido: ' + e.message }; }
+}
+function infoPlano_() { const p = planoExtra_(); return { disponivel: !!p.plano && !p.usado, usado: p.usado, erro: p.usado ? '' : p.erro }; }
+function distancia_(a, b) {   // letras a trocar, tirar ou pôr para ir de a até b (sugestão de nome parecido)
+  let ant = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const at = [i];
+    for (let j = 1; j <= b.length; j++) at[j] = Math.min(ant[j] + 1, at[j - 1] + 1, ant[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    ant = at;
+  }
+  return ant[b.length];
+}
+function hash_(s) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s, Utilities.Charset.UTF_8).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join(''); }
+
+// Calcula tudo em memória (nada é gravado aqui). escolha = índices dos ajustes marcados (null = todos os que dão para fazer).
+function calcPlanoExtra_(P, escolha) {
+  const turmas = lerTurmas_(), matriz = lerMatriz_(), comps = lerComponentes_(), grades = lerGrades_(), T = {};
+  turmas.forEach(t => T[t.nome] = t);
+  const orig = { prof: valores_(ABA.prof), carga: valores_(ABA.carga), equipes: valores_(ABA.equipes), turmas: valores_(ABA.turmas) };
+  const base = hash_(JSON.stringify([orig, matriz, grades]));   // a chave final junta os ajustes marcados: aplicar só vale para a mesma prévia
+  const erros = [], nomesP = orig.prof.map(r => txt_(r[0])), nomesC = comps.map(c => c.nome), vazio = { erros, chave: base };
+  const conferirProf = n => {
+    if (nomesP.indexOf(n) >= 0) return true;
+    const k = normalizar_(n), pa = nomesP.filter(p => { const q = normalizar_(p); return k && (q.indexOf(k) >= 0 || k.indexOf(q) >= 0 || distancia_(q.split(' ')[0], k.split(' ')[0]) <= 2); }).slice(0, 4);
+    const msg = `Professor “${n}” não encontrado na planilha${pa.length ? ` (parecidos: ${pa.join(', ')})` : ''}.`;
+    if (erros.indexOf(msg) < 0) erros.push(msg);
+    return false;
+  };
+  const conferirMat = m => { if (nomesC.indexOf(m) >= 0) return true; const msg = `Matéria “${m}” não encontrada na lista de matérias.`; if (erros.indexOf(msg) < 0) erros.push(msg); return false; };
+  const G = P.grupos || {}, tipos = Object.keys(G);
+  if (!tipos.length) erros.push('O plano não tem grupos do Extra.');
+  tipos.forEach(tipo => {
+    if (SERIES.Extra.indexOf(tipo) < 0) return erros.push(`Tipo do Extra “${tipo}” não existe (use ${SERIES.Extra.join(' ou ')}).`);
+    const todas = [].concat(...(G[tipo] || []).map(listaTurmas_)), doTipo = turmas.filter(t => t.segmento === 'Extra' && t.serie === tipo).map(t => t.nome);
+    todas.forEach(n => { if (!T[n]) erros.push(`${n} não existe na planilha.`); else if (T[n].segmento !== 'Extra' || T[n].serie !== tipo) erros.push(`${n} não é um ${tipo}.`); });
+    doTipo.filter(n => todas.indexOf(n) < 0).forEach(n => erros.push(`${n} existe na planilha, mas não está em nenhum grupo do ${tipo} no plano.`));
+    todas.filter((n, i) => todas.indexOf(n) !== i).forEach(n => erros.push(`${n} aparece em mais de um grupo.`));
+  });
+  (P.atribuicoes || []).forEach(a => {
+    conferirProf(a.professor); conferirMat(a.materia);
+    if (!G[a.tipo]) return erros.push(`Atribuição de ${a.materia} (${a.professor}): o tipo “${a.tipo}” não tem grupos no plano.`);
+    (a.grupos || []).forEach(n => { if (!G[a.tipo][n - 1]) erros.push(`O ${a.tipo} não tem grupo ${n} (atribuição de ${a.materia}).`); });
+  });
+  Object.keys(P.cadastros || {}).forEach(n => { conferirProf(n); (P.cadastros[n] || []).forEach(conferirMat); });
+  (P.ajustes || []).forEach(a => { conferirMat(a.materia); conferirProf(a.de); conferirProf(a.para); listaTurmas_(a.turmas).forEach(t => { if (!T[t]) erros.push(`Turma ${t} (ajuste de ${a.materia}) não existe na planilha.`); }); });
+  if (erros.length) return vazio;
+
+  // 1. Limpeza: os Extras ficam com as matérias da matriz do Extra (sai o que está fora; entra o que faltar)
+  const lim = calcMatriz_(turmas.filter(t => t.segmento === 'Extra'), orig.carga, matriz, comps, SERIES.Extra, true);
+  let rows = lim.carga;
+  const saem = {}; lim.mudancas.forEach(m => m.saem.forEach(x => (saem[x] = saem[x] || []).push(m.turma)));
+  const limpeza = Object.keys(saem).map(x => ({ materia: x, extras: saem[x] }));
+  const outras = lim.mudancas.filter(m => m.novas.length || m.mudam.length).map(m => `${m.turma}: ${m.novas.map(x => '+ ' + x).concat(m.mudam).join(', ')}`);
+
+  // 2. Juntar os Extras nos grupos
+  const gruposDe = tipo => G[tipo].map(g => [...new Set(listaTurmas_(g))]);
+  try { tipos.forEach(tipo => { rows = agruparLinhas_(rows, turmas, tipo, gruposDe(tipo)); }); }
+  catch (e) { erros.push(e.message); return vazio; }
+  const rotulo = g => {
+    const ss = [...new Set(g.map(x => (T[(T[x].extraDe || [])[0]] || {}).serie).filter(Boolean))];
+    if (ss.length < 2) return ss[0] || '';
+    const a = ss[0], b = ss[ss.length - 1], fa = /\s(ano|série)$/.exec(a), fb = /\s(ano|série)$/.exec(b);
+    return (fa && fb && fa[1] === fb[1] ? a.replace(/\s(ano|série)$/, '') : a) + ' ao ' + b;
+  };
+  const grupos = tipos.map(tipo => ({ tipo, grupos: gruposDe(tipo).map((g, i) => ({ n: i + 1, turmas: g, rotulo: rotulo(g) })) }));
+
+  // 3. Quem dá cada matéria em cada grupo, com 📌 (a distribuição automática não muda)
+  const mesmo = (r, g) => { const a = listaTurmas_(r[0]); return a.length === g.length && g.every(t => a.indexOf(t) >= 0); };
+  const antesDe = (g, m) => { const ps = [...new Set(orig.carga.filter(r => txt_(r[1]) === m && listaTurmas_(r[0]).some(t => g.indexOf(t) >= 0)).map(r => txt_(r[2]) || 'a definir'))]; return ps.length ? ps.join(', ') : 'a definir'; };
+  const atribuicoes = [], feitas = {};
+  (P.atribuicoes || []).forEach(a => (a.grupos || []).forEach(n => {
+    const g = gruposDe(a.tipo)[n - 1], r = rows.find(x => mesmo(x, g) && txt_(x[1]) === a.materia), k = a.tipo + '|' + n + '|' + a.materia;
+    if (!r) return erros.push(`O grupo ${n} do ${a.tipo} não tem ${a.materia} (a matéria não está na matriz do Extra).`);
+    if (feitas[k] && feitas[k] !== a.professor) return erros.push(`${a.materia} do grupo ${n} do ${a.tipo} aparece com duas pessoas no plano (${feitas[k]} e ${a.professor}).`);
+    feitas[k] = a.professor;
+    atribuicoes.push({ tipo: a.tipo, grupo: n, turmas: g, materia: a.materia, antes: antesDe(g, a.materia), professor: a.professor });
+    r[2] = a.professor; r[7] = 'Sim';
+  }));
+  grupos.forEach(x => x.grupos.forEach(g => rows.filter(r => mesmo(r, g.turmas) && !txt_(r[2])).forEach(r => erros.push(`O plano não diz quem dá ${txt_(r[1])} no grupo ${g.n} do ${x.tipo}.`))));
+  if (erros.length) return vazio;
+
+  // 4. Ajustes da parte regular (cada um pode ser desmarcado na prévia)
+  const ajustes = (P.ajustes || []).map((a, i) => {
+    const ts = listaTurmas_(a.turmas), ls = ts.map(t => rows.find(r => listaTurmas_(r[0]).indexOf(t) >= 0 && txt_(r[1]) === a.materia)), us = [...new Set(ls.filter(Boolean))];
+    const falta = ts.filter((t, k) => !ls[k]), juntas = us.filter(r => listaTurmas_(r[0]).some(t => ts.indexOf(t) < 0)), hoje = [...new Set(us.map(r => txt_(r[2]) || 'a definir'))];
+    let status = 'ok', motivo = '';
+    if (falta.length) { status = 'conflito'; motivo = `${falta.join(', ')} não tem ${a.materia}`; }
+    else if (juntas.length) { status = 'conflito'; motivo = `está junta com outra turma (${juntas.map(r => txt_(r[0])).join('; ')}); ajuste à mão`; }
+    else if (us.every(r => txt_(r[2]) === a.para)) { status = 'feito'; motivo = `já está com ${a.para}`; }
+    else if (us.some(r => txt_(r[2]) !== a.de && txt_(r[2]) !== a.para)) { status = 'conflito'; motivo = `hoje está com ${hoje.join(', ')}, não com ${a.de}`; }
+    const marcado = status === 'ok' && (!escolha || escolha.indexOf(i) >= 0);
+    if (marcado) us.forEach(r => { if (txt_(r[2]) === a.de) r[2] = a.para; });
+    return { i, materia: a.materia, turmas: ts, de: a.de, para: a.para, aulas: us.reduce((s, r) => s + num_(r[3]), 0), status, motivo, marcado };
+  });
+
+  // 5. Cadastros: acrescenta matérias e segmentos (nunca tira)
+  const profRows = orig.prof.map(r => r.slice()), cad = {};
+  const quer = (n, m, seg) => { const c = cad[n] = cad[n] || { materias: [], segmentos: [] }; if (m && c.materias.indexOf(m) < 0) c.materias.push(m); if (seg && c.segmentos.indexOf(seg) < 0) c.segmentos.push(seg); };
+  atribuicoes.forEach(a => quer(a.professor, a.materia, 'Extra'));
+  Object.keys(P.cadastros || {}).forEach(n => { quer(n, '', 'Extra'); (P.cadastros[n] || []).forEach(m => quer(n, m, 'Extra')); });
+  ajustes.filter(a => a.marcado).forEach(a => a.turmas.forEach(t => quer(a.para, a.materia, T[t].segmento)));
+  const cadastros = [];
+  profRows.forEach(r => {
+    const c = cad[txt_(r[0])]; if (!c) return;
+    const mats = lista_(r[2]), segs = lista_(r[8]), nm = c.materias.filter(m => mats.indexOf(m) < 0), ns = c.segmentos.filter(x => segs.indexOf(x) < 0);
+    if (!nm.length && !ns.length) return;
+    r[2] = mats.concat(nm).join(', '); r[8] = Object.keys(SERIES).filter(x => segs.concat(ns).indexOf(x) >= 0).join(', ');
+    cadastros.push({ professor: txt_(r[0]), materias: nm, segmentos: ns });
+  });
+
+  // 6. Equipe do Extra: quem dá cada matéria + as matérias do cadastro no tipo em que a pessoa trabalha (as que já estavam ficam)
+  const eqRows = orig.equipes.map(r => r.slice()), novasEq = [], tem = (l, t, m, p) => l.some(r => txt_(r[0]) === t && txt_(r[1]) === m && txt_(r[2]) === p);
+  const addEq = (t, m, p) => { if (!tem(eqRows, t, m, p) && !tem(novasEq, t, m, p)) novasEq.push([t, m, p]); };
+  atribuicoes.forEach(a => addEq(a.tipo, a.materia, a.professor));
+  Object.keys(P.cadastros || {}).forEach(n => {
+    const ts = [...new Set(atribuicoes.filter(a => a.professor === n).map(a => a.tipo))];
+    (P.cadastros[n] || []).forEach(m => ts.forEach(t => { if (matriz.some(x => x.serie === t && x.componente === m)) addEq(t, m, n); }));
+  });
+  const eqFinal = eqRows.concat(novasEq), equipes = [];
+  tipos.forEach(t => matriz.filter(x => x.serie === t).forEach(x => {
+    const ps = eqFinal.filter(r => txt_(r[0]) === t && txt_(r[1]) === x.componente).map(r => txt_(r[2]));
+    equipes.push({ tipo: t, materia: x.componente, professores: ps, novos: novasEq.filter(r => r[0] === t && r[1] === x.componente).map(r => r[2]) });
+  }));
+
+  // 7. Aulas por semana de cada pessoa (antes → depois) e o limite (soEM para quem só dá aula no EM; o Extra não conta como segmento)
+  const L = Object.assign({ geral: 40, soEM: 35 }, P.limites || {});
+  const soma = rs => { const s = {}; rs.forEach(r => { const p = txt_(r[2]); if (p) s[p] = (s[p] || 0) + num_(r[3]); }); return s; };
+  const antes = soma(orig.carga), depois = soma(rows);
+  const limite = p => {
+    const segs = [...new Set([].concat(...rows.filter(r => txt_(r[2]) === p).map(r => listaTurmas_(r[0]).map(t => (T[t] || {}).segmento))))].filter(x => x && x !== 'Extra');
+    return segs.length && segs.every(x => x === 'EM') ? L.soEM : L.geral;
+  };
+  const cargas = [...new Set(Object.keys(antes).concat(Object.keys(depois)))].filter(p => (antes[p] || 0) !== (depois[p] || 0))
+    .map(p => ({ professor: p, antes: antes[p] || 0, depois: depois[p] || 0, limite: limite(p) })).sort((a, b) => a.professor.localeCompare(b.professor, 'pt'));
+  const todas = Object.keys(depois).map(p => ({ professor: p, aulas: depois[p], limite: limite(p) }));
+  const acima = todas.filter(x => x.aulas > x.limite), maior = todas.sort((a, b) => (b.aulas / b.limite) - (a.aulas / a.limite))[0] || null;
+
+  // 8. Turmas e Extras completos (como na Conferência das turmas: professor em toda matéria, matriz inteira e a semana completa)
+  const nAulas = {}; grades.forEach(g => nAulas[g.nome] = aulasGrade_(g).length);
+  const incompletas = [];
+  turmas.forEach(t => {
+    const ls = rows.filter(r => listaTurmas_(r[0]).indexOf(t.nome) >= 0), sem = ls.filter(r => !txt_(r[2])).map(r => txt_(r[1]));
+    const faltam = matriz.filter(m => m.serie === t.serie && !ls.some(r => txt_(r[1]) === m.componente)).map(m => m.componente);
+    const aulas = ls.reduce((s, r) => s + num_(r[3]), 0), cap = (nAulas[t.grade] || 0) * DIAS.length, m = [];
+    if (!ls.length && !faltam.length) m.push('sem matérias');
+    if (sem.length) m.push('sem professor em ' + sem.join(', '));
+    if (faltam.length) m.push('falta ' + faltam.join(', '));
+    if (ls.length && (t.segmento === 'Extra' ? aulas > cap : aulas !== cap)) m.push(`${aulas} de ${cap} aulas por semana`);
+    if (m.length) incompletas.push({ turma: t.nome, motivo: m.join('; ') });
+  });
+
+  const chave = hash_(base + JSON.stringify(ajustes.filter(a => a.marcado).map(a => a.i)));
+  return { erros, chave, limpeza, outras, grupos, atribuicoes, ajustes, cadastros, equipes, cargas, acima, maior, incompletas, limites: L,
+    nTurmas: turmas.filter(t => t.segmento !== 'Extra').length, nExtras: turmas.filter(t => t.segmento === 'Extra').length,
+    resultado: { carga: rows.map(cargaObj_), professores: profRows.map(profObj_), equipes: eqFinal.map(equipeObj_).filter(e => e.disciplina && e.professor) },
+    _linhas: { carga: rows, prof: profRows, equipes: eqFinal } };
+}
+function previaPlanoExtra_(d) {
+  const p = planoExtra_();
+  if (p.usado) throw new Error('O plano do Extra 2027 já foi aplicado (' + p.usado + ').');
+  if (!p.plano) throw new Error(p.erro || 'Não há plano do Extra para aplicar.');
+  const r = calcPlanoExtra_(p.plano, Array.isArray(d.ajustes) ? d.ajustes : null);
+  delete r._linhas;
+  return r;
+}
+// Grava o plano: confere de novo (mesma prévia, mesmas checagens), copia as abas para abas ocultas e grava tudo.
+// Se der erro no meio, volta as abas como estavam antes (nada fica gravado pela metade).
+function aplicarPlanoExtra_(d, s) {
+  const p = planoExtra_();
+  if (p.usado) throw new Error('O plano do Extra 2027 já foi aplicado (' + p.usado + ').');
+  if (!p.plano) throw new Error(p.erro || 'Não há plano do Extra para aplicar.');
+  const r = calcPlanoExtra_(p.plano, Array.isArray(d.ajustes) ? d.ajustes : null);
+  if (r.chave !== d.chave) throw new Error('Os dados mudaram depois da prévia. Nada foi gravado: abra a prévia de novo.');
+  if (r.erros.length) throw new Error('Nada foi gravado. O plano não bate com a planilha: ' + r.erros.join(' '));
+  const falhas = r.acima.map(x => `${x.professor} ficaria com ${x.aulas} aulas (máximo ${x.limite})`).concat(r.incompletas.map(x => `${x.turma}: ${x.motivo}`));
+  if (falhas.length) throw new Error('Nada foi gravado. Depois do plano: ' + falhas.join('; ') + '.');
+  if (d.equipeOk !== true) throw new Error('Nada foi gravado: a Equipe do Extra não ficaria toda verde.');
+  conferirDuplicadas_(r._linhas.carga);
+  const copias = backupPlano_(planilha_());
+  const antes = { carga: valores_(ABA.carga), prof: valores_(ABA.prof), equipes: valores_(ABA.equipes), fixas: valores_(ABA.fixas) };
+  const nAj = r.ajustes.filter(a => a.marcado).length;
+  try {
+    gravar_(ABA.carga, r._linhas.carga); limparFixas_(r._linhas.carga);
+    gravar_(ABA.prof, r._linhas.prof);
+    gravar_(ABA.equipes, r._linhas.equipes);
+    guardarVersao_(s, `Plano do Extra 2027 aplicado (atribuições${nAj ? ` e ${nAj} ajuste(s) da parte regular` : ''}; a grade não mudou)`, (lerVersoes_()[0] || {}).vigencia || '');
+    PropertiesService.getScriptProperties().setProperty(PLANO_USADO, agora_() + ' por ' + (s.nome || s.u));
+  } catch (e) {
+    gravar_(ABA.carga, antes.carga); gravar_(ABA.prof, antes.prof); gravar_(ABA.equipes, antes.equipes); gravar_(ABA.fixas, antes.fixas);
+    throw new Error('Nada foi gravado (deu erro no meio e tudo voltou como estava): ' + e.message);
+  }
+  const nG = r.grupos.reduce((n, x) => n + x.grupos.length, 0);
+  return `Aplicou o plano do Extra 2027: ${r.limpeza.length ? `tirou ${r.limpeza.map(x => x.materia).join(', ')} dos Extras; ` : ''}juntou os Extras em ${nG} grupo(s) (${r.grupos.map(x => x.grupos.map(g => g.turmas.join(' + ')).join(' | ')).join(' | ')}); `
+    + `${r.atribuicoes.length} atribuição(ões) com 📌; ${nAj} ajuste(s) da parte regular${nAj ? ' (' + r.ajustes.filter(a => a.marcado).map(a => `${a.materia} ${a.turmas.join(', ')}: ${a.de} → ${a.para}`).join('; ') + ')' : ''}; `
+    + `cadastros de ${r.cadastros.length} pessoa(s); ${r.equipes.reduce((n, x) => n + x.novos.length, 0)} entrada(s) na Equipe do Extra. Cópia antes: ${copias.join(', ')} (abas ocultas)`;
+}
+function backupPlano_(ss) {
+  return [ABA.prof, ABA.carga, ABA.turmas, ABA.equipes].map(nome => {
+    const alvo = BACKUP_PLANO + nome, velha = ss.getSheetByName(alvo);
+    if (velha) ss.deleteSheet(velha);   // sobra de uma tentativa que não gravou nada
+    const c = aba_(nome).copyTo(ss); c.setName(alvo); c.hideSheet();
+    return alvo;
+  });
+}
+
 function conferirEstrutura_(d) {
   const pr = PropertiesService.getScriptProperties();
   if (d.ok === false) { pr.deleteProperty('ESTRUTURA_CONFERIDA'); return 'Desmarcou: horários, turmas e matriz conferidos'; }
@@ -758,18 +988,19 @@ function lerGrades_() {
   return ordem;
 }
 function aulasGrade_(g) { return g.itens.filter(i => i.tipo !== 'intervalo').map(i => ({ ini: minutos_(i.ini), fim: minutos_(i.fim) })); }
-function lerProfessores_() {
-  return valores_(ABA.prof).map(r => ({ nome: txt_(r[0]), completo: txt_(r[1]), disciplinas: txt_(r[2]), tel: txt_(r[3]), maxDia: num_(r[4]),
-    indisp: lerIndisp_(r[5]), conferida: txt_(r[6]), obs: txt_(r[7]), materias: lista_(r[2]), segmentos: lista_(r[8]).filter(x => SERIES[x]) }));
+function lerProfessores_() { return valores_(ABA.prof).map(profObj_); }
+function profObj_(r) {
+  return { nome: txt_(r[0]), completo: txt_(r[1]), disciplinas: txt_(r[2]), tel: txt_(r[3]), maxDia: num_(r[4]),
+    indisp: lerIndisp_(r[5]), conferida: txt_(r[6]), obs: txt_(r[7]), materias: lista_(r[2]), segmentos: lista_(r[8]).filter(x => SERIES[x]) };
 }
 // Turma: no Extra, "extraDe" = turma(s) da manhã a que ele pertence; nas regulares, "semExtra" = marcada "não tem Extra"
 function lerTurmas_() {
   return valores_(ABA.turmas).map(r => ({ nome: txt_(r[0]), segmento: txt_(r[1]), serie: txt_(r[2]), grade: txt_(r[3]), extraDe: listaTurmas_(r[4]), semExtra: sim_(r[5]) }));
 }
-function lerCarga_() {
-  return valores_(ABA.carga).map(r => ({ turmas: listaTurmas_(r[0]), disciplina: txt_(r[1]), professor: txt_(r[2]), aulas: num_(r[3]), duplas: num_(r[4]), maxDia: num_(r[5]), posicao: num_(r[6]), fixado: !!txt_(r[2]) && sim_(r[7]) }));
-}
-function lerEquipes_() { return valores_(ABA.equipes).map(r => ({ tipo: txt_(r[0]), disciplina: txt_(r[1]), professor: txt_(r[2]) })).filter(e => e.disciplina && e.professor); }
+function lerCarga_() { return valores_(ABA.carga).map(cargaObj_); }
+function cargaObj_(r) { return { turmas: listaTurmas_(r[0]), disciplina: txt_(r[1]), professor: txt_(r[2]), aulas: num_(r[3]), duplas: num_(r[4]), maxDia: num_(r[5]), posicao: num_(r[6]), fixado: !!txt_(r[2]) && sim_(r[7]) }; }
+function lerEquipes_() { return valores_(ABA.equipes).map(equipeObj_).filter(e => e.disciplina && e.professor); }
+function equipeObj_(r) { return { tipo: txt_(r[0]), disciplina: txt_(r[1]), professor: txt_(r[2]) }; }
 function lerMatriz_() { return valores_(ABA.matriz).map(r => ({ serie: txt_(r[0]), componente: txt_(r[1]), aulas: num_(r[2]), posicao: num_(r[3]) })).filter(m => m.componente && m.aulas > 0); }
 function lerComponentes_() { return valores_(ABA.comp).map(r => ({ nome: txt_(r[0]), sigla: txt_(r[1]), apelidos: txt_(r[2]).split(';').map(a => a.trim()).filter(String) })); }
 function lerBlocos_() {

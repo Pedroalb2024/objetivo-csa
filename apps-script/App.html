@@ -80,6 +80,12 @@
   .opcao-radio { display:flex; gap:10px; align-items:flex-start; border:1px solid var(--borda); border-radius:10px; padding:12px; margin-bottom:8px; cursor:pointer; font-size:13.5px; }
   .opcao-radio:has(input:checked) { border-color:var(--azul); background:var(--azul-claro); }
   .opcao-radio input { margin-top:2px; flex-shrink:0; }
+  /* Plano do Extra 2027 */
+  .pl-sec { margin-bottom:14px; max-width:880px; } .pl-sec h3 { margin-bottom:8px; }
+  .pl-check { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border-radius:10px; margin-bottom:8px; font-size:13.5px; }
+  .pl-check.ok { background:var(--ok-bg); color:var(--ok); } .pl-check.erro { background:var(--erro-bg); color:var(--erro); }
+  .pl-check .pl-ic { font-weight:700; font-size:16px; line-height:1.2; } .pl-check .lista { margin:4px 0 0; }
+  .pl-ajuste.off { cursor:default; opacity:.85; }
   .barra-salvar { position:sticky; bottom:0; z-index:15; display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--alerta-bg); border:1px solid #efd58a; border-radius:10px; padding:8px 12px; margin-top:12px; box-shadow:var(--sombra); }
   .barra-salvar span { margin-right:auto; font-weight:700; color:var(--alerta); }
   .pergunta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--alerta-bg); color:var(--alerta); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:13.5px; }
@@ -177,6 +183,7 @@
   .opcao { border:1px solid var(--borda); border-radius:8px; padding:7px 10px; margin-bottom:6px; cursor:pointer; font-size:13px; }
   .opcao.ativa { border-color:var(--azul); background:var(--azul-claro); }
   .opcao small { display:block; color:var(--suave); font-size:11.5px; margin-top:2px; } .opcao small .link { font-size:11.5px; padding:0; text-align:left; }
+  .conforto small { display:block; color:var(--suave); margin-top:4px; } .conforto small .link { padding:0; text-align:left; }
   .barra { height:6px; background:#e3e7ec; border-radius:3px; overflow:hidden; margin:6px 0 10px; }
   .barra div { height:100%; width:0; background:var(--azul); transition:width .2s; }
   .abas { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
@@ -294,6 +301,7 @@ const TELAS = [
   { id: 'professores', nome: 'Professores', ic: '👩‍🏫', p: EDITA, sub: 'Abra um professor para marcar as turmas de cada matéria dele e os horários em que não pode.' },
   { id: 'conferencia', nome: 'Conferência das turmas', ic: '✅', p: EDITA, sub: 'Veja se toda turma tem professor em todas as matérias, resolva o que faltar e monte a equipe do Extra.' },
   { id: 'config', nome: 'Configuração', ic: '⚙️', p: EDITA, sub: 'Coisas que se ajustam poucas vezes por ano.' },
+  { id: 'plano', nome: 'Aplicar plano do Extra 2027', ic: '🧩', pai: 'config', p: ['admin'], frase: 'Junta os Extras e põe quem dá cada matéria, como combinado. Mostra tudo antes de mudar. Uso único.', sub: 'Confira a prévia: nada muda até você confirmar. Antes de gravar, uma cópia das abas fica guardada na planilha.' },
   { id: 'ano', nome: 'Começar ano letivo', ic: '🎓', pai: 'config', p: ['admin'], frase: 'Guarda a grade deste ano e limpa o que muda de um ano para o outro.', sub: 'Use uma vez por ano, antes de montar a grade do ano seguinte.' },
   { id: 'horarios', nome: 'Horários das aulas', ic: '⏰', pai: 'config', p: EDITA, frase: 'Início e fim de cada aula e dos intervalos, em cada período.', sub: 'Início e fim de cada aula e dos intervalos, em cada período (EFAI Manhã, EFAF Manhã…).' },
   { id: 'turmas', nome: 'Turmas', ic: '🏫', pai: 'config', p: EDITA, frase: 'Nome, segmento, série e horário das aulas de cada turma.', sub: 'Cadastro das turmas: nome, segmento, série e horário das aulas.' },
@@ -342,7 +350,7 @@ async function sair() {
   if (temAlteracao() && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
   try { await chamar('sair', TOKEN); } catch (e) { }
   TOKEN = null; D = null; try { sessionStorage.removeItem('gh_token'); } catch (e) { }
-  AT = null; HO = null; FX = null; MZ = null; PED = null; mostrarLogin();
+  AT = null; HO = null; FX = null; MZ = null; PED = null; PL = null; mostrarLogin();
 }
 function expirou() {
   TOKEN = null; try { sessionStorage.removeItem('gh_token'); } catch (e) { }
@@ -364,10 +372,12 @@ const sujoTela = t => (t === 'conferencia' && AT && AT.sujo) || (t === 'horarios
 function temAlteracao() { return !!(AT && AT.sujo) || !!HO_SUJO || !!FX_SUJO || !!(MZ && MZ.sujo) || (GR && GR.editado); }
 function ir(t, forcar) {
   if (!TELAS.some(x => x.id === t && x.p.includes(D.usuario.perfil))) t = 'inicio';
+  if (t === 'plano' && !planoVisivel() && !(PL && PL.feito)) t = 'config';   // depois de usado, o plano some
   abrirMenu(false);
   if (!forcar && t !== TELA) {
     if (sujoTela(TELA) && !confirm('Há alterações não salvas nesta tela. Sair sem salvar?')) return;
     if (TELA === 'conferencia') AT = null; if (TELA === 'horarios') { HO = null; HO_SUJO = false; } if (TELA === 'fixas') { FX = null; FX_SUJO = false; } if (TELA === 'matriz') MZ = null;
+    if (TELA === 'plano') PL = null;
   }
   TELA = t;
   const pai = TELAS.find(x => x.id === t).pai || t;
@@ -375,7 +385,7 @@ function ir(t, forcar) {
   render(); window.scrollTo(0, 0);
 }
 function render() {
-  ({ inicio: telaInicio, professores: telaProfessores, conferencia: telaConferencia, config: telaConfig, ano: telaAno, turmas: telaTurmas, matriz: telaMatriz,
+  ({ inicio: telaInicio, professores: telaProfessores, conferencia: telaConferencia, config: telaConfig, ano: telaAno, plano: telaPlano, turmas: telaTurmas, matriz: telaMatriz,
     grade: telaGrade, fixas: telaFixas, horarios: telaHorarios, usuarios: telaUsuarios })[TELA]();
 }
 function cabecalho(tit, acoes) {   // título + frase curta explicando para que serve a tela; telas da Configuração têm "← Configuração"
@@ -386,8 +396,8 @@ function cabecalho(tit, acoes) {   // título + frase curta explicando para que 
 
 // ================= Configuração (cartões grandes) =================
 function telaConfig() {
-  $('tela').innerHTML = cabecalho('Configuração') + `<div class="cartoes">${TELAS.filter(t => t.pai === 'config' && t.p.includes(D.usuario.perfil)).map(t =>
-    `<button class="cartao-cfg ${t.id === 'ano' ? 'alerta' : ''}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span><div><b>${t.nome}</b><span>${t.frase}</span></div></button>`).join('')}</div>`;
+  $('tela').innerHTML = cabecalho('Configuração') + `<div class="cartoes">${TELAS.filter(t => t.pai === 'config' && t.p.includes(D.usuario.perfil) && (t.id !== 'plano' || planoVisivel())).map(t =>
+    `<button class="cartao-cfg ${t.id === 'ano' || t.id === 'plano' ? 'alerta' : ''}" onclick="ir('${t.id}')"><span class="ic">${t.ic}</span><div><b>${t.nome}</b><span>${t.frase}</span></div></button>`).join('')}</div>`;
 }
 function abrirModal(titulo, corpo, rodape) {
   $('modalCaixa').innerHTML = `<div class="cab"><h2>${titulo}</h2><button class="link" onclick="fecharModal()" style="font-size:22px;color:var(--suave)">×</button></div><div class="corpo">${corpo}</div><div class="rod">${rodape}</div>`;
@@ -1556,6 +1566,93 @@ async function comecarAno() {
   if (await acao('comecarAno', { ano, professores: prof }, `Ano letivo ${ano} começado. Siga o passo a passo.`)) { GR = novoGR(); AT = null; ir('inicio'); }
 }
 
+// ================= Plano do Extra 2027 (só admin, uso único) =================
+// O servidor calcula como tudo ficaria (previaPlanoExtra, sem gravar); aqui se confere a Equipe do Extra (Extra.conta) com esses dados.
+// Os ajustes da parte regular podem ser desmarcados (refaz a prévia). "Aplicar" só fica liberado com as três conferências verdes.
+let PL = null;
+const planoVisivel = () => !!(D && D.planoExtra && (D.planoExtra.disponivel || D.planoExtra.erro));
+async function telaPlano() {
+  if (PL && PL.feito) return planoFeito();
+  const cab = cabecalho('Aplicar plano do Extra 2027');
+  if (D.planoExtra && D.planoExtra.erro) { $('tela').innerHTML = cab + `<div class="aviso erro">${esc(D.planoExtra.erro)}</div>`; return; }
+  if (!PL || !PL.prev) {
+    PL = { prev: null, ajustes: PL ? PL.ajustes : null };
+    $('tela').innerHTML = cab + '<div class="card"><p class="suave" style="margin:0">Montando a prévia… (não muda nada)</p></div>';
+    const r = await consultar('previaPlanoExtra', { ajustes: PL.ajustes });
+    if (TELA !== 'plano' || !PL) return;
+    if (!r) { $('tela').innerHTML = cab + `<div class="aviso erro">Não foi possível montar a prévia.</div><p><button class="btn" onclick="PL=null;telaPlano()">Tentar de novo</button></p>`; return; }
+    PL.prev = r;
+  }
+  desenharPlano();
+}
+function checagensPlano(ck, acima, maior, incompletas) {
+  const L = ck.limites, linha = (ok, tit, det) => `<div class="pl-check ${ok ? 'ok' : 'erro'}"><span class="pl-ic">${ok ? '✓' : '✗'}</span><div><b>${tit}</b>${det ? `<div class="peq">${det}</div>` : ''}</div></div>`;
+  const lista = l => `<ul class="lista">${l.map(x => `<li>${x}</li>`).join('')}</ul>`, ruins = ck.conta.filter(x => !x.ok);
+  return linha(!acima.length, `Ninguém passa de ${L.geral} aulas por semana (${L.soEM} para quem só dá aula no EM)`,
+      acima.length ? lista(acima.map(x => `${esc(x.professor)}: ${x.aulas} aulas (máximo ${x.limite})`)) : maior ? `A maior: ${esc(maior.professor)}, ${maior.aulas} de ${maior.limite}.` : '')
+    + linha(!incompletas.length, 'Todas as turmas e Extras completos',
+      incompletas.length ? lista(incompletas.map(x => `${esc(x.turma)}: ${esc(x.motivo)}`)) : `${ck.nTurmas} turmas e ${ck.nExtras} Extras com professor em todas as matérias.`)
+    + linha(ck.equipeOk, 'Equipe do Extra verde',
+      ck.equipeOk ? `${ck.verdes} de ${ck.conta.length} matérias com gente suficiente.` : lista(ruins.map(x => esc(x.texto))));
+}
+function desenharPlano() {
+  const r = PL.prev, cab = cabecalho('Aplicar plano do Extra 2027');
+  if (r.erros.length) {
+    $('tela').innerHTML = cab + `<div class="card"><div class="aviso erro"><b>O plano não bate com a planilha.</b> Nada vai mudar até corrigir (os nomes precisam ser exatamente como estão na planilha):</div>
+      <ul class="lista">${r.erros.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+    return;
+  }
+  const ck = PL.ck = Extra.conferirPlano(Object.assign({}, D, r.resultado), r.limites);
+  const pode = !r.acima.length && !r.incompletas.length && ck.equipeOk;
+  const sec = (n, tit, corpo) => `<div class="card pl-sec"><h3>${n}. ${tit}</h3>${corpo}</div>`;
+  const grupoTxt = (tipo, n) => { const x = r.grupos.find(g => g.tipo === tipo); return x && x.grupos.length > 1 ? `Grupo ${n}` : 'Todos'; };
+  let h = cab + `<div class="aviso" style="background:var(--azul-claro);color:var(--marinho);margin-bottom:14px">Prévia: nada mudou ainda. Confira cada parte e, no fim, toque em “Aplicar o plano”.</div>`;
+  h += sec(1, 'Tirar dos Extras as matérias fora da matriz', (r.limpeza.length ? `<ul class="lista">${r.limpeza.map(x => `<li><b>${esc(x.materia)}</b> sai de ${x.extras.length} ${x.extras.length === 1 ? 'Extra' : 'Extras'} (${esc(x.extras.join(', '))})</li>`).join('')}</ul>`
+    : '<p class="suave peq" style="margin:0">Nada a tirar: os Extras já seguem a matriz.</p>')
+    + (r.outras.length ? `<p class="peq suave" style="margin:8px 0 0">Também acerta pela matriz do Extra: ${esc(r.outras.join(' · '))}</p>` : ''));
+  h += sec(2, 'Juntar os Extras', r.grupos.map(x => `<p style="margin:0 0 4px"><b>${esc(x.tipo)}</b></p><ul class="lista">${x.grupos.map(g =>
+    `<li>${x.grupos.length > 1 ? `Grupo ${g.n}` : 'Um grupo só'}${g.rotulo ? ` <span class="suave">(${esc(g.rotulo)})</span>` : ''}: ${esc(g.turmas.join(' + '))}</li>`).join('')}</ul>`).join(''));
+  h += sec(3, 'Quem dá cada matéria (com 📌: a distribuição automática não muda)', `<table class="tab cartao"><tr><th>Extra</th><th>Grupo</th><th>Matéria</th><th>Antes</th><th>Depois</th></tr>${r.atribuicoes.map(a =>
+    `<tr><td data-r="Extra">${esc(Extra.curto(a.tipo))}</td><td data-r="Grupo">${grupoTxt(a.tipo, a.grupo)}</td><td><b>${esc(a.materia)}</b></td><td data-r="Antes" class="suave">${esc(a.antes)}</td><td data-r="Depois"><b>${esc(a.professor)}</b> 📌</td></tr>`).join('')}</table>`);
+  h += sec(4, 'Cadastros e Equipe do Extra (só acrescenta, não tira nada)', (r.cadastros.length ? `<ul class="lista">${r.cadastros.map(c => `<li><b>${esc(c.professor)}</b>: ${[...c.materias.map(m => '+ ' + esc(m)), ...c.segmentos.map(s => '+ segmento ' + esc(s))].join(' · ')}</li>`).join('')}</ul>`
+    : '<p class="suave peq" style="margin:0">Os cadastros já têm tudo.</p>')
+    + `<details style="margin-top:8px"><summary>Equipe do Extra por matéria</summary><table class="tab cartao" style="margin-top:6px"><tr><th>Extra</th><th>Matéria</th><th>Equipe</th></tr>${r.equipes.map(e =>
+      `<tr><td data-r="Extra">${esc(Extra.curto(e.tipo))}</td><td><b>${esc(e.materia)}</b></td><td data-r="Equipe">${e.professores.map(p => e.novos.includes(p) ? `<b>${esc(p)}</b>` : esc(p)).join(', ') || '—'}</td></tr>`).join('')}</table>
+      <p class="peq suave" style="margin:6px 0 0">Em negrito: quem entra agora.</p></details>`);
+  h += sec(5, 'Ajustes da parte regular', r.ajustes.length ? `<p class="peq suave" style="margin:0 0 8px">Desmarque o que não quiser fazer agora.</p>${r.ajustes.map(a => {
+    const ok = a.status === 'ok';
+    return `<label class="opcao-radio pl-ajuste ${ok ? '' : 'off'}"><input type="checkbox" data-i="${a.i}" ${a.marcado ? 'checked' : ''} ${ok ? '' : 'disabled'} onchange="marcarAjuste()">
+      <span><b>${esc(a.materia)}</b> ${esc(a.turmas.join(', '))}: ${esc(a.de)} → <b>${esc(a.para)}</b> <span class="suave">(${aulasTxt(a.aulas)} por semana)</span>${ok ? '' : `<br><span class="peq" style="color:var(--${a.status === 'feito' ? 'ok' : 'erro'})">${a.status === 'feito' ? '✓ ' : '⚠ '}${esc(a.motivo)}</span>`}</span></label>`; }).join('')}`
+    : '<p class="suave peq" style="margin:0">O plano não tem ajustes da parte regular.</p>');
+  h += sec(6, 'Aulas por semana de quem muda', r.cargas.length ? `<table class="tab cartao"><tr><th>Professor</th><th>Antes</th><th>Depois</th><th>Máximo</th></tr>${r.cargas.map(c =>
+    `<tr><td><b>${esc(c.professor)}</b></td><td data-r="Antes">${c.antes}</td><td data-r="Depois"><b>${c.depois}</b> <span class="suave">(${c.depois > c.antes ? '+' : ''}${c.depois - c.antes})</span></td><td data-r="Máximo">${c.depois > c.limite ? `<span class="tag erro">${c.limite}: passa</span>` : c.limite}</td></tr>`).join('')}</table>`
+    : '<p class="suave peq" style="margin:0">Ninguém muda de número de aulas.</p>');
+  h += sec(7, 'Conferência depois de aplicar', checagensPlano(ck, r.acima, r.maior, r.incompletas));
+  h += `<div class="card pl-sec"><p class="peq" style="margin:0 0 10px">Antes de gravar, uma cópia de <b>Professores, Carga, Turmas e Equipe do Extra</b> fica em abas ocultas da planilha (“Backup antes do plano Extra · …”).
+      A grade oficial não muda: depois, gere uma grade nova. Fica anotado no Registro e em “Versões anteriores”. Se algo falhar, nada é gravado.</p>
+    <button class="btn prim" onclick="aplicarPlano()" ${pode ? '' : 'disabled'} style="min-height:46px">Aplicar o plano</button>
+    ${pode ? '' : '<p class="peq" style="margin:6px 0 0;color:var(--erro)">Só dá para aplicar com as três conferências verdes (item 7).</p>'}</div>`;
+  $('tela').innerHTML = h;
+}
+function marcarAjuste() {
+  PL.ajustes = [...document.querySelectorAll('.pl-ajuste input:checked')].map(x => +x.dataset.i);
+  PL.prev = null; telaPlano();
+}
+async function aplicarPlano() {
+  const r = PL.prev, ck = PL.ck, aj = r.ajustes.filter(a => a.marcado).map(a => a.i);
+  if (!confirm(`Aplicar o plano do Extra 2027?\n\nJunta os Extras, põe quem dá cada matéria (com 📌), acrescenta nos cadastros e na Equipe do Extra${aj.length ? ` e faz ${aj.length} ajuste(s) da parte regular` : ''}.\nAntes, uma cópia das abas fica guardada na planilha (abas ocultas). O botão some depois de usado.`)) return;
+  const prev = r;
+  if (await acao('aplicarPlanoExtra', { ajustes: aj, chave: r.chave, equipeOk: ck.equipeOk }, 'Plano do Extra 2027 aplicado.')) { AT = null; PL = { feito: { prev } }; telaPlano(); window.scrollTo(0, 0); }
+  else if (PL) { PL.prev = null; telaPlano(); }   // refaz a prévia com os dados de agora
+}
+function planoFeito() {
+  const ck = Extra.conferirPlano(D, PL.feito.prev.limites);
+  $('tela').innerHTML = cabecalho('Plano do Extra 2027 aplicado') + `<div class="aviso ok" style="margin-bottom:14px">✔ Plano aplicado${D.planoExtra && D.planoExtra.usado ? ' em ' + esc(D.planoExtra.usado) : ''}. A cópia de antes ficou nas abas ocultas “Backup antes do plano Extra · …”; fica anotado no Registro e em “Versões anteriores” (na Grade horária).</div>
+    <div class="card pl-sec"><h3>Conferência com os dados gravados</h3>${checagensPlano(ck, ck.acima, ck.maior, ck.incompletas)}</div>
+    <div class="card pl-sec"><h3>Próximos passos</h3><div class="acoes" style="display:flex;flex-wrap:wrap;gap:8px">
+      <button class="btn" onclick="irEquipe()">Ver a Equipe do Extra</button><button class="btn" onclick="ir('conferencia')">Conferência das turmas</button><button class="btn prim" onclick="ir('grade')">Gerar uma grade nova</button></div></div>`;
+}
+
 // ================= Usuários =================
 function telaUsuarios() {
   $('tela').innerHTML = cabecalho('Usuários', '<button class="btn prim" onclick="editarUsuario()">+ Usuário</button>')
@@ -1670,7 +1767,36 @@ const parados = m => Object.entries(m.parado || {}).filter(([, x]) => x > LIMITE
 const mediaTxt = m => m.mediaParado ? `Em média cada professor fica ${horasTxt(Math.round(m.mediaParado / 5) * 5 || 5)} parado por semana` : 'Nenhum professor fica parado entre as aulas';
 function frasesOpcao(m, i) {
   const l = parados(m);
-  return `<small>${mediaTxt(m)}</small><small>${l.length ? `<button class="link peq" onclick="event.stopPropagation();verParados(${i})">${l.length} ${l.length === 1 ? 'professor' : 'professores'} com mais de 2h parado${l.length === 1 ? '' : 's'}</button>` : 'Ninguém com mais de 2h parado'}</small>`;
+  return `<small>${mediaTxt(m)}</small><small>${l.length ? `<button class="link peq" onclick="event.stopPropagation();verParados(${i})">${l.length} ${l.length === 1 ? 'professor' : 'professores'} com mais de 2h parado${l.length === 1 ? '' : 's'}</button>` : 'Ninguém com mais de 2h parado'}</small>`
+    + frasesConforto(m, typeof i === 'number' ? i : `'${i}'`);
+}
+// Dia dividido (manhã e tarde no mesmo dia) e maior janela (aulas vagas seguidas no mesmo período), clicáveis com a lista
+const metricasDe = i => i === 'atual' ? Gerador.validar(dadosGrade(GR.atual), GR.atual).metricas : GR.opcoes[i].metricas;
+const aulasTxt = n => n + (n === 1 ? ' aula' : ' aulas');
+function frasesConforto(m, i) {
+  const n = m.nDivididos || 0, j = m.maiorJanela || 0;
+  return `<small>${n ? `<button class="link peq" onclick="event.stopPropagation();verDivididos(${i})">${n} ${n === 1 ? 'professor vem' : 'professores vêm'} de manhã e de tarde no mesmo dia</button>` : 'Ninguém vem de manhã e de tarde no mesmo dia'}</small>
+    <small>${j ? `<button class="link peq" onclick="event.stopPropagation();verJanelas(${i})">Maior janela: ${aulasTxt(j)}</button>` : 'Nenhuma janela (aula vaga entre duas aulas)'}</small>`;
+}
+function verDivididos(i) {
+  const m = metricasDe(i), l = Object.entries(m.divididos || {}).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'pt'));
+  abrirModal(`${i === 'atual' ? '' : `Opção ${i + 1}: `}vêm de manhã e de tarde no mesmo dia`,
+    `<p class="peq suave" style="margin:0">Dias em que o professor tem aula de manhã e de tarde. O gerador tenta juntar as aulas da tarde de quem é quase só da manhã (e o contrário) em poucos dias.</p>
+     <table class="tab cartao"><tr><th>Professor</th><th>Dias</th><th>Aulas de manhã · de tarde</th></tr>${l.map(([p, ds]) => { const c = aulasPeriodo(p);
+       return `<tr><td><b>${esc(p)}</b></td><td data-r="Dias">${ds.length} (${ds.map(d => D.dias[d]).join(', ')})</td><td data-r="Manhã · Tarde">${c[0]} · ${c[1]}</td></tr>`; }).join('')}</table>`,
+    '<button class="btn prim" onclick="fecharModal()">Fechar</button>');
+}
+function verJanelas(i) {
+  const m = metricasDe(i), l = m.janelasAula || [], j = m.maiorJanela || 0, mostrar = l.filter(x => x.n >= Math.min(2, j));
+  abrirModal(`${i === 'atual' ? 'Janelas' : `Opção ${i + 1}: janelas`} de ${j >= 2 ? '2 aulas ou mais' : '1 aula'}`,
+    `<p class="peq suave" style="margin:0">Janela: aulas vagas seguidas entre duas aulas do professor, no mesmo período (manhã ou tarde). O gerador evita principalmente as de 2 aulas ou mais.</p>
+     <table class="tab cartao"><tr><th>Professor</th><th>Dia</th><th>Vago</th><th>Tamanho</th></tr>${mostrar.map(x =>
+       `<tr><td><b>${esc(x.professor)}</b></td><td data-r="Dia">${D.dias[x.d]}</td><td data-r="Vago">${hhmm(x.ini)}–${hhmm(x.fim)}</td><td data-r="Tamanho">${aulasTxt(x.n)}</td></tr>`).join('')}</table>`,
+    '<button class="btn prim" onclick="fecharModal()">Fechar</button>');
+}
+function aulasPeriodo(p) {   // aulas por semana de manhã e de tarde (pela 1ª aula do horário das aulas da turma)
+  const c = [0, 0]; D.carga.filter(l => l.professor === p).forEach(l => { const a = aulasTurma(l.turmas[0])[0]; if (a) c[a.ini < 13 * 60 ? 0 : 1] += l.aulas; });
+  return c;
 }
 function verParados(i) {
   const m = i === 'atual' ? Gerador.validar(dadosGrade(GR.atual), GR.atual).metricas : GR.opcoes[i].metricas, l = parados(m);
@@ -1694,7 +1820,7 @@ function conferir() {
   if (v.erros.length) mostrarLista('Algum cadastro mudou depois desta grade. Corrija ou gere de novo:', v.erros, 'erro');
   else if (v.problemas.length) mostrarLista(`${v.problemas.length} problema(s):`, v.problemas, 'erro');
   else { const l = parados(v.metricas); $('problemas').innerHTML = `<div class="aviso ok">✔ Sem conflitos.</div><p class="peq suave" style="margin:8px 0 0">${mediaTxt(v.metricas)}.
-    ${l.length ? `<button class="link peq" onclick="verParados('atual')">${l.length} com mais de 2h parado${l.length === 1 ? '' : 's'}</button>` : ''}</p>`; }
+    ${l.length ? `<button class="link peq" onclick="verParados('atual')">${l.length} com mais de 2h parado${l.length === 1 ? '' : 's'}</button>` : ''}</p><div class="conforto peq">${frasesConforto(v.metricas, "'atual'")}</div>`; }
   listaOpcoes(); desenharGrade();
 }
 function salvarGrade() {

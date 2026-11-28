@@ -14,6 +14,7 @@ amb.ctx.gravar_('Usuários', [['admin', 'teste', 'Coordenação (teste)', 'admin
 amb.gerador().gerar(amb.dados(), { tentativas: 8, semente: 11 }, null, r => {
   if (r.opcoes.length) amb.ctx.salvarGrade_({ grade: r.opcoes[0].grade, vigencia: '2026-02-02' }, { u: 'admin', nome: 'Coordenação (teste)' });
   console.log(r.opcoes.length ? 'Grade oficial de exemplo gerada.' : 'Não gerou a grade de exemplo: ' + r.gargalos.join(' | '));
+  require('./plano-exemplo').prepararPlano(amb);   // plano do Extra 2027 fictício (depois da grade): o cartão aparece na Configuração
 });
 
 const cfg = { escola: 'Objetivo CSA', credito: 'ALBIX', logo: 'docs/logo.png', logoBranco: 'docs/logo-branco.png' };

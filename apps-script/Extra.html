@@ -219,6 +219,39 @@ const Extra = (() => {
     };
   }
 
-  return { conta, agrupar, distribuir, equipe, tipos, curto, rotulo };
+  // ---------- Conferência do plano do Extra 2027 (na prévia, com os dados como ficariam, e depois de aplicar) ----------
+  // As mesmas regras que o servidor confere antes de gravar: ninguém acima do limite de aulas por semana (soEM para quem só dá
+  // aula no EM; o Extra não conta como segmento), turmas e Extras completos (como na Conferência das turmas) e, só aqui,
+  // a Equipe do Extra toda verde (conta).
+  function conferirPlano(D, limites) {
+    const L = Object.assign({ geral: 40, soEM: 35 }, limites || {}), turma = {}, nAulas = {}, aulas = {}, segs = {};
+    D.turmas.forEach(t => turma[t.nome] = t);
+    D.grades.forEach(g => nAulas[g.nome] = aulasDe(g).length);
+    D.carga.forEach(l => {
+      if (!l.professor) return;
+      aulas[l.professor] = (aulas[l.professor] || 0) + l.aulas;
+      const s = segs[l.professor] = segs[l.professor] || new Set();
+      l.turmas.forEach(t => { const x = (turma[t] || {}).segmento; if (x && x !== 'Extra') s.add(x); });
+    });
+    const limite = p => { const s = [...(segs[p] || [])]; return s.length && s.every(x => x === 'EM') ? L.soEM : L.geral; };
+    const cargas = Object.keys(aulas).map(p => ({ professor: p, aulas: aulas[p], limite: limite(p) }));
+    const acima = cargas.filter(x => x.aulas > x.limite).sort((a, b) => b.aulas - a.aulas), maior = cargas.slice().sort((a, b) => b.aulas / b.limite - a.aulas / a.limite)[0] || null;
+    const incompletas = [];
+    D.turmas.forEach(t => {
+      const ls = D.carga.filter(l => l.turmas.includes(t.nome)), sem = ls.filter(l => !l.professor).map(l => l.disciplina);
+      const faltam = (D.matriz || []).filter(m => m.serie === t.serie && !ls.some(l => l.disciplina === m.componente)).map(m => m.componente);
+      const n = ls.reduce((s, l) => s + l.aulas, 0), cap = (nAulas[t.grade] || 0) * D.dias.length, m = [];
+      if (!ls.length && !faltam.length) m.push('sem matérias');
+      if (sem.length) m.push('sem professor em ' + sem.join(', '));
+      if (faltam.length) m.push('falta ' + faltam.join(', '));
+      if (ls.length && (t.segmento === 'Extra' ? n > cap : n !== cap)) m.push(`${n} de ${cap} aulas por semana`);
+      if (m.length) incompletas.push({ turma: t.nome, motivo: m.join('; ') });
+    });
+    const c = conta(D, D.carga), verdes = c.filter(x => x.ok).length;
+    return { acima, maior, incompletas, conta: c, verdes, equipeOk: verdes === c.length, limites: L,
+      nTurmas: D.turmas.filter(t => t.segmento !== 'Extra').length, nExtras: D.turmas.filter(t => t.segmento === 'Extra').length };
+  }
+
+  return { conta, agrupar, distribuir, equipe, tipos, curto, rotulo, conferirPlano };
 })();
 </script>
